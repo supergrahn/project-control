@@ -76,7 +76,9 @@ export async function DELETE(req: Request) {
     const lines = fs.readFileSync(indexPath, 'utf8').split('\n')
     const filtered = lines.filter(l => !l.includes(`(${filename})`))
     if (filtered.length !== lines.length) {
-      fs.writeFileSync(indexPath, filtered.join('\n'), 'utf8')
+      const tmpIndex = indexPath + '.tmp'
+      fs.writeFileSync(tmpIndex, filtered.join('\n'), 'utf8')
+      fs.renameSync(tmpIndex, indexPath)
     }
   }
 
