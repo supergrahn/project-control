@@ -35,6 +35,10 @@ export function MemoryDrawer({ file, projectId, onClose }: Props) {
     }
   }, [file])
 
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }
+  }, [])
+
   if (!file) return null
 
   const isDirty = content !== savedContent
@@ -59,8 +63,12 @@ export function MemoryDrawer({ file, projectId, onClose }: Props) {
 
   const handleDelete = async () => {
     if (!confirmDelete) { setConfirmDelete(true); return }
-    await deleteMemory.mutateAsync({ projectId, filename: file.filename })
-    onClose()
+    try {
+      await deleteMemory.mutateAsync({ projectId, filename: file.filename })
+      onClose()
+    } catch {
+      setConfirmDelete(false)
+    }
   }
 
   return (

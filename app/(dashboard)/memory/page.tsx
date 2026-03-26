@@ -24,7 +24,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function MemoryPage() {
   const { selectedProject } = useProjectStore()
-  const { data, isLoading } = useMemory(selectedProject?.id ?? null)
+  const { data, isLoading, isError } = useMemory(selectedProject?.id ?? null)
   const [activeFile, setActiveFile] = useState<MemoryFile | null>(null)
 
   if (!selectedProject) {
@@ -32,6 +32,7 @@ export default function MemoryPage() {
   }
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Loading…</p>
+  if (isError) return <p className="text-zinc-500 text-sm">Failed to load memory files.</p>
 
   return (
     <>
