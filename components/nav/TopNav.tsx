@@ -5,6 +5,7 @@ import { Settings } from 'lucide-react'
 import { ProjectTabs } from './ProjectTabs'
 
 const NAV_ITEMS = [
+  { label: 'Dashboard', href: '/' },
   { label: 'Ideas', href: '/ideas' },
   { label: 'Specs', href: '/specs' },
   { label: 'Plans', href: '/plans' },
@@ -25,7 +26,7 @@ export function TopNav() {
               key={t.href}
               href={t.href}
               className={`px-3 py-1 rounded text-sm transition-colors ${
-                pathname.startsWith(t.href)
+                (t.href === '/' ? pathname === '/' : pathname.startsWith(t.href))
                   ? 'bg-violet-500/20 text-violet-300'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
