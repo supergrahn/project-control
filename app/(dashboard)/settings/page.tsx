@@ -25,10 +25,11 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (selectedProject) {
+      const noneSet = !selectedProject.ideas_dir && !selectedProject.specs_dir && !selectedProject.plans_dir
       setProjectForm({
-        ideas_dir: selectedProject.ideas_dir ?? '',
-        specs_dir: selectedProject.specs_dir ?? '',
-        plans_dir: selectedProject.plans_dir ?? '',
+        ideas_dir: selectedProject.ideas_dir ?? (noneSet ? 'docs/ideas' : ''),
+        specs_dir: selectedProject.specs_dir ?? (noneSet ? 'docs/specs' : ''),
+        plans_dir: selectedProject.plans_dir ?? (noneSet ? 'docs/plans' : ''),
       })
       setProjectSaved(false)
     }
@@ -93,6 +94,13 @@ export default function SettingsPage() {
 
         {selectedProject ? (
           <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setProjectForm({ ideas_dir: 'docs/ideas', specs_dir: 'docs/specs', plans_dir: 'docs/plans' })}
+              className="text-xs text-zinc-500 hover:text-zinc-300 underline"
+            >
+              Use defaults (docs/ideas, docs/specs, docs/plans)
+            </button>
             {(['ideas_dir', 'specs_dir', 'plans_dir'] as const).map((field) => (
               <div key={field}>
                 <label className="block text-xs text-zinc-400 mb-1.5 capitalize">

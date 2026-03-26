@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
 import path from 'path'
-import { getDb, getActiveSessions, getProject } from '@/lib/db'
+import { getDb, getActiveSessions, getAllSessions, getProject } from '@/lib/db'
 import { spawnSession } from '@/lib/session-manager'
 
-export function GET() {
-  return NextResponse.json(getActiveSessions(getDb()))
+export function GET(req: Request) {
+  const url = new URL(req.url)
+  const status = url.searchParams.get('status')
+  const projectId = url.searchParams.get('projectId') ?? undefined
+  const db = getDb()
+  if (status === 'all') return NextResponse.json(getAllSessions(db, projectId))
+  return NextResponse.json(getActiveSessions(db))
 }
 
 export async function POST(req: Request) {

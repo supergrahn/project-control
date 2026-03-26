@@ -8,16 +8,21 @@ export type Session = {
   source_file: string | null
   status: string
   created_at: string
+  ended_at: string | null
 }
 
-export function useSessions() {
+export function useSessions(opts?: { status?: 'active' | 'all'; projectId?: string }) {
+  const status = opts?.status ?? 'active'
+  const projectId = opts?.projectId
+  const params = new URLSearchParams({ status })
+  if (projectId) params.set('projectId', projectId)
   return useQuery<Session[]>({
-    queryKey: ['sessions'],
-    queryFn: () => fetch('/api/sessions').then((r) => {
+    queryKey: ['sessions', status, projectId],
+    queryFn: () => fetch(`/api/sessions?${params}`).then((r) => {
       if (!r.ok) throw new Error(`Sessions fetch failed: ${r.statusText}`)
       return r.json()
     }),
-    refetchInterval: 5000,
+    refetchInterval: status === 'active' ? 5000 : false,
   })
 }
 

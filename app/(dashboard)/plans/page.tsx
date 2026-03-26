@@ -7,6 +7,7 @@ import { FileDrawer } from '@/components/FileDrawer'
 import { NewFileDialog } from '@/components/NewFileDialog'
 import { PromptModal } from '@/components/PromptModal'
 import { SessionModal } from '@/components/SessionModal'
+import { SetupPrompt } from '@/components/SetupPrompt'
 import { useFiles, useCreateFile, type MarkdownFile } from '@/hooks/useFiles'
 import { useProjectStore } from '@/hooks/useProjects'
 import { useLaunchSession, type Session } from '@/hooks/useSessions'
@@ -28,9 +29,7 @@ export default function PlansPage() {
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Loading...</p>
 
-  if (error) {
-    return <p className="text-zinc-500 text-sm">Plans folder not configured. Go to Settings to set it up.</p>
-  }
+  if (error) return <SetupPrompt dir="plans" />
 
   return (
     <>
@@ -44,6 +43,9 @@ export default function PlansPage() {
         </button>
       </div>
 
+      {files.length === 0 && (
+        <p className="text-zinc-600 text-sm">No plans yet. Create one or generate from a spec.</p>
+      )}
       <CardGrid>
         {files.map((f) => (
           <MarkdownCard
@@ -101,16 +103,7 @@ export default function PlansPage() {
                   source_file: config.sourceFile,
                   status: 'active',
                   created_at: new Date().toISOString(),
-                })
-              } else if (result.error === 'concurrent_session' && result.sessionId) {
-                setActiveSession({
-                  id: result.sessionId,
-                  label: `${config.fileTitle} · ${config.phase}`,
-                  phase: config.phase,
-                  project_id: selectedProject.id,
-                  source_file: config.sourceFile,
-                  status: 'active',
-                  created_at: new Date().toISOString(),
+                  ended_at: null,
                 })
               }
             } catch {}

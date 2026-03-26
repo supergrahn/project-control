@@ -25,6 +25,7 @@ export type Session = {
   source_file: string | null
   status: SessionStatus
   created_at: string
+  ended_at: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -53,13 +54,20 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       phase       TEXT NOT NULL,
       source_file TEXT,
       status      TEXT NOT NULL DEFAULT 'active',
-      created_at  TEXT NOT NULL
+      created_at  TEXT NOT NULL,
+      ended_at    TEXT
     );
     CREATE TABLE IF NOT EXISTS settings (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
   `)
+  // Migration: add ended_at column if it doesn't exist yet
+  try {
+    db.exec(`ALTER TABLE sessions ADD COLUMN ended_at TEXT`)
+  } catch {
+    // Column already exists — ignore
+  }
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -137,7 +145,15 @@ export function getActiveSessionForFile(db: Database.Database, sourceFile: strin
 }
 
 export function endSession(db: Database.Database, id: string): void {
-  db.prepare(`UPDATE sessions SET status = 'ended' WHERE id = ?`).run(id)
+  db.prepare(`UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?`)
+    .run(new Date().toISOString(), id)
+}
+
+export function getAllSessions(db: Database.Database, projectId?: string): Session[] {
+  if (projectId) {
+    return db.prepare(`SELECT * FROM sessions WHERE project_id = ? ORDER BY created_at DESC`).all(projectId) as Session[]
+  }
+  return db.prepare(`SELECT * FROM sessions ORDER BY created_at DESC`).all() as Session[]
 }
 
 let _db: Database.Database | null = null
