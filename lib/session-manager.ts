@@ -4,7 +4,6 @@ import { execSync } from 'child_process'
 import fs from 'fs'
 import { getDb, createSession, endSession, getActiveSessionForFile } from './db'
 import { buildArgs, getSystemPrompt, Phase, PermissionMode } from './prompts'
-import { realpathSync } from 'fs'
 import { randomUUID } from 'crypto'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
@@ -58,7 +57,7 @@ export function spawnSession(opts: SpawnOptions): string {
 
   // Block concurrent sessions on the same file
   if (opts.sourceFile) {
-    const canonical = realpathSync(opts.sourceFile)
+    const canonical = fs.realpathSync(opts.sourceFile)
     const existing = getActiveSessionForFile(db, canonical)
     if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
   }
@@ -82,10 +81,6 @@ export function spawnSession(opts: SpawnOptions): string {
     env: { ...process.env },
   })
 
-  ptyMap.set(sessionId, proc)
-  wsMap.set(sessionId, new Set())
-  outputBuffer.set(sessionId, [])
-
   proc.onData((data) => {
     // Rolling 100-line buffer
     const buf = outputBuffer.get(sessionId) ?? []
@@ -106,6 +101,7 @@ export function spawnSession(opts: SpawnOptions): string {
   proc.onExit(() => {
     endSession(getDb(), sessionId)
     ptyMap.delete(sessionId)
+    outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
       if (ws.readyState === WebSocket.OPEN) {
@@ -115,14 +111,23 @@ export function spawnSession(opts: SpawnOptions): string {
     wsMap.delete(sessionId)
   })
 
-  const canonical = opts.sourceFile ? realpathSync(opts.sourceFile) : null
-  createSession(db, {
-    id: sessionId,
-    projectId: opts.projectId,
-    label: opts.label,
-    phase: opts.phase,
-    sourceFile: canonical,
-  })
+  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+  try {
+    createSession(db, {
+      id: sessionId,
+      projectId: opts.projectId,
+      label: opts.label,
+      phase: opts.phase,
+      sourceFile: canonical,
+    })
+  } catch (err) {
+    try { proc.kill() } catch {}
+    throw err
+  }
+
+  ptyMap.set(sessionId, proc)
+  wsMap.set(sessionId, new Set())
+  outputBuffer.set(sessionId, [])
 
   return sessionId
 }
@@ -132,6 +137,7 @@ export function killSession(sessionId: string): void {
   if (proc) {
     try { proc.kill() } catch {}
     ptyMap.delete(sessionId)
+    outputBuffer.delete(sessionId)
   }
   endSession(getDb(), sessionId)
 }
@@ -145,36 +151,39 @@ export function handleWebSocket(ws: WebSocket): void {
   let attachedSessionId: string | null = null
 
   ws.on('message', (raw) => {
+    let msg: any
     try {
-      const msg = JSON.parse(raw.toString())
+      msg = JSON.parse(raw.toString())
+    } catch {
+      return // ignore malformed JSON
+    }
 
-      if (msg.type === 'attach') {
-        const { sessionId } = msg
-        attachedSessionId = sessionId
+    if (msg.type === 'attach') {
+      const { sessionId } = msg
+      attachedSessionId = sessionId
 
-        // Send buffered output as replay
-        const buf = outputBuffer.get(sessionId) ?? []
-        if (buf.length > 0) {
-          ws.send(JSON.stringify({ type: 'output', data: buf.join('\n') }))
-        }
-
-        // Register client
-        if (!wsMap.has(sessionId)) wsMap.set(sessionId, new Set())
-        wsMap.get(sessionId)!.add(ws)
-
-        // Send current status
-        const alive = ptyMap.has(sessionId)
-        ws.send(JSON.stringify({ type: 'status', state: alive ? 'active' : 'ended' }))
+      // Send buffered output as replay
+      const buf = outputBuffer.get(sessionId) ?? []
+      if (buf.length > 0) {
+        ws.send(JSON.stringify({ type: 'output', data: buf.join('\n') }))
       }
 
-      if (msg.type === 'input' && attachedSessionId) {
-        ptyMap.get(attachedSessionId)?.write(msg.data)
-      }
+      // Register client
+      if (!wsMap.has(sessionId)) wsMap.set(sessionId, new Set())
+      wsMap.get(sessionId)!.add(ws)
 
-      if (msg.type === 'resize' && attachedSessionId) {
-        ptyMap.get(attachedSessionId)?.resize(msg.cols, msg.rows)
-      }
-    } catch {}
+      // Send current status
+      const alive = ptyMap.has(sessionId)
+      ws.send(JSON.stringify({ type: 'status', state: alive ? 'active' : 'ended' }))
+    }
+
+    if (msg.type === 'input' && attachedSessionId) {
+      ptyMap.get(attachedSessionId)?.write(msg.data)
+    }
+
+    if (msg.type === 'resize' && attachedSessionId) {
+      ptyMap.get(attachedSessionId)?.resize(msg.cols, msg.rows)
+    }
   })
 
   ws.on('close', () => {
