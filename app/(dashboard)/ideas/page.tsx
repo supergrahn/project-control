@@ -60,8 +60,12 @@ export default function IdeasPage() {
           label="Idea"
           onCancel={() => setShowNewDialog(false)}
           onConfirm={async (name) => {
-            setShowNewDialog(false)
-            await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'ideas', name })
+            try {
+              await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'ideas', name })
+              setShowNewDialog(false)
+            } catch {
+              // mutation failed — leave dialog open, user can retry
+            }
           }}
         />
       )}

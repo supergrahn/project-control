@@ -59,8 +59,12 @@ export default function PlansPage() {
           label="Plan"
           onCancel={() => setShowNewDialog(false)}
           onConfirm={async (name) => {
-            setShowNewDialog(false)
-            await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'plans', name })
+            try {
+              await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'plans', name })
+              setShowNewDialog(false)
+            } catch {
+              // mutation failed — leave dialog open, user can retry
+            }
           }}
         />
       )}

@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 type Props = {
   onConfirm: (name: string) => void
@@ -9,6 +9,13 @@ type Props = {
 
 export function NewFileDialog({ onConfirm, onCancel, label }: Props) {
   const [name, setName] = useState('')
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel() }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onCancel])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-zinc-900 border border-zinc-700 rounded-lg p-5 w-80 shadow-xl">
