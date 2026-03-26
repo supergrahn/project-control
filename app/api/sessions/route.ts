@@ -18,6 +18,17 @@ export async function POST(req: Request) {
   const project = getProject(getDb(), projectId)
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
+  if (sourceFile !== undefined && sourceFile !== null) {
+    if (typeof sourceFile !== 'string') {
+      return NextResponse.json({ error: 'sourceFile must be a string' }, { status: 400 })
+    }
+    const resolvedSourceFile = path.resolve(sourceFile)
+    const resolvedProjectPath = path.resolve(project.path)
+    if (!resolvedSourceFile.startsWith(resolvedProjectPath + path.sep)) {
+      return NextResponse.json({ error: 'sourceFile must be within project path' }, { status: 400 })
+    }
+  }
+
   try {
     const label = sourceFile
       ? `${path.basename(sourceFile, '.md')} · ${phase}`
@@ -39,6 +50,7 @@ export async function POST(req: Request) {
       const existingId = err.message.slice(err.message.indexOf(':') + 1)
       return NextResponse.json({ error: 'concurrent_session', sessionId: existingId }, { status: 409 })
     }
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('Session spawn error:', err)
+    return NextResponse.json({ error: 'Failed to start session' }, { status: 500 })
   }
 }

@@ -25,7 +25,11 @@ export async function GET(req: Request) {
   const relDir = project[DIR_MAP[dir]] as string | null
   if (!relDir) return NextResponse.json({ error: `${dir}_dir not configured` }, { status: 422 })
 
-  const absDir = path.join(project.path, relDir)
+  const absDir = path.resolve(project.path, relDir)
+  const projectRoot = path.resolve(project.path)
+  if (!absDir.startsWith(projectRoot + path.sep) && absDir !== projectRoot) {
+    return NextResponse.json({ error: 'invalid dir' }, { status: 400 })
+  }
   if (!fs.existsSync(absDir)) return NextResponse.json([])
 
   const files = fs.readdirSync(absDir)
@@ -56,13 +60,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'projectId, dir, and name required' }, { status: 400 })
   }
 
+  if (!DIR_MAP[dir as Dir]) {
+    return NextResponse.json({ error: 'invalid dir' }, { status: 400 })
+  }
+
   const project = getProject(getDb(), projectId)
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
   const relDir = project[DIR_MAP[dir as Dir]] as string | null
   if (!relDir) return NextResponse.json({ error: `${dir}_dir not configured` }, { status: 422 })
 
-  const absDir = path.join(project.path, relDir)
+  const absDir = path.resolve(project.path, relDir)
+  const projectRoot = path.resolve(project.path)
+  if (!absDir.startsWith(projectRoot + path.sep) && absDir !== projectRoot) {
+    return NextResponse.json({ error: 'invalid dir' }, { status: 400 })
+  }
   fs.mkdirSync(absDir, { recursive: true })
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
