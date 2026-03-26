@@ -20,15 +20,15 @@ export function SessionModal({ session, onClose }: Props) {
   useEffect(() => {
     if (!session || !containerRef.current) return
 
-    const currentSession = session
-    let term: any
-    let ws: WebSocket
+    let cancelled = false
 
     async function init() {
       const { Terminal } = await import('@xterm/xterm')
       const { FitAddon } = await import('@xterm/addon-fit')
 
-      term = new Terminal({
+      if (cancelled) return  // check after first await
+
+      const term = new Terminal({
         theme: { background: '#09090b', foreground: '#e4e4e7', cursor: '#a78bfa' },
         fontSize: 13,
         fontFamily: 'ui-monospace, monospace',
@@ -39,11 +39,13 @@ export function SessionModal({ session, onClose }: Props) {
       term.open(containerRef.current!)
       termRef.current = term
 
-      // Wait one frame for layout
       await new Promise((r) => requestAnimationFrame(r))
+      if (cancelled) { term.dispose(); termRef.current = null; return }  // check after second await
       fit.fit()
 
-      ws = new WebSocket(`ws://${window.location.host}/ws`)
+      const ws = new WebSocket(
+        `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`
+      )
       wsRef.current = ws
 
       ws.onopen = () => {
@@ -72,13 +74,18 @@ export function SessionModal({ session, onClose }: Props) {
       observerRef.current = observer
     }
 
+    const currentSession = session  // capture non-null value
     setStatus('connecting')
     init()
 
     return () => {
-      ws?.close()
-      term?.dispose()
+      cancelled = true
+      wsRef.current?.close()
+      wsRef.current = null
+      termRef.current?.dispose()
+      termRef.current = null
       observerRef.current?.disconnect()
+      observerRef.current = null
     }
   }, [session?.id])
 

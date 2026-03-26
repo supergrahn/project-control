@@ -15,7 +15,7 @@ export function SessionCard({ session, onOpen, onStop }: Props) {
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.host}/ws`)
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`)
     wsRef.current = ws
     ws.onopen = () => ws.send(JSON.stringify({ type: 'attach', sessionId: session.id }))
     ws.onmessage = (e) => {

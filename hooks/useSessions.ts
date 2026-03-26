@@ -13,7 +13,10 @@ export type Session = {
 export function useSessions() {
   return useQuery<Session[]>({
     queryKey: ['sessions'],
-    queryFn: () => fetch('/api/sessions').then((r) => r.json()),
+    queryFn: () => fetch('/api/sessions').then((r) => {
+      if (!r.ok) throw new Error(`Sessions fetch failed: ${r.statusText}`)
+      return r.json()
+    }),
     refetchInterval: 5000,
   })
 }
