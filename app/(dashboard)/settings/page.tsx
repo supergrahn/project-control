@@ -7,6 +7,7 @@ export default function SettingsPage() {
   const updateSettings = useUpdateSettings()
   const [form, setForm] = useState({ ideas_dir: '', specs_dir: '', plans_dir: '' })
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (selectedProject) {
@@ -41,12 +42,17 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={async () => {
-              const settings: Record<string, string | null> = {}
-              for (const [key, val] of Object.entries(form)) {
-                settings[key] = val.trim() || null
+              setSaveError(null)
+              try {
+                const settings: Record<string, string | null> = {}
+                for (const [key, val] of Object.entries(form)) {
+                  settings[key] = val.trim() || null
+                }
+                await updateSettings.mutateAsync({ id: selectedProject.id, settings })
+                setSaved(true)
+              } catch {
+                setSaveError('Failed to save settings. Please try again.')
               }
-              await updateSettings.mutateAsync({ id: selectedProject.id, settings })
-              setSaved(true)
             }}
             disabled={updateSettings.isPending}
             className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded disabled:opacity-50"
@@ -54,6 +60,7 @@ export default function SettingsPage() {
             {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
           </button>
           {saved && <span className="text-xs text-emerald-400">Saved</span>}
+          {saveError && <span className="text-xs text-red-400">{saveError}</span>}
         </div>
       </div>
       <p className="mt-4 text-xs text-zinc-600">Project path: {selectedProject.path}</p>

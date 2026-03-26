@@ -7,10 +7,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
 
   useEffect(() => {
-    fetch('/api/sessions/health')
+    const controller = new AbortController()
+    fetch('/api/sessions/health', { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => setClaudeAvailable(data.claudeAvailable))
-      .catch(() => setClaudeAvailable(false))
+      .catch((err) => { if (err.name !== 'AbortError') setClaudeAvailable(false) })
+    return () => controller.abort()
   }, [])
 
   return (
