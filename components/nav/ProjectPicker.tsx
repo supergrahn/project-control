@@ -29,6 +29,9 @@ export function ProjectPicker({ selected, onSelect }: Props) {
 
       {open && (
         <div className="absolute top-full mt-1 left-0 z-50 w-64 rounded-md border border-zinc-700 bg-zinc-900 shadow-xl">
+          {projects.length === 0 && unregistered.length === 0 && (
+            <p className="px-3 py-3 text-xs text-zinc-500">No git projects found in ~/git</p>
+          )}
           {projects.length > 0 && (
             <div className="p-1">
               <p className="px-2 py-1 text-xs text-zinc-500 uppercase tracking-wider">Projects</p>

@@ -12,7 +12,10 @@ export type MarkdownFile = {
 export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'plans') {
   return useQuery<MarkdownFile[]>({
     queryKey: ['files', projectId, dir],
-    queryFn: () => fetch(`/api/files?projectId=${projectId}&dir=${dir}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/files?projectId=${projectId}&dir=${dir}`).then((r) => {
+      if (!r.ok) throw new Error(r.statusText)
+      return r.json()
+    }),
     enabled: !!projectId,
   })
 }
