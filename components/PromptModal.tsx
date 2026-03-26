@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<Phase, string> = {
   plan: '🗺 Create Plan',
   develop: '🚀 Start Developing',
   review: '🔍 Review',
+  audit: '🔎 Audit Plan',
 }
 
 export function PromptModal({ phase, sourceFile, onLaunch, onCancel }: Props) {

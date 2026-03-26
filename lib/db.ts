@@ -5,7 +5,7 @@ import fs from 'fs'
 import os from 'os'
 
 export type SessionStatus = 'active' | 'ended'
-export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
+export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
 
 export type Project = {
   id: string
@@ -15,6 +15,7 @@ export type Project = {
   specs_dir: string | null
   plans_dir: string | null
   created_at: string
+  last_used_at: string | null
 }
 
 export type Session = {
@@ -62,12 +63,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       value TEXT NOT NULL
     );
   `)
-  // Migration: add ended_at column if it doesn't exist yet
-  try {
-    db.exec(`ALTER TABLE sessions ADD COLUMN ended_at TEXT`)
-  } catch {
-    // Column already exists — ignore
-  }
+  // Migrations
+  try { db.exec(`ALTER TABLE sessions ADD COLUMN ended_at TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN last_used_at TEXT`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -104,7 +102,11 @@ export function getProject(db: Database.Database, id: string): Project | undefin
 }
 
 export function listProjects(db: Database.Database): Project[] {
-  return db.prepare(`SELECT * FROM projects ORDER BY name`).all() as Project[]
+  return db.prepare(`SELECT * FROM projects ORDER BY last_used_at DESC, created_at DESC`).all() as Project[]
+}
+
+export function touchProject(db: Database.Database, id: string): void {
+  db.prepare(`UPDATE projects SET last_used_at = ? WHERE id = ?`).run(new Date().toISOString(), id)
 }
 
 export function getProjectByPath(db: Database.Database, projectPath: string): Project | undefined {
