@@ -38,7 +38,10 @@ function resolveClaude(): string {
   }
 }
 
-const CLAUDE_BIN = resolveClaude()
+let CLAUDE_BIN: string | null = null
+try { CLAUDE_BIN = resolveClaude() } catch {}
+
+export function isClaudeAvailable(): boolean { return CLAUDE_BIN !== null }
 
 // --- Session spawning ---
 export type SpawnOptions = {
@@ -52,6 +55,7 @@ export type SpawnOptions = {
 }
 
 export function spawnSession(opts: SpawnOptions): string {
+  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
   const db = getDb()
   const sessionId = randomUUID()
 
@@ -73,7 +77,7 @@ export function spawnSession(opts: SpawnOptions): string {
     sessionId,
   })
 
-  const proc = pty.spawn(CLAUDE_BIN, args, {
+  const proc = pty.spawn(CLAUDE_BIN!, args, {
     name: 'xterm-color',
     cols: 80,
     rows: 24,
