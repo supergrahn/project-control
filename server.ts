@@ -7,6 +7,7 @@ import { handleWebSocket, ptyMap } from './lib/session-manager'
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
 const handle = app.getRequestHandler()
+const nextUpgrade = app.getUpgradeHandler()
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
@@ -24,7 +25,8 @@ app.prepare().then(() => {
         wss.emit('connection', ws, req)
       })
     } else {
-      socket.destroy()
+      // Pass all other upgrade requests (/_next/webpack-hmr, etc.) to Next.js
+      nextUpgrade(req, socket, head)
     }
   })
 
