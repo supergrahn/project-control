@@ -91,7 +91,7 @@ export function spawnSession(opts: SpawnOptions): string {
       id: sessionId,
       projectId: opts.projectId,
       label: opts.label,
-      phase: opts.phase,
+      phase: opts.phase as import('./db').SessionPhase,
       sourceFile: canonical,
     })
   } catch (err) {

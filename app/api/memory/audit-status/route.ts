@@ -25,7 +25,7 @@ function parseFrontmatter(content: string): Record<string, string> {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const projectId = searchParams.get('projectId')
-  if (!projectId) return NextResponse.json({ error: 'projectId required' }, { status: 400 })
+  if (!projectId) return NextResponse.json({})
 
   const project = getProject(getDb(), projectId)
   if (!project || !project.plans_dir) return NextResponse.json({})

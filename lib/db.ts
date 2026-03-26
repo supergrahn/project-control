@@ -5,7 +5,7 @@ import fs from 'fs'
 import os from 'os'
 
 export type SessionStatus = 'active' | 'ended'
-export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
+export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
 
 export type Project = {
   id: string
