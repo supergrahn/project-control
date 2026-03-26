@@ -15,7 +15,8 @@ import { type Phase } from '@/lib/prompts'
 
 export default function IdeasPage() {
   const { selectedProject } = useProjectStore()
-  const { data: files = [], isLoading, error } = useFiles(selectedProject?.id ?? null, 'ideas')
+  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, 'ideas')
+  const files = data ?? []
   const createFile = useCreateFile()
   const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
@@ -29,7 +30,7 @@ export default function IdeasPage() {
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Loading...</p>
 
-  if (error) return <SetupPrompt dir="ideas" />
+  if (data === null || error) return <SetupPrompt dir="ideas" />
 
   return (
     <>

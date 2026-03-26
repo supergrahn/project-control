@@ -9,13 +9,16 @@ export type MarkdownFile = {
   content: string
 }
 
+// null means the directory is not configured (422); [] means configured but empty
 export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'plans') {
-  return useQuery<MarkdownFile[]>({
+  return useQuery<MarkdownFile[] | null>({
     queryKey: ['files', projectId, dir],
-    queryFn: () => fetch(`/api/files?projectId=${projectId}&dir=${dir}`).then((r) => {
+    queryFn: async () => {
+      const r = await fetch(`/api/files?projectId=${projectId}&dir=${dir}`)
+      if (r.status === 422) return null
       if (!r.ok) throw new Error(r.statusText)
       return r.json()
-    }),
+    },
     enabled: !!projectId,
   })
 }
