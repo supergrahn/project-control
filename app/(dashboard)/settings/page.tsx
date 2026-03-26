@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useProjectStore, useUpdateSettings } from '@/hooks/useProjects'
 import { useGlobalSettings, useUpdateGlobalSettings } from '@/hooks/useGlobalSettings'
 
@@ -16,10 +16,15 @@ export default function SettingsPage() {
   const [globalSaved, setGlobalSaved] = useState(false)
   const [globalSaveError, setGlobalSaveError] = useState<string | null>(null)
 
+  // Only initialise the form from remote data once (first load / project switch).
+  // Never reset the "Saved" flag here — that would wipe the confirmation the
+  // instant the query refetches after a successful save.
+  const globalSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const projectSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
     if (globalSettings) {
       setGlobalForm({ git_root: globalSettings.git_root ?? '' })
-      setGlobalSaved(false)
     }
   }, [globalSettings])
 
@@ -33,7 +38,7 @@ export default function SettingsPage() {
       })
       setProjectSaved(false)
     }
-  }, [selectedProject])
+  }, [selectedProject?.id])
 
   return (
     <div className="max-w-lg space-y-10">
@@ -49,7 +54,7 @@ export default function SettingsPage() {
             </label>
             <input
               value={globalForm.git_root}
-              onChange={(e) => { setGlobalForm({ git_root: e.target.value }); setGlobalSaved(false) }}
+              onChange={(e) => setGlobalForm({ git_root: e.target.value })}
               placeholder="~/git"
               className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500"
             />
@@ -63,6 +68,8 @@ export default function SettingsPage() {
                     git_root: globalForm.git_root.trim() || null,
                   })
                   setGlobalSaved(true)
+                  if (globalSavedTimerRef.current) clearTimeout(globalSavedTimerRef.current)
+                  globalSavedTimerRef.current = setTimeout(() => setGlobalSaved(false), 3000)
                 } catch {
                   setGlobalSaveError('Failed to save. Please try again.')
                 }
@@ -126,6 +133,8 @@ export default function SettingsPage() {
                     }
                     await updateSettings.mutateAsync({ id: selectedProject.id, settings })
                     setProjectSaved(true)
+                    if (projectSavedTimerRef.current) clearTimeout(projectSavedTimerRef.current)
+                    projectSavedTimerRef.current = setTimeout(() => setProjectSaved(false), 3000)
                   } catch {
                     setProjectSaveError('Failed to save settings. Please try again.')
                   }
