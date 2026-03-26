@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     if (typeof sourceFile !== 'string') {
       return NextResponse.json({ error: 'sourceFile must be a string' }, { status: 400 })
     }
-    const resolvedSourceFile = path.resolve(sourceFile)
+    const resolvedSourceFile = path.resolve(project.path, sourceFile)
     const resolvedProjectPath = path.resolve(project.path)
     if (!resolvedSourceFile.startsWith(resolvedProjectPath + path.sep)) {
       return NextResponse.json({ error: 'sourceFile must be within project path' }, { status: 400 })
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ sessionId })
   } catch (err: any) {
     if (err.message?.startsWith('CONCURRENT_SESSION:')) {
-      const existingId = err.message.slice(err.message.indexOf(':') + 1)
+      const existingId = err.message.replace('CONCURRENT_SESSION:', '')
       return NextResponse.json({ error: 'concurrent_session', sessionId: existingId }, { status: 409 })
     }
     console.error('Session spawn error:', err)
