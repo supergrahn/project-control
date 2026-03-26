@@ -3,6 +3,9 @@ import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
 
+export type SessionStatus = 'active' | 'ended'
+export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
+
 export type Project = {
   id: string
   name: string
@@ -17,9 +20,9 @@ export type Session = {
   id: string
   project_id: string
   label: string
-  phase: string
+  phase: SessionPhase
   source_file: string | null
-  status: string
+  status: SessionStatus
   created_at: string
 }
 
@@ -31,6 +34,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   }
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
+  db.pragma('foreign_keys = ON')
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id         TEXT PRIMARY KEY,
@@ -43,7 +47,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     );
     CREATE TABLE IF NOT EXISTS sessions (
       id          TEXT PRIMARY KEY,
-      project_id  TEXT NOT NULL REFERENCES projects(id),
+      project_id  TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       label       TEXT NOT NULL,
       phase       TEXT NOT NULL,
       source_file TEXT,
@@ -73,24 +77,29 @@ export function listProjects(db: Database.Database): Project[] {
   return db.prepare(`SELECT * FROM projects ORDER BY name`).all() as Project[]
 }
 
-export function getProjectByPath(db: Database.Database, path: string): Project | undefined {
-  return db.prepare(`SELECT * FROM projects WHERE path = ?`).get(path) as Project | undefined
+export function getProjectByPath(db: Database.Database, projectPath: string): Project | undefined {
+  return db.prepare(`SELECT * FROM projects WHERE path = ?`).get(projectPath) as Project | undefined
 }
 
 export function updateProjectSettings(
   db: Database.Database,
   id: string,
-  settings: { ideas_dir?: string; specs_dir?: string; plans_dir?: string }
+  settings: { ideas_dir?: string | null; specs_dir?: string | null; plans_dir?: string | null }
 ): void {
-  db.prepare(`UPDATE projects SET ideas_dir = ?, specs_dir = ?, plans_dir = ? WHERE id = ?`)
-    .run(settings.ideas_dir ?? null, settings.specs_dir ?? null, settings.plans_dir ?? null, id)
+  const fields: string[] = []
+  const values: (string | null)[] = []
+  if ('ideas_dir' in settings) { fields.push('ideas_dir = ?'); values.push(settings.ideas_dir ?? null) }
+  if ('specs_dir' in settings) { fields.push('specs_dir = ?'); values.push(settings.specs_dir ?? null) }
+  if ('plans_dir' in settings) { fields.push('plans_dir = ?'); values.push(settings.plans_dir ?? null) }
+  if (fields.length === 0) return
+  db.prepare(`UPDATE projects SET ${fields.join(', ')} WHERE id = ?`).run(...values, id)
 }
 
 export function createSession(db: Database.Database, data: {
   id: string
   projectId: string
   label: string
-  phase: string
+  phase: SessionPhase
   sourceFile: string | null
 }): void {
   db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
@@ -114,4 +123,9 @@ let _db: Database.Database | null = null
 export function getDb(): Database.Database {
   if (!_db) _db = initDb()
   return _db
+}
+
+/** For test use only — resets the singleton so tests don't leak to disk */
+export function _resetDbSingleton(): void {
+  _db = null
 }
