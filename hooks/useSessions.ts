@@ -47,7 +47,11 @@ export function useLaunchSession() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then((r) => r.json()),
+      }).then(async (r) => {
+        const json = await r.json()
+        if (!r.ok && r.status !== 409) throw new Error(json.error ?? r.statusText)
+        return json
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 }

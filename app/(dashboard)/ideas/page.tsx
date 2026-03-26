@@ -54,7 +54,7 @@ export default function IdeasPage() {
             actions={[
               { label: '💬 Brainstorm', variant: 'primary', onClick: () => setPromptConfig({ phase: 'brainstorm', sourceFile: f.path, fileTitle: f.title }) },
               { label: '📋 Create Spec', onClick: () => setPromptConfig({ phase: 'spec', sourceFile: f.path, fileTitle: f.title }) },
-              { label: '🚀 Develop', onClick: () => setPromptConfig({ phase: 'develop', sourceFile: f.path, fileTitle: f.title }) },
+              { label: '🚀 Start Developing', onClick: () => setPromptConfig({ phase: 'develop', sourceFile: f.path, fileTitle: f.title }) },
             ]}
           />
         ))}
