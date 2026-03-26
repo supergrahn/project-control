@@ -103,3 +103,79 @@ describe('detectStale', () => {
     expect(detectStale(entry, new Date('2026-03-27'))).toBe(false)
   })
 })
+
+// --- Filesystem tests ---
+
+import { buildFeatureMap } from '@/lib/dashboard'
+import fss from 'fs'
+import pathMod from 'path'
+import os from 'os'
+import { beforeEach, afterEach } from 'vitest'
+
+describe('buildFeatureMap', () => {
+  let tmpDir: string
+  let ideasDir: string
+  let specsDir: string
+  let plansDir: string
+
+  beforeEach(() => {
+    tmpDir = fss.mkdtempSync(pathMod.join(os.tmpdir(), 'dashboard-test-'))
+    ideasDir = pathMod.join(tmpDir, 'ideas')
+    specsDir = pathMod.join(tmpDir, 'specs')
+    plansDir = pathMod.join(tmpDir, 'plans')
+    fss.mkdirSync(ideasDir, { recursive: true })
+    fss.mkdirSync(specsDir, { recursive: true })
+    fss.mkdirSync(plansDir, { recursive: true })
+  })
+
+  afterEach(() => {
+    fss.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('maps files across dirs by stripped basename', () => {
+    fss.writeFileSync(pathMod.join(ideasDir, 'auth-system.md'), '# Auth')
+    fss.writeFileSync(pathMod.join(specsDir, '2026-03-26-auth-system.md'), '# Auth Spec')
+    fss.writeFileSync(pathMod.join(plansDir, '2026-03-26-auth-system.md'), '# Auth Plan')
+
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'ideas', specs_dir: 'specs', plans_dir: 'plans' })
+    expect(map.size).toBe(1)
+    const entry = map.get('auth-system')!
+    expect(entry.idea).toContain('auth-system.md')
+    expect(entry.spec).toContain('auth-system.md')
+    expect(entry.plan).toContain('auth-system.md')
+    expect(entry.originalBasenames.plan).toBe('2026-03-26-auth-system')
+  })
+
+  it('reads frontmatter status from files', () => {
+    fss.writeFileSync(pathMod.join(ideasDir, 'done-feature.md'), '---\nstatus: done\n---\n# Done')
+
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'ideas', specs_dir: 'specs', plans_dir: 'plans' })
+    const entry = map.get('done-feature')!
+    expect(entry.frontmatterStatus).toBe('done')
+  })
+
+  it('reads audit files for plans', () => {
+    fss.writeFileSync(pathMod.join(plansDir, 'my-plan.md'), '# Plan')
+    const auditsDir = pathMod.join(plansDir, 'audits')
+    fss.mkdirSync(auditsDir, { recursive: true })
+    fss.writeFileSync(pathMod.join(auditsDir, 'my-plan-audit-2026-03-26.md'), '---\nblockers: 2\nwarnings: 1\naudited_at: 2026-03-26\nplan_file: my-plan.md\n---\n\n# Audit')
+
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'ideas', specs_dir: 'specs', plans_dir: 'plans' })
+    const entry = map.get('my-plan')!
+    expect(entry.audit).toEqual({ blockers: 2, warnings: 1 })
+  })
+
+  it('ignores non-.md files', () => {
+    fss.writeFileSync(pathMod.join(ideasDir, 'notes.txt'), 'not markdown')
+    fss.writeFileSync(pathMod.join(ideasDir, 'real-idea.md'), '# Real')
+
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'ideas', specs_dir: 'specs', plans_dir: 'plans' })
+    expect(map.size).toBe(1)
+    expect(map.has('real-idea')).toBe(true)
+  })
+
+  it('returns empty map when dirs do not exist', () => {
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'nonexistent', specs_dir: null, plans_dir: null })
+    expect(map.size).toBe(0)
+  })
+})
