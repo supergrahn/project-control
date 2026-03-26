@@ -32,3 +32,22 @@ export function useKillSession() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 }
+
+export function useLaunchSession() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: {
+      projectId: string
+      phase: string
+      sourceFile: string | null
+      userContext?: string
+      permissionMode?: string
+    }) =>
+      fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then((r) => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+  })
+}

@@ -5,8 +5,12 @@ import { CardGrid } from '@/components/CardGrid'
 import { MarkdownCard } from '@/components/cards/MarkdownCard'
 import { FileDrawer } from '@/components/FileDrawer'
 import { NewFileDialog } from '@/components/NewFileDialog'
+import { PromptModal } from '@/components/PromptModal'
+import { SessionModal } from '@/components/SessionModal'
 import { useFiles, useCreateFile, type MarkdownFile } from '@/hooks/useFiles'
 import { useProjectStore } from '@/hooks/useProjects'
+import { useLaunchSession, type Session } from '@/hooks/useSessions'
+import { type Phase } from '@/lib/prompts'
 
 export default function SpecsPage() {
   const { selectedProject } = useProjectStore()
@@ -14,6 +18,9 @@ export default function SpecsPage() {
   const createFile = useCreateFile()
   const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
+  const [promptConfig, setPromptConfig] = useState<{ phase: Phase; sourceFile: string; fileTitle: string } | null>(null)
+  const [activeSession, setActiveSession] = useState<Session | null>(null)
+  const launchSession = useLaunchSession()
 
   if (!selectedProject) {
     return <p className="text-zinc-500 text-sm">Select a project to view specs.</p>
@@ -45,8 +52,8 @@ export default function SpecsPage() {
             badge="spec"
             onClick={() => setDrawerFile(f)}
             actions={[
-              { label: '📋 Continue Spec', variant: 'primary', onClick: () => {} },
-              { label: '🗺 Create Plan', onClick: () => {} },
+              { label: '📋 Continue Spec', variant: 'primary', onClick: () => setPromptConfig({ phase: 'spec', sourceFile: f.path, fileTitle: f.title }) },
+              { label: '🗺 Create Plan', onClick: () => setPromptConfig({ phase: 'plan', sourceFile: f.path, fileTitle: f.title }) },
             ]}
           />
         ))}
@@ -68,6 +75,49 @@ export default function SpecsPage() {
           }}
         />
       )}
+
+      {promptConfig && selectedProject && (
+        <PromptModal
+          phase={promptConfig.phase}
+          sourceFile={promptConfig.sourceFile}
+          onCancel={() => setPromptConfig(null)}
+          onLaunch={async (userContext, permissionMode) => {
+            const config = promptConfig
+            setPromptConfig(null)
+            try {
+              const result = await launchSession.mutateAsync({
+                projectId: selectedProject.id,
+                phase: config.phase,
+                sourceFile: config.sourceFile,
+                userContext,
+                permissionMode,
+              })
+              if (result.sessionId) {
+                setActiveSession({
+                  id: result.sessionId,
+                  label: `${config.fileTitle} · ${config.phase}`,
+                  phase: config.phase,
+                  project_id: selectedProject.id,
+                  source_file: config.sourceFile,
+                  status: 'active',
+                  created_at: new Date().toISOString(),
+                })
+              } else if (result.error === 'concurrent_session' && result.sessionId) {
+                setActiveSession({
+                  id: result.sessionId,
+                  label: `${config.fileTitle} · ${config.phase}`,
+                  phase: config.phase,
+                  project_id: selectedProject.id,
+                  source_file: config.sourceFile,
+                  status: 'active',
+                  created_at: new Date().toISOString(),
+                })
+              }
+            } catch {}
+          }}
+        />
+      )}
+      <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
     </>
   )
 }
