@@ -7,9 +7,9 @@ import { handleWebSocket, ptyMap } from './lib/session-manager'
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
 const handle = app.getRequestHandler()
-const nextUpgrade = app.getUpgradeHandler()
 
 app.prepare().then(() => {
+  const nextUpgrade = app.getUpgradeHandler()
   const server = createServer((req, res) => {
     const parsedUrl = parse(req.url!, true)
     handle(req, res, parsedUrl)
