@@ -89,14 +89,20 @@ function levenshtein(a: string, b: string): number {
 }
 
 export function listMemoryFiles(memoryDir: string): MemoryFile[] {
-  const files = fs.readdirSync(memoryDir)
-    .filter(f => f.endsWith('.md') && f !== 'MEMORY.md')
-    .map(f => {
+  if (!fs.existsSync(memoryDir)) return []
+
+  const files: MemoryFile[] = []
+  for (const f of fs.readdirSync(memoryDir)) {
+    if (!f.endsWith('.md') || f === 'MEMORY.md') continue
+    try {
       const filePath = path.join(memoryDir, f)
       const content = fs.readFileSync(filePath, 'utf8')
       const modifiedAt = fs.statSync(filePath).mtime.toISOString()
-      return parseMemoryFile(f, filePath, content, modifiedAt)
-    })
+      files.push(parseMemoryFile(f, filePath, content, modifiedAt))
+    } catch {
+      // skip unreadable files
+    }
+  }
 
   return files.sort((a, b) => {
     const ta = TYPE_ORDER.indexOf(a.type)

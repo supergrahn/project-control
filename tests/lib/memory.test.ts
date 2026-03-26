@@ -72,3 +72,36 @@ describe('resolveMemoryDir', () => {
     expect(result).toBe(fuzzyMemDir)
   })
 })
+
+describe('listMemoryFiles', () => {
+  let tmpDir: string
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'listmem-test-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('returns files sorted by type order, excludes MEMORY.md', () => {
+    fs.writeFileSync(path.join(tmpDir, 'MEMORY.md'), '# index')
+    fs.writeFileSync(path.join(tmpDir, 'user_prefs.md'), '---\nname: Prefs\ndescription: user prefs\ntype: user\n---\n\nbody')
+    fs.writeFileSync(path.join(tmpDir, 'feedback_testing.md'), '---\nname: Testing\ndescription: feedback\ntype: feedback\n---\n\nbody')
+    fs.writeFileSync(path.join(tmpDir, 'project_goals.md'), '---\nname: Goals\ndescription: project\ntype: project\n---\n\nbody')
+
+    const result = listMemoryFiles(tmpDir)
+    expect(result).toHaveLength(3)
+    expect(result[0].type).toBe('project')
+    expect(result[1].type).toBe('feedback')
+    expect(result[2].type).toBe('user')
+  })
+
+  it('returns empty array for empty directory', () => {
+    expect(listMemoryFiles(tmpDir)).toHaveLength(0)
+  })
+
+  it('returns empty array for non-existent directory', () => {
+    expect(listMemoryFiles('/does/not/exist')).toHaveLength(0)
+  })
+})
