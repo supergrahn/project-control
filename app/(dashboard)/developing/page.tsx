@@ -1,3 +1,15 @@
+'use client'
+import { useState } from 'react'
+import { DevelopingView } from '@/components/DevelopingView'
+import { SessionModal } from '@/components/SessionModal'
+import type { Session } from '@/hooks/useSessions'
+
 export default function DevelopingPage() {
-  return <div className="text-zinc-400">Developing view — coming in Task 8</div>
+  const [activeSession, setActiveSession] = useState<Session | null>(null)
+  return (
+    <>
+      <DevelopingView onOpenSession={setActiveSession} />
+      <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
+    </>
+  )
 }
