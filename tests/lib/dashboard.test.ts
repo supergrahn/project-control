@@ -165,6 +165,18 @@ describe('buildFeatureMap', () => {
     expect(entry.audit).toEqual({ blockers: 2, warnings: 1 })
   })
 
+  it('reads audit files using original basename (date-prefixed plan)', () => {
+    fss.writeFileSync(pathMod.join(plansDir, '2026-03-26-my-plan.md'), '# Plan')
+    const auditsDir = pathMod.join(plansDir, 'audits')
+    fss.mkdirSync(auditsDir, { recursive: true })
+    fss.writeFileSync(pathMod.join(auditsDir, '2026-03-26-my-plan-audit-2026-03-26.md'),
+      '---\nblockers: 1\nwarnings: 0\n---\n')
+
+    const map = buildFeatureMap(tmpDir, { ideas_dir: 'ideas', specs_dir: 'specs', plans_dir: 'plans' })
+    const entry = map.get('my-plan')!
+    expect(entry.audit).toEqual({ blockers: 1, warnings: 0 })
+  })
+
   it('ignores non-.md files', () => {
     fss.writeFileSync(pathMod.join(ideasDir, 'notes.txt'), 'not markdown')
     fss.writeFileSync(pathMod.join(ideasDir, 'real-idea.md'), '# Real')
