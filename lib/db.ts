@@ -2,6 +2,7 @@ import Database from 'better-sqlite3'
 import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 
 export type SessionStatus = 'active' | 'ended'
 export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
@@ -59,7 +60,28 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       value TEXT NOT NULL
     );
   `)
+  // Seed default global settings on first run
+  db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
+    .run(path.join(os.homedir(), 'git'))
   return db
+}
+
+export function getGlobalSetting(db: Database.Database, key: string): string | null {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined
+  return row?.value ?? null
+}
+
+export function setGlobalSetting(db: Database.Database, key: string, value: string | null): void {
+  if (value === null) {
+    db.prepare('DELETE FROM settings WHERE key = ?').run(key)
+  } else {
+    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run(key, value)
+  }
+}
+
+export function getAllGlobalSettings(db: Database.Database): Record<string, string> {
+  const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[]
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]))
 }
 
 export function createProject(db: Database.Database, data: { name: string; path: string }): string {
