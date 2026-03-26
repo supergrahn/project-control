@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ sessionId })
   } catch (err: any) {
     if (err.message?.startsWith('CONCURRENT_SESSION:')) {
-      const existingId = err.message.split(':')[1]
+      const existingId = err.message.slice(err.message.indexOf(':') + 1)
       return NextResponse.json({ error: 'concurrent_session', sessionId: existingId }, { status: 409 })
     }
     return NextResponse.json({ error: err.message }, { status: 500 })
