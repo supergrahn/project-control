@@ -81,6 +81,24 @@ export function spawnSession(opts: SpawnOptions): string {
     env: { ...process.env },
   })
 
+  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+  try {
+    createSession(db, {
+      id: sessionId,
+      projectId: opts.projectId,
+      label: opts.label,
+      phase: opts.phase,
+      sourceFile: canonical,
+    })
+  } catch (err) {
+    try { proc.kill() } catch {}
+    throw err
+  }
+
+  ptyMap.set(sessionId, proc)
+  wsMap.set(sessionId, new Set())
+  outputBuffer.set(sessionId, [])
+
   proc.onData((data) => {
     // Rolling 100-line buffer
     const buf = outputBuffer.get(sessionId) ?? []
@@ -111,24 +129,6 @@ export function spawnSession(opts: SpawnOptions): string {
     wsMap.delete(sessionId)
   })
 
-  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
-  try {
-    createSession(db, {
-      id: sessionId,
-      projectId: opts.projectId,
-      label: opts.label,
-      phase: opts.phase,
-      sourceFile: canonical,
-    })
-  } catch (err) {
-    try { proc.kill() } catch {}
-    throw err
-  }
-
-  ptyMap.set(sessionId, proc)
-  wsMap.set(sessionId, new Set())
-  outputBuffer.set(sessionId, [])
-
   return sessionId
 }
 
@@ -140,6 +140,7 @@ export function killSession(sessionId: string): void {
     outputBuffer.delete(sessionId)
   }
   endSession(getDb(), sessionId)
+  wsMap.delete(sessionId)
 }
 
 export function isAlive(sessionId: string): boolean {
