@@ -61,4 +61,14 @@ describe('resolveMemoryDir', () => {
     const result = resolveMemoryDir(projectPath, tmpDir)
     expect(result).toBeNull()
   })
+
+  it('returns fuzzy-matched path when name differs by 1-3 chars', () => {
+    const encoded = encodeProjectPath(projectPath)
+    // Create a dir with one char different (simulating minor encoding difference)
+    const fuzzyName = encoded.slice(0, -1) + 'x' // change last char
+    const fuzzyMemDir = path.join(tmpDir, fuzzyName, 'memory')
+    fs.mkdirSync(fuzzyMemDir, { recursive: true })
+    const result = resolveMemoryDir(projectPath, tmpDir)
+    expect(result).toBe(fuzzyMemDir)
+  })
 })
