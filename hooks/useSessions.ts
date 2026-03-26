@@ -24,7 +24,11 @@ export function useSessions() {
 export function useKillSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (sessionId: string) => fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' }),
+    mutationFn: (sessionId: string) =>
+      fetch(`/api/sessions/${sessionId}`, { method: 'DELETE' }).then((r) => {
+        if (!r.ok) throw new Error(`Kill session failed: ${r.statusText}`)
+        return r
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
   })
 }
