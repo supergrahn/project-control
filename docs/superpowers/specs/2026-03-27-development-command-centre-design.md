@@ -38,7 +38,7 @@ tests/
 
 - `listProjects()` from `lib/db.ts` — all registered projects
 - File system scan of each project's `ideas_dir`, `specs_dir`, `plans_dir`
-- `listSessions()` from `lib/db.ts` — active sessions
+- `getActiveSessions()` from `lib/db.ts` — active sessions (returns sessions with `status: 'active'`)
 - Audit files in `{plans_dir}/audits/` — audit status per plan
 
 No new database tables or columns.
@@ -88,18 +88,46 @@ When present, frontmatter `status` overrides auto-inference.
 
 If the most recent file in a feature's chain (the furthest-stage file) hasn't been modified in 7+ days and there's no `status` override, mark `stale: true`. Stale items sink to the bottom of Up Next and show a `⏸ stale` indicator.
 
+### Type definitions
+
+```typescript
+type Stage = 'develop' | 'plan' | 'spec'
+
+type AuditLabel = 'clean' | 'warnings' | 'blockers'
+
+type FeatureEntry = {
+  key: string                    // basename after date stripping
+  originalBasenames: {           // original filenames (before stripping) for audit key lookup
+    idea?: string
+    spec?: string
+    plan?: string
+  }
+  idea: string | null            // file path
+  spec: string | null
+  plan: string | null
+  audit: { blockers: number; warnings: number } | null
+  latestModified: Date           // mtime of furthest-stage file
+  frontmatterStatus: string | null  // from YAML frontmatter `status` field
+}
+```
+
+**Audit status label mapping:** `blockers > 0` → `'blockers'`, `blockers === 0 && warnings > 0` → `'warnings'`, `blockers === 0 && warnings === 0` → `'clean'`, no audit file → `null`.
+
+**Audit key lookup:** The existing audit system keys by the plan's original basename (with date prefix, without `.md`). When looking up audit status for a feature, use `entry.originalBasenames.plan` (not the date-stripped `entry.key`). For example, plan file `2026-03-26-auth-system.md` has audit key `2026-03-26-auth-system`, even though the feature map key is `auth-system`.
+
 ### Exported functions
 
 ```typescript
 stripDatePrefix(filename: string): string
 buildFeatureMap(projectPath: string, dirs: { ideas_dir?, specs_dir?, plans_dir? }): Map<string, FeatureEntry>
+  // Also reads {plans_dir}/audits/ to populate FeatureEntry.audit
 inferStage(entry: FeatureEntry, hasActiveSession: boolean): Stage | 'inProgress' | null
 applyOverrides(entry: FeatureEntry, stage: Stage | null): Stage | null
 detectStale(entry: FeatureEntry, now: Date): boolean
 buildDashboardData(projects: Project[]): DashboardResponse
 ```
 
-All functions are pure except `buildFeatureMap` (reads filesystem) and `buildDashboardData` (orchestrator).
+All functions are pure except `buildFeatureMap` (reads filesystem + audits dir) and `buildDashboardData` (orchestrator).
 
 ---
 
@@ -114,11 +142,11 @@ type DashboardResponse = {
   inProgress: Array<{
     projectId: string
     projectName: string
-    sessionId: string
+    sessionId: string       // used to open SessionModal for resuming
     phase: string
     sourceFile: string
     featureName: string
-    startedAt: string
+    createdAt: string       // maps from session.created_at
   }>
 
   upNext: Array<{
@@ -212,7 +240,7 @@ Single hook, single query. No mutations — the dashboard is read-only.
 **`InProgressBanner`**
 - Conditional — hidden when no active sessions
 - Purple background (`bg-violet-500/10 border-violet-500/30`)
-- Shows: purple dot, project name, feature name (from source_file basename), session duration (computed from `startedAt`)
+- Shows: purple dot, project name, feature name (from source_file basename), session duration (computed from `createdAt`)
 - "Resume →" button: calls `openProject(project)` then navigates to `/developing`
 - Multiple active sessions: stacks vertically, one row per session
 
@@ -231,11 +259,17 @@ Single hook, single query. No mutations — the dashboard is read-only.
 - Right: health summary counts + worst offender (project name + blocker count)
 - Clicking health numbers navigates to the relevant project's /plans page
 
+### Navigation mechanism
+
+The dashboard page uses `useRouter()` from `next/navigation` for programmatic navigation, combined with the existing `openProject()` from `useProjectStore()`.
+
+To resolve project objects from IDs (needed by `openProject()`), the dashboard page also calls `useProjects()` and builds a lookup map: `const projectMap = Object.fromEntries(projects.map(p => [p.id, p]))`.
+
 ### Interactions
 
-- **Any Up Next row click:** calls `openProject(project)` (existing tab system), navigates to the relevant page
-- **"Start →" on develop-ready:** opens PromptModal to launch a develop session
-- **"Resume →" on In Progress:** opens project tab, navigates to /developing
+- **Any Up Next row click:** calls `openProject(projectMap[projectId])`, then `router.push('/plans')` (or `/specs`/`/ideas` depending on stage)
+- **"Start →" on develop-ready:** calls `openProject(...)`, then opens PromptModal to launch a develop session
+- **"Resume →" on In Progress:** calls `openProject(...)`, then `router.push('/developing')`. The `sessionId` is available to open a SessionModal if needed.
 - **Pipeline/health clicks:** navigate to the relevant project or page
 
 ### No project selector
