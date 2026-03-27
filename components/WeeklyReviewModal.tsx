@@ -27,6 +27,10 @@ export function WeeklyReviewModal({ isOpen, onClose }: Props) {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleDownload = () => {
+    window.open('/api/export?type=weekly', '_blank')
+  }
+
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/60" onClick={onClose} />
@@ -38,6 +42,7 @@ export function WeeklyReviewModal({ isOpen, onClose }: Props) {
               {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
               {copied ? 'Copied' : 'Copy'}
             </button>
+            <button onClick={handleDownload} className="text-xs text-zinc-400 hover:text-zinc-200">↓ Download</button>
             <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300"><X size={14} /></button>
           </div>
         </div>
