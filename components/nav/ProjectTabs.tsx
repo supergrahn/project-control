@@ -1,12 +1,25 @@
 'use client'
 import { useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { useRouter, usePathname } from 'next/navigation'
 import { useProjectStore, type Project } from '@/hooks/useProjects'
 import { ProjectSwitcherModal } from '@/components/ProjectSwitcherModal'
+
+const WORKFLOW_SLUGS = ['ideas', 'specs', 'plans', 'developing', 'reports']
 
 export function ProjectTabs() {
   const { openProjects, activeProjectId, openProject, closeProject } = useProjectStore()
   const [modalOpen, setModalOpen] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // Preserve the current workflow page when switching projects
+  const currentSlug = WORKFLOW_SLUGS.find(s => pathname.includes(`/${s}`)) ?? 'ideas'
+
+  const handleSelect = (p: Project) => {
+    openProject(p)
+    router.push(`/projects/${p.id}/${currentSlug}`)
+  }
 
   return (
     <>
@@ -19,7 +32,7 @@ export function ProjectTabs() {
                 ? 'bg-zinc-800 text-zinc-100'
                 : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900'
             }`}
-            onClick={() => openProject(p)}
+            onClick={() => handleSelect(p)}
           >
             <span className="text-xs">{p.name}</span>
             <button
@@ -31,7 +44,6 @@ export function ProjectTabs() {
             </button>
           </div>
         ))}
-
         <button
           type="button"
           onClick={() => setModalOpen(true)}
@@ -41,10 +53,9 @@ export function ProjectTabs() {
           <Plus size={14} />
         </button>
       </div>
-
       {modalOpen && (
         <ProjectSwitcherModal
-          onSelect={(p: Project) => openProject(p)}
+          onSelect={(p: Project) => { handleSelect(p); setModalOpen(false) }}
           onClose={() => setModalOpen(false)}
           openProjectIds={openProjects.map((p) => p.id)}
         />
