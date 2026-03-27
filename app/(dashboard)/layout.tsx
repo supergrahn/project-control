@@ -8,9 +8,11 @@ import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { CommandPalette } from '@/components/CommandPalette'
 import { AssistantPanel } from '@/components/AssistantPanel'
 import { useAssistantPanel } from '@/hooks/useAssistant'
+import { QuickCapture } from '@/components/QuickCapture'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
+  const [showQuickCapture, setShowQuickCapture] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
   const { openProject } = useProjectStore()
@@ -42,6 +44,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
 
   useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+        e.preventDefault()
+        setShowQuickCapture(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  useEffect(() => {
     const controller = new AbortController()
     fetch('/api/sessions/health', { signal: controller.signal })
       .then((r) => r.json())
@@ -70,6 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           onClose={palette.close}
         />
       )}
+      <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
     </div>
   )
 }
