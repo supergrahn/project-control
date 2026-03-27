@@ -21,6 +21,7 @@ export function writeFrontmatter(content: string, updates: FrontmatterData): str
   const merged = { ...existing, ...updates }
   const body = content.replace(FM_REGEX, '')
   const fmLines = Object.entries(merged)
+    .filter(([, v]) => v !== undefined)
     .map(([k, v]) => `${k}: ${v === null ? 'null' : v}`)
     .join('\n')
   return `---\n${fmLines}\n---\n\n${body.replace(/^\n+/, '')}`

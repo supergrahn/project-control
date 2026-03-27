@@ -12,6 +12,13 @@ describe('parseFrontmatter', () => {
     expect(fm.ideate_session_id).toBe('abc-123')
     expect(fm.ideate_log_id).toBeNull()
   })
+
+  it('handles values containing colons (e.g. paths with protocol)', () => {
+    const content = '---\nurl: https://example.com\nlog_id: /path/to/log.md\n---\n\n# Title'
+    const fm = parseFrontmatter(content)
+    expect(fm.url).toBe('https://example.com')
+    expect(fm.log_id).toBe('/path/to/log.md')
+  })
 })
 
 describe('writeFrontmatter', () => {
