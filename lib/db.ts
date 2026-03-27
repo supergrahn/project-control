@@ -167,6 +167,10 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   project_id TEXT NOT NULL,
   created_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS notifications_read (
+  event_id TEXT PRIMARY KEY,
+  read_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -444,6 +448,40 @@ export function createFeatureDep(db: Database.Database, data: { id: string; feat
 
 export function deleteFeatureDep(db: Database.Database, id: string): void {
   db.prepare('DELETE FROM feature_deps WHERE id = ?').run(id)
+}
+
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export function getUnreadEventCount(db: Database.Database): number {
+  const row = db.prepare(`
+    SELECT COUNT(*) as count FROM events
+    WHERE severity IN ('warn', 'error')
+    AND id NOT IN (SELECT event_id FROM notifications_read)
+    AND created_at > datetime('now', '-7 days')
+  `).get() as { count: number }
+  return row.count
+}
+
+export function getUnreadEvents(db: Database.Database, limit: number = 10): Array<{ id: string; projectId: string | null; type: string; summary: string; detail: string | null; severity: string; createdAt: string }> {
+  return db.prepare(`
+    SELECT e.id, e.project_id as projectId, e.type, e.summary, e.detail, e.severity, e.created_at as createdAt
+    FROM events e
+    WHERE e.severity IN ('warn', 'error')
+    AND e.id NOT IN (SELECT event_id FROM notifications_read)
+    AND e.created_at > datetime('now', '-7 days')
+    ORDER BY e.created_at DESC LIMIT ?
+  `).all(limit) as Array<{ id: string; projectId: string | null; type: string; summary: string; detail: string | null; severity: string; createdAt: string }>
+}
+
+export function markNotificationRead(db: Database.Database, eventId: string): void {
+  db.prepare('INSERT OR IGNORE INTO notifications_read (event_id, read_at) VALUES (?, ?)').run(eventId, new Date().toISOString())
+}
+
+export function markAllNotificationsRead(db: Database.Database): void {
+  db.prepare(`
+    INSERT OR IGNORE INTO notifications_read (event_id, read_at)
+    SELECT id, ? FROM events WHERE severity IN ('warn', 'error') AND created_at > datetime('now', '-7 days')
+  `).run(new Date().toISOString())
 }
 
 let _db: Database.Database | null = null

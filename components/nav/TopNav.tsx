@@ -2,10 +2,11 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, Brain, Focus } from 'lucide-react'
+import { Settings, Brain, Focus, Bell } from 'lucide-react'
 import { ProjectTabs } from './ProjectTabs'
 import { useFocus } from '@/hooks/useFocus'
 import { useProjects } from '@/hooks/useProjects'
+import { useNotifications, useMarkRead } from '@/hooks/useNotifications'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/' },
@@ -37,6 +38,10 @@ export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {})
   const { focusIds, isFocused, toggleFocus, clearFocus } = useFocus()
   const { data: allProjects = [] } = useProjects()
   const [showFocusMenu, setShowFocusMenu] = useState(false)
+  const { data: notifData } = useNotifications()
+  const markRead = useMarkRead()
+  const [showNotifs, setShowNotifs] = useState(false)
+  const unreadCount = notifData?.unreadCount ?? 0
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950">
@@ -81,6 +86,42 @@ export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {})
                     Clear focus
                   </button>
                 )}
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <button onClick={() => setShowNotifs(p => !p)}
+              className={`p-1.5 rounded transition-colors relative ${unreadCount > 0 ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </button>
+            {showNotifs && (
+              <div className="absolute right-0 top-full mt-1 w-72 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
+                  <span className="text-xs font-semibold text-zinc-200">Notifications</span>
+                  {unreadCount > 0 && (
+                    <button onClick={() => { markRead.mutate({ markAll: true }); setShowNotifs(false) }}
+                      className="text-[10px] text-zinc-500 hover:text-zinc-300">Mark all read</button>
+                  )}
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {(notifData?.events ?? []).map(e => (
+                    <div key={e.id} className="px-3 py-2 border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer"
+                      onClick={() => markRead.mutate({ eventId: e.id })}>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-1.5 h-1.5 rounded-full ${e.severity === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                        <span className="text-xs text-zinc-300 flex-1 truncate">{e.summary}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {(notifData?.events ?? []).length === 0 && (
+                    <p className="text-xs text-zinc-600 text-center py-4">No unread notifications</p>
+                  )}
+                </div>
               </div>
             )}
           </div>
