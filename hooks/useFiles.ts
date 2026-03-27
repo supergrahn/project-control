@@ -36,7 +36,7 @@ export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'pla
 export function useCreateFile() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { projectId: string; dir: string; name: string }) =>
+    mutationFn: (data: { projectId: string; dir: string; name: string; pitch?: string }) =>
       fetch('/api/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json()),
     onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['files', vars.projectId, vars.dir] }),
   })
