@@ -21,7 +21,7 @@ export type MarkdownFile = {
 }
 
 // null means the directory is not configured (422); [] means configured but empty
-export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'plans' | 'developing') {
+export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'plans') {
   return useQuery<MarkdownFile[] | null>({
     queryKey: ['files', projectId, dir],
     queryFn: async () => {
