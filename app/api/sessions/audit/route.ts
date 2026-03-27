@@ -6,6 +6,7 @@ import fs from 'fs'
 import path from 'path'
 import os from 'os'
 import { getDb, getProject } from '@/lib/db'
+import { logEvent } from '@/lib/events'
 import { resolveMemoryDir, listMemoryFiles } from '@/lib/memory'
 import { buildAuditPrompt, buildFrontmatter } from '@/lib/prompts'
 
@@ -96,6 +97,18 @@ export async function POST(req: Request) {
 
   const frontmatter = buildFrontmatter(output, auditedAt, planFilename)
   fs.writeFileSync(auditFile, frontmatter + output, 'utf8')
+
+  const blockersSection = output.match(/## 🔴 Blockers\n([\s\S]*?)(?=\n##|$)/)?.[1] ?? ''
+  const warningsSection = output.match(/## 🟡 Warnings\n([\s\S]*?)(?=\n##|$)/)?.[1] ?? ''
+  const blockerCount = blockersSection.includes('None found') ? 0 : (blockersSection.match(/^- /gm)?.length ?? 0)
+  const warningCount = warningsSection.includes('None found') ? 0 : (warningsSection.match(/^- /gm)?.length ?? 0)
+
+  logEvent(getDb(), {
+    projectId,
+    type: 'audit_completed',
+    summary: `Audit of ${planFilename}: ${blockerCount === 0 && warningCount === 0 ? 'clean' : `${blockerCount} blockers, ${warningCount} warnings`}`,
+    severity: blockerCount > 0 ? 'warn' : 'info',
+  })
 
   return NextResponse.json({ ok: true, auditFile })
 }

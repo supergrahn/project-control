@@ -3,6 +3,7 @@ import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
 import fs from 'fs'
 import { getDb, createSession, endSession, getActiveSessionForFile } from './db'
+import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getGitHistory } from './git'
 import { randomUUID } from 'crypto'
@@ -100,6 +101,12 @@ export function spawnSession(opts: SpawnOptions): string {
       phase: opts.phase as import('./db').SessionPhase,
       sourceFile: canonical,
     })
+    logEvent(db, {
+      projectId: opts.projectId,
+      type: 'session_started',
+      summary: `Started ${opts.phase} session: ${opts.label}`,
+      severity: 'info',
+    })
   } catch (err) {
     try { proc.kill() } catch {}
     throw err
@@ -128,6 +135,12 @@ export function spawnSession(opts: SpawnOptions): string {
 
   proc.onExit(() => {
     endSession(getDb(), sessionId)
+    logEvent(getDb(), {
+      projectId: opts.projectId,
+      type: 'session_ended',
+      summary: `${opts.phase} session ended: ${opts.label}`,
+      severity: 'info',
+    })
     ptyMap.delete(sessionId)
     outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
