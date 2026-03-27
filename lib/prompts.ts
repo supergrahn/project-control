@@ -1,8 +1,10 @@
 // lib/prompts.ts
-export type Phase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
+export type Phase = 'ideate' | 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
 
 const TEMPLATES: Record<Phase, (sourceFile: string) => string> = {
+  ideate: (f) =>
+    `Read the idea file at ${f}. Your role is to help the user develop this idea through collaborative dialogue.\n\nIf the @consult-gemini skill is available in ~/.claude/skills/, use it to explore the idea from multiple angles before surfacing conclusions. Otherwise, ideate solo.\n\nStart by asking one clarifying question about the core problem this idea solves. Then explore: who the users are, what constraints exist, what a minimal version looks like. After sufficient back-and-forth, synthesise the conversation into a structured brainstorm document saved alongside the idea file with a -brainstorm suffix (e.g. my-idea-brainstorm.md). The document should cover: core problem, target users, key features, technical approach, open questions, and risks.`,
   brainstorm: (f) =>
     `Read the idea file at ${f}. Explore the idea through clarifying questions and deep analysis. Produce a structured brainstorm document covering: core problem, target users, key features, technical considerations, open questions, and risks. Save the result as a new .md file in the same directory with a -brainstorm suffix.`,
   spec: (f) =>
