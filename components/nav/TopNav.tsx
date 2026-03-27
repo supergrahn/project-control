@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { label: 'Timeline', href: '/timeline' },
   { label: 'Templates', href: '/templates' },
   { label: 'Usage', href: '/usage' },
+  { label: 'Compare', href: '/compare' },
 ]
 
 type TopNavProps = {
