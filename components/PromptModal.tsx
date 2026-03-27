@@ -13,6 +13,7 @@ type Props = {
 }
 
 const ACTION_LABELS: Record<Phase, string> = {
+  ideate: '💡 Ideate',
   brainstorm: '💬 Brainstorm',
   spec: '📋 Create Spec',
   plan: '🗺 Create Plan',
