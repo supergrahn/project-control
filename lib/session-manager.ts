@@ -10,6 +10,7 @@ import { getGitHistory } from './git'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { generateDebrief } from './debrief'
+import { writeFrontmatter } from './frontmatter'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -139,6 +140,15 @@ export function spawnSession(opts: SpawnOptions): string {
     throw err
   }
 
+  // Write session_id into source file frontmatter
+  if (opts.sourceFile && (opts.phase as string) !== 'orchestrator') {
+    try {
+      const content = fs.readFileSync(opts.sourceFile, 'utf8')
+      const updated = writeFrontmatter(content, { [`${opts.phase}_session_id`]: sessionId })
+      fs.writeFileSync(opts.sourceFile, updated, 'utf8')
+    } catch {}
+  }
+
   ptyMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
   outputBuffer.set(sessionId, [])
@@ -169,9 +179,24 @@ export function spawnSession(opts: SpawnOptions): string {
       severity: 'info',
     })
     emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: 'completed' })
-    // Generate post-session debrief (non-blocking)
     if (opts.sourceFile) {
       const buf = outputBuffer.get(sessionId) ?? []
+
+      // Save session log and write log_id into frontmatter
+      try {
+        const logsDir = path.join(path.dirname(opts.sourceFile), 'logs')
+        fs.mkdirSync(logsDir, { recursive: true })
+        const base = path.basename(opts.sourceFile, '.md')
+        const logPath = path.join(logsDir, `${base}-${opts.phase}-log.md`)
+        const logFm = `---\nphase: ${opts.phase}\nsource_file: ${opts.sourceFile}\ncreated_at: ${new Date().toISOString()}\n---\n\n`
+        fs.writeFileSync(logPath, logFm + buf.join('\n'), 'utf8')
+
+        const srcContent = fs.readFileSync(opts.sourceFile, 'utf8')
+        const updatedSrc = writeFrontmatter(srcContent, { [`${opts.phase}_log_id`]: logPath })
+        fs.writeFileSync(opts.sourceFile, updatedSrc, 'utf8')
+      } catch {}
+
+      // Generate post-session debrief (non-blocking) — keep existing code
       generateDebrief({
         outputBuffer: buf,
         sessionLabel: opts.label,
