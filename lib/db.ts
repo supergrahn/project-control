@@ -131,6 +131,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+  project_id, project_name, file_path, file_type, title, content, tokenize='porter'
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

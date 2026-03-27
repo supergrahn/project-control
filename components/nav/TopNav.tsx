@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { label: 'Memory', href: '/memory' },
   { label: 'Context', href: '/context' },
   { label: 'Tech Audit', href: '/tech-audit' },
+  { label: 'Search', href: '/search' },
 ]
 
 type TopNavProps = {
