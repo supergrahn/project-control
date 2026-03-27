@@ -3,6 +3,14 @@ import { randomUUID } from 'crypto'
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import type {
+  Orchestrator, OrchestratorStatus,
+  OrchestratorDecision, DecisionSeverity,
+  SessionProposedAction, AutomationLevel,
+} from './orchestrator-types'
+
+// Re-export types for convenience
+export type { Orchestrator, OrchestratorDecision, SessionProposedAction, AutomationLevel, DecisionSeverity }
 
 export type SessionStatus = 'active' | 'ended'
 export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
@@ -16,6 +24,7 @@ export type Project = {
   plans_dir: string | null
   created_at: string
   last_used_at: string | null
+  automation_level: AutomationLevel
 }
 
 export type Session = {
@@ -75,6 +84,41 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       detail     TEXT,
       severity   TEXT NOT NULL DEFAULT 'info',
       created_at TEXT NOT NULL
+    )
+  `) } catch {}
+  try { db.exec(`ALTER TABLE sessions ADD COLUMN progress_steps TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE projects ADD COLUMN automation_level TEXT NOT NULL DEFAULT 'checkpoint'`) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS orchestrators (
+      id         TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      status     TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      ended_at   TEXT
+    )
+  `) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS orchestrator_decisions (
+      id              TEXT PRIMARY KEY,
+      orchestrator_id TEXT NOT NULL,
+      project_id      TEXT NOT NULL,
+      source_file     TEXT,
+      summary         TEXT NOT NULL,
+      detail          TEXT,
+      severity        TEXT NOT NULL DEFAULT 'info',
+      created_at      TEXT NOT NULL
+    )
+  `) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS session_proposed_actions (
+      id          TEXT PRIMARY KEY,
+      session_id  TEXT NOT NULL,
+      label       TEXT NOT NULL,
+      action_type TEXT NOT NULL,
+      payload     TEXT,
+      created_at  TEXT NOT NULL,
+      dismissed   INTEGER NOT NULL DEFAULT 0
     )
   `) } catch {}
   // Seed default global settings on first run
@@ -167,6 +211,92 @@ export function getAllSessions(db: Database.Database, projectId?: string): Sessi
     return db.prepare(`SELECT * FROM sessions WHERE project_id = ? ORDER BY created_at DESC`).all(projectId) as Session[]
   }
   return db.prepare(`SELECT * FROM sessions ORDER BY created_at DESC`).all() as Session[]
+}
+
+// ── Orchestrators ─────────────────────────────────────────────────────────────
+
+export function createOrchestrator(db: Database.Database, o: Orchestrator): void {
+  db.prepare(`INSERT INTO orchestrators (id, project_id, session_id, status, created_at, ended_at) VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(o.id, o.project_id, o.session_id, o.status, o.created_at, o.ended_at)
+}
+
+export function getOrchestratorById(db: Database.Database, id: string): Orchestrator | undefined {
+  return db.prepare('SELECT * FROM orchestrators WHERE id = ?').get(id) as Orchestrator | undefined
+}
+
+export function getOrchestratorByProject(db: Database.Database, projectId: string): Orchestrator | undefined {
+  return db.prepare(`SELECT * FROM orchestrators WHERE project_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1`)
+    .get(projectId) as Orchestrator | undefined
+}
+
+export function updateOrchestratorStatus(db: Database.Database, id: string, status: OrchestratorStatus): void {
+  const ended_at = status === 'ended' ? new Date().toISOString() : null
+  db.prepare('UPDATE orchestrators SET status = ?, ended_at = ? WHERE id = ?').run(status, ended_at, id)
+}
+
+export function listOrchestrators(db: Database.Database): Orchestrator[] {
+  return db.prepare('SELECT * FROM orchestrators ORDER BY created_at DESC').all() as Orchestrator[]
+}
+
+// ── Orchestrator Decisions ────────────────────────────────────────────────────
+
+export function createDecision(db: Database.Database, d: OrchestratorDecision): void {
+  db.prepare(`INSERT INTO orchestrator_decisions (id, orchestrator_id, project_id, source_file, summary, detail, severity, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(d.id, d.orchestrator_id, d.project_id, d.source_file, d.summary, d.detail, d.severity, d.created_at)
+}
+
+export function listDecisions(db: Database.Database, opts: {
+  projectId?: string
+  severity?: DecisionSeverity
+  limit?: number
+  offset?: number
+} = {}): OrchestratorDecision[] {
+  const { projectId, severity, limit = 20, offset = 0 } = opts
+  const conditions: string[] = []
+  const params: unknown[] = []
+  if (projectId) { conditions.push('project_id = ?'); params.push(projectId) }
+  if (severity) { conditions.push('severity = ?'); params.push(severity) }
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+  params.push(limit, offset)
+  return db.prepare(`SELECT * FROM orchestrator_decisions ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+    .all(...params) as OrchestratorDecision[]
+}
+
+// ── Session Proposed Actions ──────────────────────────────────────────────────
+
+export function createProposedAction(db: Database.Database, a: SessionProposedAction): void {
+  db.prepare(`INSERT INTO session_proposed_actions (id, session_id, label, action_type, payload, created_at, dismissed) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .run(a.id, a.session_id, a.label, a.action_type, a.payload, a.created_at, a.dismissed)
+}
+
+export function getProposedActionsForSession(db: Database.Database, sessionId: string): SessionProposedAction[] {
+  return db.prepare(`SELECT * FROM session_proposed_actions WHERE session_id = ? AND dismissed = 0 ORDER BY created_at ASC`)
+    .all(sessionId) as SessionProposedAction[]
+}
+
+export function dismissProposedAction(db: Database.Database, id: string): void {
+  db.prepare('UPDATE session_proposed_actions SET dismissed = 1 WHERE id = ?').run(id)
+}
+
+export function deleteProposedAction(db: Database.Database, id: string): void {
+  db.prepare('DELETE FROM session_proposed_actions WHERE id = ?').run(id)
+}
+
+// ── Session progress_steps ────────────────────────────────────────────────────
+
+export function updateSessionProgressSteps(db: Database.Database, sessionId: string, stepsJson: string): void {
+  db.prepare('UPDATE sessions SET progress_steps = ? WHERE id = ?').run(stepsJson, sessionId)
+}
+
+// ── Project automation_level ─────────────────────────────────────────────────
+
+export function updateProjectAutomationLevel(db: Database.Database, projectId: string, level: AutomationLevel): void {
+  db.prepare('UPDATE projects SET automation_level = ? WHERE id = ?').run(level, projectId)
+}
+
+export function getProjectAutomationLevel(db: Database.Database, projectId: string): AutomationLevel {
+  const row = db.prepare('SELECT automation_level FROM projects WHERE id = ?').get(projectId) as { automation_level: AutomationLevel } | undefined
+  return row?.automation_level ?? 'checkpoint'
 }
 
 let _db: Database.Database | null = null
