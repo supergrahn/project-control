@@ -7,6 +7,7 @@ import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { useLaunchSession, type Session } from '@/hooks/useSessions'
 import { PromptModal } from '@/components/PromptModal'
 import { SessionModal } from '@/components/SessionModal'
+import { StandupModal } from '@/components/StandupModal'
 import { formatDistanceToNow } from 'date-fns'
 import type { Phase } from '@/lib/prompts'
 import type { DashboardResponse } from '@/lib/dashboard'
@@ -169,6 +170,7 @@ export default function DashboardPage() {
 
   const [promptConfig, setPromptConfig] = useState<{ projectId: string; sourceFile: string; featureName: string } | null>(null)
   const [activeSession, setActiveSession] = useState<Session | null>(null)
+  const [showStandup, setShowStandup] = useState(false)
 
   const projectMap: ProjectLookup = Object.fromEntries(projects.map(p => [p.id, p]))
 
@@ -183,6 +185,11 @@ export default function DashboardPage() {
 
   return (
     <>
+      <div className="flex items-center justify-end mb-3">
+        <button onClick={() => setShowStandup(true)} className="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors">
+          Standup
+        </button>
+      </div>
       <InProgressBanner items={data.inProgress} projectMap={projectMap} />
       <UpNextTable items={data.upNext} projectMap={projectMap} onLaunchDevelop={handleLaunchDevelop} />
       {data.projectScores && data.projectScores.length > 0 && (
@@ -242,6 +249,7 @@ export default function DashboardPage() {
         />
       )}
       <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
+      <StandupModal isOpen={showStandup} onClose={() => setShowStandup(false)} />
     </>
   )
 }
