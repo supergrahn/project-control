@@ -12,12 +12,14 @@ import { QuickCapture } from '@/components/QuickCapture'
 import { PasteModal } from '@/components/PasteModal'
 import { ShortcutGuide } from '@/components/ShortcutGuide'
 import { FocusProvider } from '@/hooks/useFocus'
+import { NavDrawer } from '@/components/nav/NavDrawer'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
   const [showQuickCapture, setShowQuickCapture] = useState(false)
   const [showPaste, setShowPaste] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showDrawer, setShowDrawer] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
   const { openProject } = useProjectStore()
@@ -79,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <FocusProvider>
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-        <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} />
+        <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} />
         {claudeAvailable === false && (
           <div className="px-4 pt-3">
             <ClaudeNotFound />
@@ -100,6 +102,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
         <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
         <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+        <NavDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
       </div>
     </FocusProvider>
   )
