@@ -19,8 +19,8 @@ const STAGE_COLORS: Record<string, string> = {
 
 const STAGE_ACTIONS: Record<string, { label: string; route: string }> = {
   develop: { label: 'Start', route: '/plans' },
-  plan: { label: 'Plan', route: '/specs' },
-  spec: { label: 'Spec', route: '/ideas' },
+  plan: { label: 'Plan', route: '/plans' },
+  spec: { label: 'Spec', route: '/specs' },
 }
 
 const AUDIT_BADGES: Record<string, string> = {
@@ -75,8 +75,7 @@ function UpNextTable({
     return (
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-6 py-10 text-center">
         <Activity size={28} className="text-zinc-700 mx-auto mb-3" />
-        <p className="text-zinc-400 text-sm font-medium">All caught up</p>
-        <p className="text-zinc-600 text-xs mt-1">No actionable features across your projects.</p>
+        <p className="text-zinc-400 text-sm font-medium">All caught up — no actionable features across your projects</p>
       </div>
     )
   }
@@ -129,7 +128,7 @@ function UpNextTable({
   )
 }
 
-function BottomStrip({ pipeline, health }: { pipeline: DashboardResponse['pipeline']; health: DashboardResponse['health'] }) {
+function BottomStrip({ pipeline, health, onHealthClick }: { pipeline: DashboardResponse['pipeline']; health: DashboardResponse['health']; onHealthClick?: (projectName: string) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3 mt-4">
       <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
@@ -148,7 +147,10 @@ function BottomStrip({ pipeline, health }: { pipeline: DashboardResponse['pipeli
           <span className="text-xs"><span className="text-amber-300 font-semibold">{health.warnings}</span> <span className="text-zinc-500">🟡</span></span>
           <span className="text-xs"><span className="text-green-300 font-semibold">{health.clean}</span> <span className="text-zinc-500">🟢</span></span>
           {health.worst.length > 0 && (
-            <span className="text-[10px] text-zinc-500 ml-2">
+            <span
+              className="text-[10px] text-zinc-500 ml-2 cursor-pointer hover:text-zinc-300 transition-colors"
+              onClick={() => onHealthClick?.(health.worst[0].projectName)}
+            >
               Worst: <span className="text-red-400">{health.worst[0].projectName} · {health.worst[0].blockers} blockers</span>
             </span>
           )}
@@ -183,7 +185,14 @@ export default function DashboardPage() {
     <>
       <InProgressBanner items={data.inProgress} projectMap={projectMap} />
       <UpNextTable items={data.upNext} projectMap={projectMap} onLaunchDevelop={handleLaunchDevelop} />
-      <BottomStrip pipeline={data.pipeline} health={data.health} />
+      <BottomStrip
+        pipeline={data.pipeline}
+        health={data.health}
+        onHealthClick={(projectName) => {
+          const p = projects.find(p => p.name === projectName)
+          if (p) { openProject(p); router.push('/plans') }
+        }}
+      />
 
       {promptConfig && (
         <PromptModal
