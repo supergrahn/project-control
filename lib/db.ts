@@ -122,6 +122,15 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     )
   `) } catch {}
   try { db.exec(`CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS context_packs (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_url TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -298,6 +307,32 @@ export function updateProjectAutomationLevel(db: Database.Database, projectId: s
 export function getProjectAutomationLevel(db: Database.Database, projectId: string): AutomationLevel {
   const row = db.prepare('SELECT automation_level FROM projects WHERE id = ?').get(projectId) as { automation_level: AutomationLevel } | undefined
   return row?.automation_level ?? 'checkpoint'
+}
+
+// ── Context Packs ────────────────────────────────────────────────────────────
+
+export function listContextPacks(db: Database.Database, projectId: string): Array<{ id: string; project_id: string; title: string; content: string; source_url: string | null; created_at: string; updated_at: string }> {
+  return db.prepare('SELECT * FROM context_packs WHERE project_id = ? ORDER BY updated_at DESC').all(projectId) as any[]
+}
+
+export function createContextPack(db: Database.Database, data: { id: string; project_id: string; title: string; content: string; source_url?: string }): void {
+  const now = new Date().toISOString()
+  db.prepare('INSERT INTO context_packs (id, project_id, title, content, source_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(data.id, data.project_id, data.title, data.content, data.source_url ?? null, now, now)
+}
+
+export function updateContextPack(db: Database.Database, id: string, data: { title?: string; content?: string }): void {
+  const fields: string[] = []
+  const values: unknown[] = []
+  if (data.title !== undefined) { fields.push('title = ?'); values.push(data.title) }
+  if (data.content !== undefined) { fields.push('content = ?'); values.push(data.content) }
+  fields.push('updated_at = ?'); values.push(new Date().toISOString())
+  values.push(id)
+  db.prepare(`UPDATE context_packs SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+}
+
+export function deleteContextPack(db: Database.Database, id: string): void {
+  db.prepare('DELETE FROM context_packs WHERE id = ?').run(id)
 }
 
 let _db: Database.Database | null = null

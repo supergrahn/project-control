@@ -3,7 +3,7 @@ import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
 import fs from 'fs'
 import { EventEmitter } from 'events'
-import { getDb, createSession, endSession, getActiveSessionForFile, getProject } from './db'
+import { getDb, createSession, endSession, getActiveSessionForFile, getProject, listContextPacks } from './db'
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getGitHistory } from './git'
@@ -91,12 +91,15 @@ export function spawnSession(opts: SpawnOptions): string {
     if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
   }
 
+  const contextPacks = listContextPacks(db, opts.projectId).map(p => ({ title: p.title, content: p.content }))
+
   const systemPrompt = buildSessionContext({
     phase: opts.phase,
     sourceFile: opts.sourceFile,
     userContext: opts.userContext,
     gitHistory: getGitHistory(opts.projectPath),
     correctionNote: opts.correctionNote,
+    contextPacks: contextPacks.length > 0 ? contextPacks : null,
   })
 
   const args = buildArgs({

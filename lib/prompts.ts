@@ -26,6 +26,7 @@ export type SessionContext = {
   userContext?: string
   gitHistory?: string | null
   correctionNote?: string | null
+  contextPacks?: Array<{ title: string; content: string }> | null
 }
 
 export function buildSessionContext(ctx: SessionContext): string {
@@ -42,6 +43,13 @@ export function buildSessionContext(ctx: SessionContext): string {
 
   if (ctx.gitHistory) {
     parts.push(`\n\n## Recent Git History\n\n${ctx.gitHistory}`)
+  }
+
+  if (ctx.contextPacks && ctx.contextPacks.length > 0) {
+    parts.push('\n\n## Reference Documentation')
+    for (const pack of ctx.contextPacks) {
+      parts.push(`\n### ${pack.title}\n${pack.content}`)
+    }
   }
 
   return parts.join('\n')

@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: 'Developing', href: '/developing' },
   { label: 'Sessions', href: '/sessions' },
   { label: 'Memory', href: '/memory' },
+  { label: 'Context', href: '/context' },
   { label: 'Tech Audit', href: '/tech-audit' },
 ]
 
