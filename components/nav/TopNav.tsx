@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: 'Context', href: '/context' },
   { label: 'Tech Audit', href: '/tech-audit' },
   { label: 'Search', href: '/search' },
+  { label: 'Insights', href: '/insights' },
 ]
 
 type TopNavProps = {

@@ -134,6 +134,16 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   try { db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
   project_id, project_name, file_path, file_type, title, content, tokenize='porter'
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS insights (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  session_id TEXT,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  detail TEXT NOT NULL,
+  tags TEXT,
+  created_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -336,6 +346,31 @@ export function updateContextPack(db: Database.Database, id: string, data: { tit
 
 export function deleteContextPack(db: Database.Database, id: string): void {
   db.prepare('DELETE FROM context_packs WHERE id = ?').run(id)
+}
+
+// ── Insights ──────────────────────────────────────────────────────────────────
+
+export type Insight = {
+  id: string
+  project_id: string
+  session_id: string | null
+  category: string
+  title: string
+  detail: string
+  tags: string | null
+  created_at: string
+}
+
+export function createInsight(db: Database.Database, data: Insight): void {
+  db.prepare('INSERT INTO insights (id, project_id, session_id, category, title, detail, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(data.id, data.project_id, data.session_id, data.category, data.title, data.detail, data.tags, data.created_at)
+}
+
+export function listInsights(db: Database.Database, projectId?: string, limit: number = 50): Insight[] {
+  if (projectId) {
+    return db.prepare('SELECT * FROM insights WHERE project_id = ? ORDER BY created_at DESC LIMIT ?').all(projectId, limit) as Insight[]
+  }
+  return db.prepare('SELECT * FROM insights ORDER BY created_at DESC LIMIT ?').all(limit) as Insight[]
 }
 
 let _db: Database.Database | null = null
