@@ -171,6 +171,12 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   event_id TEXT PRIMARY KEY,
   read_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS daily_plans (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL UNIQUE,
+  items TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -482,6 +488,22 @@ export function markAllNotificationsRead(db: Database.Database): void {
     INSERT OR IGNORE INTO notifications_read (event_id, read_at)
     SELECT id, ? FROM events WHERE severity IN ('warn', 'error') AND created_at > datetime('now', '-7 days')
   `).run(new Date().toISOString())
+}
+
+// ── Daily Plans ──────────────────────────────────────────────────────────────
+
+export type DailyPlan = { id: string; date: string; items: string; created_at: string }
+
+export function getTodayPlan(db: Database.Database): DailyPlan | undefined {
+  const today = new Date().toISOString().slice(0, 10)
+  return db.prepare('SELECT * FROM daily_plans WHERE date = ?').get(today) as DailyPlan | undefined
+}
+
+export function saveDailyPlan(db: Database.Database, items: string): void {
+  const today = new Date().toISOString().slice(0, 10)
+  const id = randomUUID()
+  db.prepare('INSERT OR REPLACE INTO daily_plans (id, date, items, created_at) VALUES (?, ?, ?, ?)')
+    .run(id, today, items, new Date().toISOString())
 }
 
 let _db: Database.Database | null = null

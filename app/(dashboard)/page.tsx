@@ -9,6 +9,8 @@ import { PromptModal } from '@/components/PromptModal'
 import { SessionModal } from '@/components/SessionModal'
 import { StandupModal } from '@/components/StandupModal'
 import { WeeklyReviewModal } from '@/components/WeeklyReviewModal'
+import { DailyPlanModal } from '@/components/DailyPlanModal'
+import { useDailyPlan } from '@/hooks/useDailyPlan'
 import { formatDistanceToNow } from 'date-fns'
 import type { Phase } from '@/lib/prompts'
 import type { DashboardResponse } from '@/lib/dashboard'
@@ -173,6 +175,7 @@ export default function DashboardPage() {
   const [activeSession, setActiveSession] = useState<Session | null>(null)
   const [showStandup, setShowStandup] = useState(false)
   const [showWeekly, setShowWeekly] = useState(false)
+  const [showPlanDay, setShowPlanDay] = useState(false)
 
   const projectMap: ProjectLookup = Object.fromEntries(projects.map(p => [p.id, p]))
 
@@ -194,6 +197,7 @@ export default function DashboardPage() {
         <button onClick={() => setShowStandup(true)} className="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded transition-colors">
           Standup
         </button>
+        <button onClick={() => setShowPlanDay(true)} className="text-xs px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white rounded">🎯 Plan Day</button>
       </div>
       <InProgressBanner items={data.inProgress} projectMap={projectMap} />
       <UpNextTable items={data.upNext} projectMap={projectMap} onLaunchDevelop={handleLaunchDevelop} />
@@ -256,6 +260,7 @@ export default function DashboardPage() {
       <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
       <StandupModal isOpen={showStandup} onClose={() => setShowStandup(false)} />
       <WeeklyReviewModal isOpen={showWeekly} onClose={() => setShowWeekly(false)} />
+      {data && <DailyPlanModal isOpen={showPlanDay} onClose={() => setShowPlanDay(false)} upNext={data.upNext} />}
     </>
   )
 }
