@@ -5,7 +5,6 @@ import { X } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 const PROJECT_HEALTH = [
-  { label: 'Dashboard', href: '/' },
   { label: 'Insights', href: '/insights' },
   { label: 'Git', href: '/git-activity' },
   { label: 'Usage', href: '/usage' },

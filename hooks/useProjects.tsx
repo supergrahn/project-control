@@ -1,6 +1,6 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 
 export type Project = {
   id: string; name: string; path: string
@@ -92,16 +92,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('project-tabs', JSON.stringify(tabs))
   }, [tabs, hydrated])
 
-  const openProject = (p: Project) => {
+  const openProject = useCallback((p: Project) => {
     setTabs((prev) => ({
       openProjects: prev.openProjects.find((x) => x.id === p.id)
         ? prev.openProjects.map((x) => (x.id === p.id ? p : x))
         : [...prev.openProjects, p],
       activeProjectId: p.id,
     }))
-  }
+  }, [])
 
-  const closeProject = (id: string) => {
+  const closeProject = useCallback((id: string) => {
     setTabs((prev) => {
       const next = prev.openProjects.filter((p) => p.id !== id)
       let newActive = prev.activeProjectId
@@ -111,7 +111,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       }
       return { openProjects: next, activeProjectId: newActive }
     })
-  }
+  }, [])
 
   const selectedProject = tabs.openProjects.find((p) => p.id === tabs.activeProjectId) ?? null
 
