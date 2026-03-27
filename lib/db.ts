@@ -66,6 +66,17 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   // Migrations
   try { db.exec(`ALTER TABLE sessions ADD COLUMN ended_at TEXT`) } catch {}
   try { db.exec(`ALTER TABLE projects ADD COLUMN last_used_at TEXT`) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS events (
+      id         TEXT PRIMARY KEY,
+      project_id TEXT,
+      type       TEXT NOT NULL,
+      summary    TEXT NOT NULL,
+      detail     TEXT,
+      severity   TEXT NOT NULL DEFAULT 'info',
+      created_at TEXT NOT NULL
+    )
+  `) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
