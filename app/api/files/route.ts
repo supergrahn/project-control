@@ -65,7 +65,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { projectId, dir, name } = await req.json()
+  const { projectId, dir, name, pitch } = await req.json()
   if (!projectId || !dir || !name) {
     return NextResponse.json({ error: 'projectId, dir, and name required' }, { status: 400 })
   }
@@ -95,7 +95,8 @@ export async function POST(req: Request) {
   }
 
   const filePath = path.join(absDir, filename)
-  fs.writeFileSync(filePath, `# ${name}\n\n`)
+  const body = pitch?.trim() ? `# ${name}\n\n${pitch.trim()}\n` : `# ${name}\n\n`
+  fs.writeFileSync(filePath, body)
 
   return NextResponse.json({ filename, path: filePath })
 }
