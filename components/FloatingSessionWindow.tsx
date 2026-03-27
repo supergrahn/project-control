@@ -18,7 +18,6 @@ type Props = {
   state: WindowState
   onClose: (sessionId: string) => void
   onMinimize: (sessionId: string) => void
-  onRestore: (sessionId: string) => void
   onBringToFront: (sessionId: string) => void
   onPositionChange: (sessionId: string, x: number, y: number) => void
 }
@@ -89,6 +88,8 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
         ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
       }
 
+      ws.onerror = () => setTermStatus('ended')
+
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
@@ -128,7 +129,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
 
   return (
     <div
-      style={{ left: x, top: y, width, height, zIndex, resize: 'both' as React.CSSProperties['resize'], overflow: 'hidden' }}
+      style={{ left: x, top: y, width, height, zIndex, resize: 'both' as React.CSSProperties['resize'], overflow: 'auto' }}
       className="fixed flex flex-col bg-zinc-950 border border-zinc-700 rounded-lg shadow-2xl"
       onMouseDown={() => onBringToFront(session.id)}
     >
