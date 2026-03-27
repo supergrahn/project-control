@@ -1,7 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings } from 'lucide-react'
+import { Settings, Brain } from 'lucide-react'
 import { ProjectTabs } from './ProjectTabs'
 
 const NAV_ITEMS = [
@@ -14,7 +14,12 @@ const NAV_ITEMS = [
   { label: 'Memory', href: '/memory' },
 ]
 
-export function TopNav() {
+type TopNavProps = {
+  onAssistantToggle?: () => void
+  isAssistantOpen?: boolean
+}
+
+export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {}) {
   const pathname = usePathname()
 
   return (
@@ -36,7 +41,16 @@ export function TopNav() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1">
+          {onAssistantToggle && (
+            <button
+              onClick={onAssistantToggle}
+              className={`p-1.5 rounded transition-colors ${isAssistantOpen ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
+              title="Toggle Assistant (AI)"
+            >
+              <Brain size={16} />
+            </button>
+          )}
           <Link href="/settings" className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
             <Settings size={16} />
           </Link>

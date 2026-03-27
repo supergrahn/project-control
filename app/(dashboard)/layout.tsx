@@ -1,11 +1,13 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { TopNav } from '@/components/nav/TopNav'
 import { ClaudeNotFound } from '@/components/ClaudeNotFound'
 import { useCommandPalette, type Command } from '@/hooks/useCommandPalette'
 import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { CommandPalette } from '@/components/CommandPalette'
+import { AssistantPanel } from '@/components/AssistantPanel'
+import { useAssistantPanel } from '@/hooks/useAssistant'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -36,6 +38,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [projects, openProject, router])
 
   const palette = useCommandPalette(commands)
+  const assistant = useAssistantPanel()
+  const pathname = usePathname()
 
   useEffect(() => {
     const controller = new AbortController()
@@ -48,13 +52,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      <TopNav />
+      <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} />
       {claudeAvailable === false && (
         <div className="px-4 pt-3">
           <ClaudeNotFound />
         </div>
       )}
-      <main className="flex-1 p-6">{children}</main>
+      <div className="flex-1 flex overflow-hidden">
+        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+        <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
+      </div>
       {palette.isOpen && (
         <CommandPalette
           commands={palette.filtered}
