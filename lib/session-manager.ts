@@ -7,7 +7,9 @@ import { getDb, createSession, endSession, getActiveSessionForFile, getProject, 
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getGitHistory } from './git'
+import path from 'path'
 import { randomUUID } from 'crypto'
+import { generateDebrief } from './debrief'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -167,6 +169,26 @@ export function spawnSession(opts: SpawnOptions): string {
       severity: 'info',
     })
     emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: 'completed' })
+    // Generate post-session debrief (non-blocking)
+    if (opts.sourceFile) {
+      const buf = outputBuffer.get(sessionId) ?? []
+      generateDebrief({
+        outputBuffer: buf,
+        sessionLabel: opts.label,
+        phase: opts.phase,
+        sourceFile: opts.sourceFile,
+        projectPath: opts.projectPath,
+      }).then(debriefPath => {
+        if (debriefPath) {
+          logEvent(getDb(), {
+            projectId: opts.projectId,
+            type: 'debrief_generated',
+            summary: `Debrief generated: ${path.basename(debriefPath)}`,
+            severity: 'info',
+          })
+        }
+      }).catch(() => {})
+    }
     ptyMap.delete(sessionId)
     outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
