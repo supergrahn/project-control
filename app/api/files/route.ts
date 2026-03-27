@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb, getProject } from '@/lib/db'
+import { parseFrontmatter } from '@/lib/frontmatter'
 import fs from 'fs'
 import path from 'path'
 
@@ -37,9 +38,17 @@ export async function GET(req: Request) {
     .map((f) => {
       const filePath = path.join(absDir, f)
       const content = fs.readFileSync(filePath, 'utf8')
+      const fm = parseFrontmatter(content)
       const titleMatch = content.match(/^#\s+(.+)$/m)
       const excerptMatch = content.split('\n').find((l) => l.trim() && !l.startsWith('#'))
       const stat = fs.statSync(filePath)
+      const phases = ['ideate', 'spec', 'plan', 'develop'] as const
+      const sessions = Object.fromEntries(
+        phases.map((p) => [p, {
+          sessionId: fm[`${p}_session_id`] ?? null,
+          logId: fm[`${p}_log_id`] ?? null,
+        }])
+      ) as Record<typeof phases[number], { sessionId: string | null; logId: string | null }>
       return {
         filename: f,
         path: filePath,
@@ -47,6 +56,7 @@ export async function GET(req: Request) {
         excerpt: excerptMatch?.trim() ?? '',
         modifiedAt: stat.mtime.toISOString(),
         content,
+        sessions,
       }
     })
     .sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt))

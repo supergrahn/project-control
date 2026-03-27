@@ -1,5 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+export type SessionState = {
+  sessionId: string | null
+  logId: string | null
+}
+
 export type MarkdownFile = {
   filename: string
   path: string
@@ -7,6 +12,12 @@ export type MarkdownFile = {
   excerpt: string
   modifiedAt: string
   content: string
+  sessions: {
+    ideate: SessionState
+    spec: SessionState
+    plan: SessionState
+    develop: SessionState
+  }
 }
 
 // null means the directory is not configured (422); [] means configured but empty
