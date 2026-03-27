@@ -1,29 +1,30 @@
 'use client'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { CardGrid } from '@/components/CardGrid'
 import { MarkdownCard } from '@/components/cards/MarkdownCard'
 import { FileDrawer } from '@/components/FileDrawer'
 import { NewFileDialog } from '@/components/NewFileDialog'
-import { PromptModal } from '@/components/PromptModal'
-import { SessionModal } from '@/components/SessionModal'
 import { SetupPrompt } from '@/components/SetupPrompt'
 import { useFiles, useCreateFile, usePromoteFile, type MarkdownFile } from '@/hooks/useFiles'
 import { useProjectStore } from '@/hooks/useProjects'
-import { useLaunchSession, type Session } from '@/hooks/useSessions'
-import { type Phase } from '@/lib/prompts'
+import { useLaunchSession } from '@/hooks/useSessions'
+import { useSessionWindows } from '@/hooks/useSessionWindows'
+
+const DIR = 'specs'
 
 export default function SpecsPage() {
   const { selectedProject } = useProjectStore()
-  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, 'specs')
+  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, DIR)
   const files = data ?? []
   const createFile = useCreateFile()
   const promoteFile = usePromoteFile()
+  const launchSession = useLaunchSession()
+  const { openWindow, bringToFront } = useSessionWindows()
+  const qc = useQueryClient()
   const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
-  const [promptConfig, setPromptConfig] = useState<{ phase: Phase; sourceFile: string; fileTitle: string } | null>(null)
-  const [activeSession, setActiveSession] = useState<Session | null>(null)
-  const launchSession = useLaunchSession()
 
   if (!selectedProject) {
     return <p className="text-zinc-500 text-sm">Select a project to view specs.</p>
@@ -31,7 +32,33 @@ export default function SpecsPage() {
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Loading...</p>
 
-  if (data === null || error) return <SetupPrompt dir="specs" />
+  if (data === null || error) return <SetupPrompt dir={DIR} />
+
+  async function startSession(file: MarkdownFile, phase: string) {
+    if (!selectedProject) return
+    try {
+      const result = await launchSession.mutateAsync({
+        projectId: selectedProject.id,
+        phase,
+        sourceFile: file.path,
+        userContext: '',
+        permissionMode: 'default',
+      })
+      if (result.sessionId) {
+        openWindow({
+          id: result.sessionId,
+          project_id: selectedProject.id,
+          label: `${file.title} · ${phase}`,
+          phase,
+          source_file: file.path,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          ended_at: null,
+        })
+        qc.invalidateQueries({ queryKey: ['files', selectedProject.id, DIR] })
+      }
+    } catch {}
+  }
 
   return (
     <>
@@ -55,10 +82,14 @@ export default function SpecsPage() {
             file={f}
             badge="spec"
             onClick={() => setDrawerFile(f)}
+            phaseSessionState={f.sessions.spec}
+            onLiveBadgeClick={() => { if (f.sessions.spec.sessionId) bringToFront(f.sessions.spec.sessionId) }}
+            onViewLog={() => { if (f.sessions.spec.logId) setDrawerFile({ ...f, path: f.sessions.spec.logId, title: `${f.title} — spec log`, content: '' }) }}
+            onResume={() => startSession(f, 'spec')}
             actions={[
-              { label: '📋 Continue Spec', variant: 'primary', onClick: () => setPromptConfig({ phase: 'spec', sourceFile: f.path, fileTitle: f.title }) },
+              { label: '📐 Spec', variant: 'primary', onClick: () => startSession(f, 'spec') },
               { label: '🗺 → Plans', onClick: () => promoteFile.mutate({ projectId: selectedProject.id, sourceFile: f.path, targetDir: 'plans' }) },
-              { label: '🗺 Create Plan', onClick: () => setPromptConfig({ phase: 'plan', sourceFile: f.path, fileTitle: f.title }) },
+              { label: '🗺 Create Plan', onClick: () => startSession(f, 'plan') },
             ]}
           />
         ))}
@@ -72,7 +103,7 @@ export default function SpecsPage() {
           onCancel={() => setShowNewDialog(false)}
           onConfirm={async (name) => {
             try {
-              await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'specs', name })
+              await createFile.mutateAsync({ projectId: selectedProject.id, dir: DIR, name })
               setShowNewDialog(false)
             } catch {
               // mutation failed — leave dialog open, user can retry
@@ -80,41 +111,6 @@ export default function SpecsPage() {
           }}
         />
       )}
-
-      {promptConfig && selectedProject && (
-        <PromptModal
-          phase={promptConfig.phase}
-          sourceFile={promptConfig.sourceFile}
-          onCancel={() => setPromptConfig(null)}
-          onLaunch={async (userContext, permissionMode, correctionNote) => {
-            const config = promptConfig
-            setPromptConfig(null)
-            try {
-              const result = await launchSession.mutateAsync({
-                projectId: selectedProject.id,
-                phase: config.phase,
-                sourceFile: config.sourceFile,
-                userContext,
-                permissionMode,
-                correctionNote,
-              })
-              if (result.sessionId) {
-                setActiveSession({
-                  id: result.sessionId,
-                  label: `${config.fileTitle} · ${config.phase}`,
-                  phase: config.phase,
-                  project_id: selectedProject.id,
-                  source_file: config.sourceFile,
-                  status: 'active',
-                  created_at: new Date().toISOString(),
-                  ended_at: null,
-                })
-              }
-            } catch {}
-          }}
-        />
-      )}
-      <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
     </>
   )
 }

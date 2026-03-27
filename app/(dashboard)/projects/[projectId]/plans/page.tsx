@@ -2,18 +2,19 @@
 'use client'
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { CardGrid } from '@/components/CardGrid'
 import { MarkdownCard } from '@/components/cards/MarkdownCard'
 import { FileDrawer } from '@/components/FileDrawer'
 import { NewFileDialog } from '@/components/NewFileDialog'
-import { PromptModal } from '@/components/PromptModal'
-import { SessionModal } from '@/components/SessionModal'
 import { SetupPrompt } from '@/components/SetupPrompt'
 import { useFiles, useCreateFile, type MarkdownFile } from '@/hooks/useFiles'
 import { useProjectStore } from '@/hooks/useProjects'
-import { useLaunchSession, type Session } from '@/hooks/useSessions'
+import { useLaunchSession } from '@/hooks/useSessions'
+import { useSessionWindows } from '@/hooks/useSessionWindows'
 import { useAuditStatus, useRunAudit } from '@/hooks/useAudit'
-import { type Phase } from '@/lib/prompts'
+
+const DIR = 'plans'
 
 function auditBadge(status: { blockers: number; warnings: number } | undefined, running: boolean) {
   if (running) return <span className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-400 animate-pulse">Auditing…</span>
@@ -25,17 +26,17 @@ function auditBadge(status: { blockers: number; warnings: number } | undefined, 
 
 export default function PlansPage() {
   const { selectedProject } = useProjectStore()
-  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, 'plans')
+  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, DIR)
   const files = data ?? []
   const createFile = useCreateFile()
   const { data: auditStatuses = {} } = useAuditStatus(selectedProject?.id ?? null)
   const runAudit = useRunAudit()
+  const launchSession = useLaunchSession()
+  const { openWindow, bringToFront } = useSessionWindows()
+  const qc = useQueryClient()
   const [auditingFile, setAuditingFile] = useState<string | null>(null)
   const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
-  const [promptConfig, setPromptConfig] = useState<{ phase: Phase; sourceFile: string; fileTitle: string } | null>(null)
-  const [activeSession, setActiveSession] = useState<Session | null>(null)
-  const launchSession = useLaunchSession()
 
   if (!selectedProject) {
     return <p className="text-zinc-500 text-sm">Select a project to view plans.</p>
@@ -43,7 +44,33 @@ export default function PlansPage() {
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Loading...</p>
 
-  if (data === null || error) return <SetupPrompt dir="plans" />
+  if (data === null || error) return <SetupPrompt dir={DIR} />
+
+  async function startSession(file: MarkdownFile, phase: string) {
+    if (!selectedProject) return
+    try {
+      const result = await launchSession.mutateAsync({
+        projectId: selectedProject.id,
+        phase,
+        sourceFile: file.path,
+        userContext: '',
+        permissionMode: 'default',
+      })
+      if (result.sessionId) {
+        openWindow({
+          id: result.sessionId,
+          project_id: selectedProject.id,
+          label: `${file.title} · ${phase}`,
+          phase,
+          source_file: file.path,
+          status: 'active',
+          created_at: new Date().toISOString(),
+          ended_at: null,
+        })
+        qc.invalidateQueries({ queryKey: ['files', selectedProject.id, DIR] })
+      }
+    } catch {}
+  }
 
   const handleAudit = async (f: MarkdownFile) => {
     if (auditingFile) return
@@ -94,9 +121,13 @@ export default function PlansPage() {
                 file={f}
                 badge="plan"
                 onClick={() => setDrawerFile(f)}
+                phaseSessionState={f.sessions.plan}
+                onLiveBadgeClick={() => { if (f.sessions.plan.sessionId) bringToFront(f.sessions.plan.sessionId) }}
+                onViewLog={() => { if (f.sessions.plan.logId) setDrawerFile({ ...f, path: f.sessions.plan.logId, title: `${f.title} — plan log`, content: '' }) }}
+                onResume={() => startSession(f, 'plan')}
                 actions={[
-                  { label: '🗺 Continue Planning', variant: 'primary', onClick: () => setPromptConfig({ phase: 'plan', sourceFile: f.path, fileTitle: f.title }) },
-                  { label: '🚀 Start Developing', onClick: () => setPromptConfig({ phase: 'develop', sourceFile: f.path, fileTitle: f.title }) },
+                  { label: '📋 Plan', variant: 'primary', onClick: () => startSession(f, 'plan') },
+                  { label: '🚀 Start Developing', onClick: () => startSession(f, 'develop') },
                   { label: isRunning ? 'Auditing…' : '🔍 Audit', onClick: () => handleAudit(f) },
                 ]}
               />
@@ -118,47 +149,12 @@ export default function PlansPage() {
           onCancel={() => setShowNewDialog(false)}
           onConfirm={async (name) => {
             try {
-              await createFile.mutateAsync({ projectId: selectedProject.id, dir: 'plans', name })
+              await createFile.mutateAsync({ projectId: selectedProject.id, dir: DIR, name })
               setShowNewDialog(false)
             } catch {}
           }}
         />
       )}
-
-      {promptConfig && selectedProject && (
-        <PromptModal
-          phase={promptConfig.phase}
-          sourceFile={promptConfig.sourceFile}
-          onCancel={() => setPromptConfig(null)}
-          onLaunch={async (userContext, permissionMode, correctionNote) => {
-            const config = promptConfig
-            setPromptConfig(null)
-            try {
-              const result = await launchSession.mutateAsync({
-                projectId: selectedProject.id,
-                phase: config.phase,
-                sourceFile: config.sourceFile,
-                userContext,
-                permissionMode,
-                correctionNote,
-              })
-              if (result.sessionId) {
-                setActiveSession({
-                  id: result.sessionId,
-                  label: `${config.fileTitle} · ${config.phase}`,
-                  phase: config.phase,
-                  project_id: selectedProject.id,
-                  source_file: config.sourceFile,
-                  status: 'active',
-                  created_at: new Date().toISOString(),
-                  ended_at: null,
-                })
-              }
-            } catch {}
-          }}
-        />
-      )}
-      <SessionModal session={activeSession} onClose={() => setActiveSession(null)} />
     </>
   )
 }

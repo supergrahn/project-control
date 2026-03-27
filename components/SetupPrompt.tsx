@@ -3,13 +3,14 @@ import Link from 'next/link'
 import { Settings } from 'lucide-react'
 
 type Props = {
-  dir: 'ideas' | 'specs' | 'plans'
+  dir: 'ideas' | 'specs' | 'plans' | 'developing'
 }
 
 const LABELS: Record<Props['dir'], string> = {
   ideas: 'ideas',
   specs: 'specs',
   plans: 'plans',
+  developing: 'developing',
 }
 
 export function SetupPrompt({ dir }: Props) {
