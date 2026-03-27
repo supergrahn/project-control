@@ -153,6 +153,13 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   tags TEXT,
   created_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  dirs TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -396,6 +403,23 @@ export function createBookmark(db: Database.Database, data: { id: string; projec
 
 export function deleteBookmark(db: Database.Database, id: string): void {
   db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id)
+}
+
+// ── Templates ─────────────────────────────────────────────────────────────────
+
+export type Template = { id: string; name: string; description: string | null; dirs: string; created_at: string }
+
+export function listTemplates(db: Database.Database): Template[] {
+  return db.prepare('SELECT * FROM templates ORDER BY created_at DESC').all() as Template[]
+}
+
+export function createTemplate(db: Database.Database, data: { id: string; name: string; description?: string; dirs: string }): void {
+  db.prepare('INSERT INTO templates (id, name, description, dirs, created_at) VALUES (?, ?, ?, ?, ?)')
+    .run(data.id, data.name, data.description ?? null, data.dirs, new Date().toISOString())
+}
+
+export function deleteTemplate(db: Database.Database, id: string): void {
+  db.prepare('DELETE FROM templates WHERE id = ?').run(id)
 }
 
 let _db: Database.Database | null = null

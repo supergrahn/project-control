@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { label: 'Kanban', href: '/kanban' },
   { label: 'Bookmarks', href: '/bookmarks' },
   { label: 'Timeline', href: '/timeline' },
+  { label: 'Templates', href: '/templates' },
 ]
 
 type TopNavProps = {
