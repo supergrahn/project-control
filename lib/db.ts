@@ -160,6 +160,13 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   dirs TEXT NOT NULL,
   created_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS feature_deps (
+  id TEXT PRIMARY KEY,
+  feature_key TEXT NOT NULL,
+  depends_on_key TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -420,6 +427,23 @@ export function createTemplate(db: Database.Database, data: { id: string; name: 
 
 export function deleteTemplate(db: Database.Database, id: string): void {
   db.prepare('DELETE FROM templates WHERE id = ?').run(id)
+}
+
+// ── Feature Dependencies ──────────────────────────────────────────────────────
+
+export type FeatureDep = { id: string; feature_key: string; depends_on_key: string; project_id: string; created_at: string }
+
+export function listFeatureDeps(db: Database.Database, projectId: string): FeatureDep[] {
+  return db.prepare('SELECT * FROM feature_deps WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as FeatureDep[]
+}
+
+export function createFeatureDep(db: Database.Database, data: { id: string; feature_key: string; depends_on_key: string; project_id: string }): void {
+  db.prepare('INSERT INTO feature_deps (id, feature_key, depends_on_key, project_id, created_at) VALUES (?, ?, ?, ?, ?)')
+    .run(data.id, data.feature_key, data.depends_on_key, data.project_id, new Date().toISOString())
+}
+
+export function deleteFeatureDep(db: Database.Database, id: string): void {
+  db.prepare('DELETE FROM feature_deps WHERE id = ?').run(id)
 }
 
 let _db: Database.Database | null = null
