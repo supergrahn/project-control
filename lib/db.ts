@@ -144,6 +144,15 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   tags TEXT,
   created_at TEXT NOT NULL
 )`) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS bookmarks (
+  id TEXT PRIMARY KEY,
+  project_id TEXT,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  source_url TEXT,
+  tags TEXT,
+  created_at TEXT NOT NULL
+)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -371,6 +380,22 @@ export function listInsights(db: Database.Database, projectId?: string, limit: n
     return db.prepare('SELECT * FROM insights WHERE project_id = ? ORDER BY created_at DESC LIMIT ?').all(projectId, limit) as Insight[]
   }
   return db.prepare('SELECT * FROM insights ORDER BY created_at DESC LIMIT ?').all(limit) as Insight[]
+}
+
+// ── Bookmarks ─────────────────────────────────────────────────────────────────
+
+export function listBookmarks(db: Database.Database, projectId?: string): Array<{ id: string; project_id: string | null; title: string; content: string; source_url: string | null; tags: string | null; created_at: string }> {
+  if (projectId) return db.prepare('SELECT * FROM bookmarks WHERE project_id = ? ORDER BY created_at DESC').all(projectId) as any[]
+  return db.prepare('SELECT * FROM bookmarks ORDER BY created_at DESC').all() as any[]
+}
+
+export function createBookmark(db: Database.Database, data: { id: string; project_id?: string | null; title: string; content: string; source_url?: string; tags?: string }): void {
+  db.prepare('INSERT INTO bookmarks (id, project_id, title, content, source_url, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(data.id, data.project_id ?? null, data.title, data.content, data.source_url ?? null, data.tags ?? null, new Date().toISOString())
+}
+
+export function deleteBookmark(db: Database.Database, id: string): void {
+  db.prepare('DELETE FROM bookmarks WHERE id = ?').run(id)
 }
 
 let _db: Database.Database | null = null
