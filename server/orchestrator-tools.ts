@@ -18,8 +18,13 @@ export async function listSessionsByProject(projectId: string) {
 
 export async function readArtifact(sourceFile: string): Promise<string> {
   try {
-    if (!fs.existsSync(sourceFile)) return `(file not found: ${sourceFile})`
-    return fs.readFileSync(sourceFile, 'utf8')
+    const resolved = path.resolve(sourceFile)
+    // Validate file is within a registered project
+    const projects = listProjects(getDb())
+    const isWithinProject = projects.some(p => resolved.startsWith(path.resolve(p.path) + path.sep))
+    if (!isWithinProject) return `(access denied: file not within any registered project)`
+    if (!fs.existsSync(resolved)) return `(file not found: ${sourceFile})`
+    return fs.readFileSync(resolved, 'utf8')
   } catch {
     return `(error reading: ${sourceFile})`
   }
@@ -35,7 +40,7 @@ export async function readProgress(sessionId: string): Promise<{ steps: unknown[
 export async function spawnNewSession(projectId: string, phase: string, sourceFile?: string): Promise<string> {
   const project = getProject(getDb(), projectId)
   if (!project) throw new Error(`Project ${projectId} not found`)
-  const port = process.env.PORT ?? '3001'
+  const port = process.env.PORT ?? '3000'
   const res = await fetch(`http://localhost:${port}/api/sessions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

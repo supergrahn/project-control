@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
@@ -96,6 +96,11 @@ export function FileDrawer({ file, onClose }: Props) {
   const updateNote = useUpdateNote()
   const [noteText, setNoteText] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
+  const noteSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => { if (noteSaveTimerRef.current) clearTimeout(noteSaveTimerRef.current) }
+  }, [])
 
   // Sync note text when file changes
   useEffect(() => {
@@ -107,7 +112,7 @@ export function FileDrawer({ file, onClose }: Props) {
     updateNote.mutate({ filePath: file.path, note: noteText }, {
       onSuccess: () => {
         setNoteSaved(true)
-        setTimeout(() => setNoteSaved(false), 2000)
+        noteSaveTimerRef.current = setTimeout(() => setNoteSaved(false), 2000)
       },
     })
   }

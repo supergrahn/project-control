@@ -23,7 +23,7 @@ export async function GET(req: Request) {
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
   const relDir = project[DIR_MAP[dir]] as string | null
-  if (!relDir) return NextResponse.json({ error: `${dir}_dir not configured` }, { status: 422 })
+  if (!relDir) return NextResponse.json(null)
 
   const absDir = path.resolve(project.path, relDir)
   const projectRoot = path.resolve(project.path)
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
   const relDir = project[DIR_MAP[dir as Dir]] as string | null
-  if (!relDir) return NextResponse.json({ error: `${dir}_dir not configured` }, { status: 422 })
+  if (!relDir) return NextResponse.json({ error: `${dir}_dir not configured` }, { status: 400 })
 
   const absDir = path.resolve(project.path, relDir)
   const projectRoot = path.resolve(project.path)

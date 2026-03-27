@@ -15,9 +15,8 @@ export function useFiles(projectId: string | null, dir: 'ideas' | 'specs' | 'pla
     queryKey: ['files', projectId, dir],
     queryFn: async () => {
       const r = await fetch(`/api/files?projectId=${projectId}&dir=${dir}`)
-      if (r.status === 422) return null
       if (!r.ok) throw new Error(r.statusText)
-      return r.json()
+      return r.json() as Promise<MarkdownFile[] | null>
     },
     enabled: !!projectId,
   })
@@ -29,5 +28,14 @@ export function useCreateFile() {
     mutationFn: (data: { projectId: string; dir: string; name: string }) =>
       fetch('/api/files', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json()),
     onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['files', vars.projectId, vars.dir] }),
+  })
+}
+
+export function usePromoteFile() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (data: { projectId: string; sourceFile: string; targetDir: string }) =>
+      fetch('/api/files/copy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then((r) => r.json()),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['files', vars.projectId, vars.targetDir] }),
   })
 }

@@ -42,9 +42,10 @@ type Props = {
 }
 
 export function SessionCard({ session, latestDecision, proposedActions = [], isGated = false, onAction }: Props) {
-  const steps: ProgressStep[] = session.progress_steps
-    ? (JSON.parse(session.progress_steps) as ProgressStep[])
-    : []
+  let steps: ProgressStep[] = []
+  if (session.progress_steps) {
+    try { steps = JSON.parse(session.progress_steps) as ProgressStep[] } catch {}
+  }
   const doneCount = steps.filter(s => s.status === 'done').length
   const progress = steps.length > 0 ? (doneCount / steps.length) * 100 : 0
   const featureName = session.source_file?.split('/').pop()?.replace('.md', '') ?? session.label

@@ -23,7 +23,10 @@ export async function GET(req: Request) {
             newOnes.forEach(d => seenIds.add(d.id))
             controller.enqueue(enc.encode(`data: ${JSON.stringify({ decisions: newOnes })}\n\n`))
           }
-        } catch {}
+        } catch {
+          clearInterval(interval)
+          try { controller.close() } catch {}
+        }
       }, 500)
 
       req.signal.addEventListener('abort', () => {

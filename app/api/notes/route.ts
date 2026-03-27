@@ -10,8 +10,6 @@ export async function GET(req: Request) {
   if (!filePath) return NextResponse.json({ error: 'filePath required' }, { status: 400 })
 
   const db = getDb()
-  // Ensure table exists
-  db.exec(`CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`)
 
   const row = db.prepare('SELECT note FROM feature_notes WHERE file_path = ?').get(filePath) as { note: string } | undefined
   return NextResponse.json({ note: row?.note ?? null })
@@ -26,7 +24,6 @@ export async function PUT(req: Request) {
   if (typeof note !== 'string') return NextResponse.json({ error: 'note must be a string' }, { status: 400 })
 
   const db = getDb()
-  db.exec(`CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`)
 
   if (note.trim()) {
     db.prepare('INSERT OR REPLACE INTO feature_notes (file_path, note, updated_at) VALUES (?, ?, ?)')

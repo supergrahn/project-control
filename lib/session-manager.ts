@@ -302,7 +302,7 @@ export function spawnOrchestratorSession(opts: {
     id: sessionId,
     projectId: opts.projectId,
     label: 'Orchestrator',
-    phase: 'develop' as any,
+    phase: 'orchestrator',
     sourceFile: null,
   })
 

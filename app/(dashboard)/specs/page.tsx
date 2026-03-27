@@ -8,7 +8,7 @@ import { NewFileDialog } from '@/components/NewFileDialog'
 import { PromptModal } from '@/components/PromptModal'
 import { SessionModal } from '@/components/SessionModal'
 import { SetupPrompt } from '@/components/SetupPrompt'
-import { useFiles, useCreateFile, type MarkdownFile } from '@/hooks/useFiles'
+import { useFiles, useCreateFile, usePromoteFile, type MarkdownFile } from '@/hooks/useFiles'
 import { useProjectStore } from '@/hooks/useProjects'
 import { useLaunchSession, type Session } from '@/hooks/useSessions'
 import { type Phase } from '@/lib/prompts'
@@ -18,6 +18,7 @@ export default function SpecsPage() {
   const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, 'specs')
   const files = data ?? []
   const createFile = useCreateFile()
+  const promoteFile = usePromoteFile()
   const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
   const [showNewDialog, setShowNewDialog] = useState(false)
   const [promptConfig, setPromptConfig] = useState<{ phase: Phase; sourceFile: string; fileTitle: string } | null>(null)
@@ -56,6 +57,7 @@ export default function SpecsPage() {
             onClick={() => setDrawerFile(f)}
             actions={[
               { label: '📋 Continue Spec', variant: 'primary', onClick: () => setPromptConfig({ phase: 'spec', sourceFile: f.path, fileTitle: f.title }) },
+              { label: '🗺 → Plans', onClick: () => promoteFile.mutate({ projectId: selectedProject.id, sourceFile: f.path, targetDir: 'plans' }) },
               { label: '🗺 Create Plan', onClick: () => setPromptConfig({ phase: 'plan', sourceFile: f.path, fileTitle: f.title }) },
             ]}
           />
@@ -84,7 +86,7 @@ export default function SpecsPage() {
           phase={promptConfig.phase}
           sourceFile={promptConfig.sourceFile}
           onCancel={() => setPromptConfig(null)}
-          onLaunch={async (userContext, permissionMode) => {
+          onLaunch={async (userContext, permissionMode, correctionNote) => {
             const config = promptConfig
             setPromptConfig(null)
             try {
@@ -94,6 +96,7 @@ export default function SpecsPage() {
                 sourceFile: config.sourceFile,
                 userContext,
                 permissionMode,
+                correctionNote,
               })
               if (result.sessionId) {
                 setActiveSession({

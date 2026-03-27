@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { getSystemPrompt, type Phase } from '@/lib/prompts'
 
-type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions'
+type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
 
 type Props = {
   phase: Phase

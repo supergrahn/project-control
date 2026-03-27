@@ -2,14 +2,13 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import { randomUUID } from 'crypto'
+import { randomUUID, randomBytes } from 'crypto'
 import { z } from 'zod'
 import * as tools from './orchestrator-tools'
 
-const SECRET = process.env.ORCHESTRATOR_MCP_SECRET ?? ''
+const SECRET = process.env.ORCHESTRATOR_MCP_SECRET || randomBytes(32).toString('hex')
 
 function checkAuth(req: IncomingMessage): boolean {
-  if (!SECRET) return true
   return req.headers['x-orchestrator-secret'] === SECRET
 }
 
@@ -98,6 +97,11 @@ export function startOrchestratorMcp(port: number): ReturnType<typeof createServ
     }
   })
 
-  httpServer.listen(port, () => console.log(`[orchestrator-mcp] listening on :${port}`))
+  httpServer.listen(port, () => {
+    console.log(`[orchestrator-mcp] listening on :${port}`)
+    if (!process.env.ORCHESTRATOR_MCP_SECRET) {
+      console.log(`[orchestrator-mcp] generated secret: ${SECRET}`)
+    }
+  })
   return httpServer
 }

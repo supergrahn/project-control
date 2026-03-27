@@ -13,7 +13,7 @@ import type {
 export type { Orchestrator, OrchestratorDecision, SessionProposedAction, AutomationLevel, DecisionSeverity }
 
 export type SessionStatus = 'active' | 'ended'
-export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review'
+export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'orchestrator'
 
 export type Project = {
   id: string
@@ -121,6 +121,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       dismissed   INTEGER NOT NULL DEFAULT 0
     )
   `) } catch {}
+  try { db.exec(`CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
