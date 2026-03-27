@@ -7,6 +7,7 @@ import { ProjectTabs } from './ProjectTabs'
 import { useFocus } from '@/hooks/useFocus'
 import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { useNotifications, useMarkRead } from '@/hooks/useNotifications'
+import { useSessionWindows } from '@/hooks/useSessionWindows'
 
 const FLOW_ITEMS = [
   { label: 'Ideas', slug: 'ideas' },
@@ -34,6 +35,7 @@ export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isD
   const [showNotifs, setShowNotifs] = useState(false)
   const notifsRef = useRef<HTMLDivElement>(null)
   const unreadCount = notifData?.unreadCount ?? 0
+  const { windows, toggleAll } = useSessionWindows()
 
   useEffect(() => {
     if (!showNotifs) return
@@ -139,16 +141,21 @@ export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isD
               </div>
             )}
           </div>
-          {/* Assistant */}
-          {onAssistantToggle && (
+          {/* Brain — session windows */}
+          <div className="relative">
             <button
-              onClick={onAssistantToggle}
-              className={`p-1.5 rounded transition-colors ${isAssistantOpen ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
-              title="Toggle Assistant"
+              onClick={toggleAll}
+              className={`p-1.5 rounded transition-colors ${windows.length > 0 ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
+              title="Toggle sessions"
             >
               <Brain size={16} />
             </button>
-          )}
+            {windows.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-violet-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                {windows.length > 9 ? '9+' : windows.length}
+              </span>
+            )}
+          </div>
           {/* Settings */}
           <Link href="/settings" className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
             <Settings size={16} />

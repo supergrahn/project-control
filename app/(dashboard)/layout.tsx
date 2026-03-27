@@ -13,6 +13,9 @@ import { PasteModal } from '@/components/PasteModal'
 import { ShortcutGuide } from '@/components/ShortcutGuide'
 import { FocusProvider } from '@/hooks/useFocus'
 import { NavDrawer } from '@/components/nav/NavDrawer'
+import { SessionWindowProvider, useSessionWindows } from '@/hooks/useSessionWindows'
+import { FloatingSessionWindow } from '@/components/FloatingSessionWindow'
+import { SessionPillBar } from '@/components/SessionPillBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -80,31 +83,53 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   return (
-    <FocusProvider>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-        <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} />
-        {claudeAvailable === false && (
-          <div className="px-4 pt-3">
-            <ClaudeNotFound />
+    <SessionWindowProvider>
+      <FocusProvider>
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+          <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} />
+          {claudeAvailable === false && (
+            <div className="px-4 pt-3">
+              <ClaudeNotFound />
+            </div>
+          )}
+          <div className="flex-1 flex overflow-hidden">
+            <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+            <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
           </div>
-        )}
-        <div className="flex-1 flex overflow-hidden">
-          <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-          <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
+          {palette.isOpen && (
+            <CommandPalette
+              commands={palette.filtered}
+              query={palette.query}
+              onQueryChange={palette.setQuery}
+              onClose={palette.close}
+            />
+          )}
+          <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
+          <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
+          <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+          <NavDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
         </div>
-        {palette.isOpen && (
-          <CommandPalette
-            commands={palette.filtered}
-            query={palette.query}
-            onQueryChange={palette.setQuery}
-            onClose={palette.close}
-          />
-        )}
-        <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
-        <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
-        <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
-        <NavDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
-      </div>
-    </FocusProvider>
+        <FloatingWindowsRenderer />
+        <SessionPillBar />
+      </FocusProvider>
+    </SessionWindowProvider>
+  )
+}
+
+function FloatingWindowsRenderer() {
+  const { windows, closeWindow, minimizeWindow, bringToFront, updatePosition } = useSessionWindows()
+  return (
+    <>
+      {windows.map((w) => (
+        <FloatingSessionWindow
+          key={w.session.id}
+          state={w}
+          onClose={closeWindow}
+          onMinimize={minimizeWindow}
+          onBringToFront={bringToFront}
+          onPositionChange={updatePosition}
+        />
+      ))}
+    </>
   )
 }
