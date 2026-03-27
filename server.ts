@@ -3,6 +3,7 @@ import { parse } from 'url'
 import next from 'next'
 import { WebSocketServer } from 'ws'
 import { handleWebSocket, ptyMap } from './lib/session-manager'
+import { startOrchestratorMcp } from './server/orchestrator-mcp'
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
@@ -44,4 +45,7 @@ app.prepare().then(() => {
   server.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`)
   })
+
+  const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
+  startOrchestratorMcp(mcpPort)
 })
