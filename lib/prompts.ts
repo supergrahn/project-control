@@ -20,6 +20,33 @@ export function getSystemPrompt(phase: Phase, sourceFile: string): string {
   return TEMPLATES[phase](sourceFile)
 }
 
+export type SessionContext = {
+  phase: Phase
+  sourceFile: string | null
+  userContext?: string
+  gitHistory?: string | null
+  correctionNote?: string | null
+}
+
+export function buildSessionContext(ctx: SessionContext): string {
+  const parts: string[] = []
+
+  if (ctx.correctionNote?.trim()) {
+    parts.push(`> CORRECTION FROM PREVIOUS PHASE:\n> ${ctx.correctionNote.trim()}\n\n---\n`)
+  }
+
+  const basePrompt = ctx.sourceFile
+    ? getSystemPrompt(ctx.phase, ctx.sourceFile)
+    : `You are helping with a ${ctx.phase} session.`
+  parts.push(basePrompt)
+
+  if (ctx.gitHistory) {
+    parts.push(`\n\n## Recent Git History\n\n${ctx.gitHistory}`)
+  }
+
+  return parts.join('\n')
+}
+
 // Returns the prompt string. The route builds frontmatter separately from Claude's output
 // using buildFrontmatter() so the timestamp is injected server-side, not by Claude.
 export function buildAuditPrompt(opts: {
