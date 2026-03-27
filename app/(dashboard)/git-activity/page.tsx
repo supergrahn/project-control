@@ -1,10 +1,19 @@
 'use client'
+import { useState } from 'react'
 import { GitBranch, GitCommit, AlertCircle } from 'lucide-react'
 import { useGitActivity } from '@/hooks/useGitActivity'
 import { formatDistanceToNow } from 'date-fns'
+import { DiffDrawer } from '@/components/DiffDrawer'
 
 export default function GitActivityPage() {
   const { data, isLoading, isError } = useGitActivity()
+  const [diffData, setDiffData] = useState<{ diff: string | null; projectName: string } | null>(null)
+
+  const handleViewDiff = async (projectId: string, projectName: string) => {
+    const r = await fetch(`/api/git-diff?projectId=${projectId}`)
+    const d = await r.json()
+    setDiffData({ diff: d.diff, projectName })
+  }
 
   if (isLoading) return <p className="text-zinc-500 text-sm">Scanning repositories...</p>
   if (isError || !data) return <p className="text-zinc-500 text-sm">Failed to scan.</p>
@@ -43,6 +52,10 @@ export default function GitActivityPage() {
                       <AlertCircle size={10} /> {p.uncommittedChanges} uncommitted
                     </span>
                   )}
+                  {p.uncommittedChanges > 0 && (
+                    <button onClick={() => handleViewDiff(p.projectId, p.projectName)}
+                      className="text-[10px] text-violet-400 hover:text-violet-300">View Diff</button>
+                  )}
                   {p.lastCommitDate && (
                     <span className="text-[10px] text-zinc-600">
                       {formatDistanceToNow(new Date(p.lastCommitDate), { addSuffix: true })}
@@ -67,6 +80,8 @@ export default function GitActivityPage() {
           </div>
         ))}
       </div>
+
+      {diffData && <DiffDrawer diff={diffData.diff} projectName={diffData.projectName} onClose={() => setDiffData(null)} />}
     </>
   )
 }

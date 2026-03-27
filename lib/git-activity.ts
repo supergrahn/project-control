@@ -1,6 +1,19 @@
 import { execFileSync } from 'child_process'
 import type { Project } from './db'
 
+export function getGitDiff(projectPath: string): string | null {
+  try {
+    const staged = execFileSync('git', ['-C', projectPath, 'diff', '--cached'], {
+      encoding: 'utf8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim()
+    const unstaged = execFileSync('git', ['-C', projectPath, 'diff'], {
+      encoding: 'utf8', timeout: 10000, stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim()
+    const combined = [staged, unstaged].filter(Boolean).join('\n')
+    return combined || null
+  } catch { return null }
+}
+
 export type ProjectGitActivity = {
   projectId: string
   projectName: string
