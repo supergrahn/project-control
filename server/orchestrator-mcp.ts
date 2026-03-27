@@ -8,6 +8,9 @@ import * as tools from './orchestrator-tools'
 
 const SECRET = process.env.ORCHESTRATOR_MCP_SECRET || randomBytes(32).toString('hex')
 
+/** Exposed so spawnOrchestratorSession can pass the same secret to the Claude session */
+export function getMcpSecret(): string { return SECRET }
+
 function checkAuth(req: IncomingMessage): boolean {
   return req.headers['x-orchestrator-secret'] === SECRET
 }

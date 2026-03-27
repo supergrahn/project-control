@@ -279,7 +279,14 @@ export function spawnOrchestratorSession(opts: {
   const db = getDb()
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
-  const secret = process.env.ORCHESTRATOR_MCP_SECRET ?? opts.orchestratorId
+  // Import the actual MCP secret so orchestrator can authenticate
+  let secret: string
+  try {
+    const { getMcpSecret } = require('../server/orchestrator-mcp')
+    secret = getMcpSecret()
+  } catch {
+    secret = process.env.ORCHESTRATOR_MCP_SECRET ?? opts.orchestratorId
+  }
 
   const systemPrompt = ORCHESTRATOR_CLAUDE_MD(mcpPort, secret, opts.projectPath)
 
