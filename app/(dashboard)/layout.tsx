@@ -9,6 +9,7 @@ import { CommandPalette } from '@/components/CommandPalette'
 import { AssistantPanel } from '@/components/AssistantPanel'
 import { useAssistantPanel } from '@/hooks/useAssistant'
 import { QuickCapture } from '@/components/QuickCapture'
+import { FocusProvider } from '@/hooks/useFocus'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -64,26 +65,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [])
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-      <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} />
-      {claudeAvailable === false && (
-        <div className="px-4 pt-3">
-          <ClaudeNotFound />
+    <FocusProvider>
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+        <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} />
+        {claudeAvailable === false && (
+          <div className="px-4 pt-3">
+            <ClaudeNotFound />
+          </div>
+        )}
+        <div className="flex-1 flex overflow-hidden">
+          <main className="flex-1 p-6 overflow-y-auto">{children}</main>
+          <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
         </div>
-      )}
-      <div className="flex-1 flex overflow-hidden">
-        <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-        <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
+        {palette.isOpen && (
+          <CommandPalette
+            commands={palette.filtered}
+            query={palette.query}
+            onQueryChange={palette.setQuery}
+            onClose={palette.close}
+          />
+        )}
+        <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
       </div>
-      {palette.isOpen && (
-        <CommandPalette
-          commands={palette.filtered}
-          query={palette.query}
-          onQueryChange={palette.setQuery}
-          onClose={palette.close}
-        />
-      )}
-      <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
-    </div>
+    </FocusProvider>
   )
 }
