@@ -47,6 +47,7 @@ export function useLaunchSession() {
       sourceFile: string | null
       userContext?: string
       permissionMode?: string
+      correctionNote?: string
     }) =>
       fetch('/api/sessions', {
         method: 'POST',

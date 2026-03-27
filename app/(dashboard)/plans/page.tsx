@@ -130,7 +130,7 @@ export default function PlansPage() {
           phase={promptConfig.phase}
           sourceFile={promptConfig.sourceFile}
           onCancel={() => setPromptConfig(null)}
-          onLaunch={async (userContext, permissionMode) => {
+          onLaunch={async (userContext, permissionMode, correctionNote) => {
             const config = promptConfig
             setPromptConfig(null)
             try {
@@ -140,6 +140,7 @@ export default function PlansPage() {
                 sourceFile: config.sourceFile,
                 userContext,
                 permissionMode,
+                correctionNote,
               })
               if (result.sessionId) {
                 setActiveSession({

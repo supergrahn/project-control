@@ -199,7 +199,7 @@ export default function DashboardPage() {
           phase="develop"
           sourceFile={promptConfig.sourceFile}
           onCancel={() => setPromptConfig(null)}
-          onLaunch={async (userContext, permissionMode) => {
+          onLaunch={async (userContext, permissionMode, correctionNote) => {
             const config = promptConfig
             setPromptConfig(null)
             try {
@@ -209,6 +209,7 @@ export default function DashboardPage() {
                 sourceFile: config.sourceFile,
                 userContext,
                 permissionMode,
+                correctionNote,
               })
               if (result.sessionId) {
                 setActiveSession({

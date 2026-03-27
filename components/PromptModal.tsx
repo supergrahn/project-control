@@ -8,7 +8,7 @@ type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions'
 type Props = {
   phase: Phase
   sourceFile: string
-  onLaunch: (userContext: string, permissionMode: PermissionMode) => void
+  onLaunch: (userContext: string, permissionMode: PermissionMode, correctionNote?: string) => void
   onCancel: () => void
 }
 
@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<Phase, string> = {
 
 export function PromptModal({ phase, sourceFile, onLaunch, onCancel }: Props) {
   const [userContext, setUserContext] = useState('')
+  const [correctionNote, setCorrectionNote] = useState('')
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const [permissionMode, setPermissionMode] = useState<PermissionMode>('default')
   const systemPrompt = getSystemPrompt(phase, sourceFile)
@@ -59,6 +60,21 @@ export function PromptModal({ phase, sourceFile, onLaunch, onCancel }: Props) {
 
         {phase === 'develop' && (
           <div className="mb-4">
+            <label className="block text-xs text-zinc-400 mb-1.5">
+              Correction notes <span className="text-zinc-600">(optional — anything the plan got wrong?)</span>
+            </label>
+            <textarea
+              value={correctionNote}
+              onChange={(e) => setCorrectionNote(e.target.value)}
+              placeholder="Flag issues from the plan or previous phase..."
+              rows={2}
+              className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 outline-none focus:border-amber-500 resize-none"
+            />
+          </div>
+        )}
+
+        {phase === 'develop' && (
+          <div className="mb-4">
             <label className="block text-xs text-zinc-400 mb-1.5">Permission level</label>
             <select
               value={permissionMode}
@@ -80,7 +96,7 @@ export function PromptModal({ phase, sourceFile, onLaunch, onCancel }: Props) {
         <div className="flex gap-2 justify-end">
           <button onClick={onCancel} className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200">Cancel</button>
           <button
-            onClick={() => onLaunch(userContext, permissionMode)}
+            onClick={() => onLaunch(userContext, permissionMode, correctionNote || undefined)}
             className="px-4 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded"
           >
             Launch Session →
