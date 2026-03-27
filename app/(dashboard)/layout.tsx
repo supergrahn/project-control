@@ -22,15 +22,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showDrawer, setShowDrawer] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
-  const { openProject } = useProjectStore()
+  const { openProject, selectedProject } = useProjectStore()
 
   const commands: Command[] = useMemo(() => {
+    const projectBase = selectedProject ? `/projects/${selectedProject.id}` : null
     const cmds: Command[] = [
-      { id: 'nav-dashboard', label: 'Go to Dashboard', group: 'Navigate', action: () => router.push('/') },
-      { id: 'nav-ideas', label: 'Go to Ideas', group: 'Navigate', action: () => router.push('/ideas') },
-      { id: 'nav-specs', label: 'Go to Specs', group: 'Navigate', action: () => router.push('/specs') },
-      { id: 'nav-plans', label: 'Go to Plans', group: 'Navigate', action: () => router.push('/plans') },
-      { id: 'nav-developing', label: 'Go to Developing', group: 'Navigate', action: () => router.push('/developing') },
+      { id: 'nav-ideas', label: 'Go to Ideas', group: 'Navigate', action: () => { if (projectBase) router.push(`${projectBase}/ideas`) } },
+      { id: 'nav-specs', label: 'Go to Specs', group: 'Navigate', action: () => { if (projectBase) router.push(`${projectBase}/specs`) } },
+      { id: 'nav-plans', label: 'Go to Plans', group: 'Navigate', action: () => { if (projectBase) router.push(`${projectBase}/plans`) } },
+      { id: 'nav-developing', label: 'Go to In Development', group: 'Navigate', action: () => { if (projectBase) router.push(`${projectBase}/developing`) } },
+      { id: 'nav-reports', label: 'Go to Reports', group: 'Navigate', action: () => { if (projectBase) router.push(`${projectBase}/reports`) } },
       { id: 'nav-memory', label: 'Go to Memory', group: 'Navigate', action: () => router.push('/memory') },
       { id: 'nav-settings', label: 'Go to Settings', group: 'Navigate', action: () => router.push('/settings') },
     ]
@@ -40,11 +41,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         label: `Switch to: ${p.name}`,
         group: 'Projects',
         keywords: [p.name, p.path],
-        action: () => { openProject(p); router.push('/') },
+        action: () => { openProject(p); router.push(`/projects/${p.id}/ideas`) },
       })
     }
     return cmds
-  }, [projects, openProject, router])
+  }, [projects, openProject, router, selectedProject])
 
   const palette = useCommandPalette(commands)
   const assistant = useAssistantPanel()
