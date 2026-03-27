@@ -10,12 +10,14 @@ import { AssistantPanel } from '@/components/AssistantPanel'
 import { useAssistantPanel } from '@/hooks/useAssistant'
 import { QuickCapture } from '@/components/QuickCapture'
 import { PasteModal } from '@/components/PasteModal'
+import { ShortcutGuide } from '@/components/ShortcutGuide'
 import { FocusProvider } from '@/hooks/useFocus'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
   const [showQuickCapture, setShowQuickCapture] = useState(false)
   const [showPaste, setShowPaste] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
   const { openProject } = useProjectStore()
@@ -56,6 +58,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         e.preventDefault()
         setShowPaste(prev => !prev)
       }
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+        e.preventDefault()
+        setShowShortcuts(prev => !prev)
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
@@ -93,6 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
         <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
         <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
+        <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </div>
     </FocusProvider>
   )
