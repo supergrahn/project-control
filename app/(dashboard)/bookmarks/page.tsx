@@ -85,6 +85,18 @@ export default function BookmarksPage() {
           </div>
         ))}
       </div>
+
+      <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+        <h3 className="text-sm font-semibold text-zinc-200 mb-2">Web Clipper Bookmarklet</h3>
+        <p className="text-xs text-zinc-500 mb-3">Drag this to your bookmarks bar to clip web pages:</p>
+        <a
+          href={`javascript:void(fetch('http://localhost:3001/api/clip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,content:window.getSelection().toString()||document.body.innerText.slice(0,5000)})}).then(()=>alert('Clipped!')).catch(()=>alert('Clip failed')))`}
+          className="inline-block px-3 py-1.5 bg-violet-600 text-white text-xs rounded cursor-grab"
+          onClick={e => e.preventDefault()}
+        >
+          📎 Clip to Dashboard
+        </a>
+      </div>
     </>
   )
 }
