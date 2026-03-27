@@ -4,6 +4,7 @@ import next from 'next'
 import { WebSocketServer } from 'ws'
 import { handleWebSocket, ptyMap } from './lib/session-manager'
 import { startOrchestratorMcp } from './server/orchestrator-mcp'
+import { startOrchestratorWatcher } from './server/orchestrator-watcher'
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
@@ -48,4 +49,5 @@ app.prepare().then(() => {
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   startOrchestratorMcp(mcpPort)
+  startOrchestratorWatcher()
 })

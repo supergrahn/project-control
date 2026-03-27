@@ -2,7 +2,8 @@ import * as pty from 'node-pty'
 import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
 import fs from 'fs'
-import { getDb, createSession, endSession, getActiveSessionForFile } from './db'
+import { EventEmitter } from 'events'
+import { getDb, createSession, endSession, getActiveSessionForFile, getProject } from './db'
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getGitHistory } from './git'
@@ -17,6 +18,27 @@ declare global {
 globalThis.ptyMap ??= new Map()
 globalThis.wsMap ??= new Map()
 globalThis.outputBuffer ??= new Map()
+
+// Per-project event emitter for orchestrator wake-up
+declare global {
+  var projectEmitters: Map<string, EventEmitter>
+}
+globalThis.projectEmitters ??= new Map()
+
+export function getProjectEmitter(projectPath: string): EventEmitter {
+  if (!globalThis.projectEmitters.has(projectPath)) {
+    globalThis.projectEmitters.set(projectPath, new EventEmitter())
+  }
+  return globalThis.projectEmitters.get(projectPath)!
+}
+
+export function emitSessionEnded(projectId: string, payload: { session_id: string; source_file: string | null; exit_reason: string }): void {
+  // Look up project path for emitter
+  const project = getProject(getDb(), projectId)
+  if (project) {
+    getProjectEmitter(project.path).emit('session-ended', payload)
+  }
+}
 
 export const ptyMap = globalThis.ptyMap
 export const wsMap = globalThis.wsMap
@@ -141,6 +163,7 @@ export function spawnSession(opts: SpawnOptions): string {
       summary: `${opts.phase} session ended: ${opts.label}`,
       severity: 'info',
     })
+    emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: 'completed' })
     ptyMap.delete(sessionId)
     outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
@@ -215,4 +238,99 @@ export function handleWebSocket(ws: WebSocket): void {
       wsMap.get(attachedSessionId)?.delete(ws)
     }
   })
+}
+
+// --- Orchestrator session spawning ---
+
+const ORCHESTRATOR_CLAUDE_MD = (mcpPort: number, secret: string, projectPath: string) => `# Orchestrator Session
+
+You are the orchestrator for the project at \`${projectPath}\`.
+
+## Role
+Watch sessions. Drive the Ideas→Specs→Plans→Developing pipeline. Surface commentary and proposed actions. You do NOT write code.
+
+## MCP Server
+Connect to http://localhost:${mcpPort}/mcp with header \`X-Orchestrator-Secret: ${secret}\`.
+
+Tools: list_sessions, read_artifact, read_progress, spawn_session, advance_phase, pause_session, propose_actions, log_decision, notify
+
+## Automation Levels
+- \`manual\`: take no action — user controls all transitions
+- \`checkpoint\`: pause at every gate for approval
+- \`auto\`: advance automatically unless a risk flag is detected
+
+## Risk Heuristics (always gate regardless of automation level)
+- Content mentions database migration
+- Content mentions auth, tokens, credentials
+- Content mentions breaking changes or API contract changes
+- Test suite failure detected
+
+## Decision Loop
+When a session exits: read its artifacts → evaluate risk → call \`advance_phase\` or \`pause_session(reason)\` + \`propose_actions\`. Always call \`log_decision\` after every action.
+`.trim()
+
+export function spawnOrchestratorSession(opts: {
+  orchestratorId: string
+  projectId: string
+  projectPath: string
+}): string {
+  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
+  const sessionId = randomUUID()
+  const db = getDb()
+
+  const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
+  const secret = process.env.ORCHESTRATOR_MCP_SECRET ?? opts.orchestratorId
+
+  const systemPrompt = ORCHESTRATOR_CLAUDE_MD(mcpPort, secret, opts.projectPath)
+
+  const args = buildArgs({
+    systemPrompt,
+    userContext: 'Start your orchestrator loop. List sessions and monitor.',
+    permissionMode: 'default',
+    sessionId,
+  })
+
+  const proc = pty.spawn(CLAUDE_BIN!, args, {
+    name: 'xterm-color',
+    cols: 80,
+    rows: 24,
+    cwd: opts.projectPath,
+    env: { ...process.env },
+  })
+
+  createSession(db, {
+    id: sessionId,
+    projectId: opts.projectId,
+    label: 'Orchestrator',
+    phase: 'develop' as any,
+    sourceFile: null,
+  })
+
+  ptyMap.set(sessionId, proc)
+  wsMap.set(sessionId, new Set())
+  outputBuffer.set(sessionId, [])
+
+  proc.onData((data) => {
+    const buf = outputBuffer.get(sessionId) ?? []
+    buf.push(...data.split('\n'))
+    if (buf.length > 100) buf.splice(0, buf.length - 100)
+    outputBuffer.set(sessionId, buf)
+    const clients = wsMap.get(sessionId) ?? new Set()
+    for (const ws of clients) {
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'output', data }))
+    }
+  })
+
+  proc.onExit(() => {
+    endSession(db, sessionId)
+    ptyMap.delete(sessionId)
+    outputBuffer.delete(sessionId)
+    const clients = wsMap.get(sessionId) ?? new Set()
+    for (const ws of clients) {
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
+    }
+    wsMap.delete(sessionId)
+  })
+
+  return sessionId
 }
