@@ -14,7 +14,7 @@ export function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { projectId, phase, sourceFile, userContext = '', permissionMode = 'default' } = body
+  const { projectId, phase, sourceFile, userContext = '', permissionMode = 'default', correctionNote } = body
 
   if (!projectId || !phase) {
     return NextResponse.json({ error: 'projectId and phase required' }, { status: 400 })
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       sourceFile: sourceFile ?? null,
       userContext,
       permissionMode,
+      correctionNote: correctionNote ?? undefined,
     })
 
     return NextResponse.json({ sessionId })

@@ -3,7 +3,8 @@ import { WebSocket } from 'ws'
 import { execSync } from 'child_process'
 import fs from 'fs'
 import { getDb, createSession, endSession, getActiveSessionForFile } from './db'
-import { buildArgs, getSystemPrompt, Phase, PermissionMode } from './prompts'
+import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
+import { getGitHistory } from './git'
 import { randomUUID } from 'crypto'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
@@ -52,6 +53,7 @@ export type SpawnOptions = {
   sourceFile: string | null
   userContext: string
   permissionMode: PermissionMode
+  correctionNote?: string
 }
 
 export function spawnSession(opts: SpawnOptions): string {
@@ -66,9 +68,13 @@ export function spawnSession(opts: SpawnOptions): string {
     if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
   }
 
-  const systemPrompt = opts.sourceFile
-    ? getSystemPrompt(opts.phase, opts.sourceFile)
-    : `You are helping with a ${opts.phase} session.`
+  const systemPrompt = buildSessionContext({
+    phase: opts.phase,
+    sourceFile: opts.sourceFile,
+    userContext: opts.userContext,
+    gitHistory: getGitHistory(opts.projectPath),
+    correctionNote: opts.correctionNote,
+  })
 
   const args = buildArgs({
     systemPrompt,
