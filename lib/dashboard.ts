@@ -2,6 +2,8 @@
 import fs from 'fs'
 import path from 'path'
 import type { Project, Session } from '@/lib/db'
+import { calculateProjectScores, type ProjectScore } from './health-score'
+import { resolveMemoryDir } from './memory'
 
 // --- Types ---
 
@@ -54,6 +56,7 @@ export type DashboardResponse = {
     dir: 'ideas' | 'specs' | 'plans'
     modifiedAt: string
   }>
+  projectScores: ProjectScore[]
 }
 
 // --- Pure functions ---
@@ -333,5 +336,14 @@ export function buildDashboardData(projects: Project[], activeSessions: Session[
   recentlyTouched.sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt))
   recentlyTouched.splice(8)
 
-  return { inProgress, upNext, pipeline, health, recentlyTouched }
+  const projectMemoryStatus = new Map<string, boolean>()
+  for (const project of projects) {
+    projectMemoryStatus.set(project.id, resolveMemoryDir(project.path) !== null)
+  }
+  const projectScores = calculateProjectScores(
+    { inProgress, upNext, pipeline, health, recentlyTouched, projectScores: [] },
+    projectMemoryStatus
+  )
+
+  return { inProgress, upNext, pipeline, health, recentlyTouched, projectScores }
 }

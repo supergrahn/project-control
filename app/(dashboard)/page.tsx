@@ -185,6 +185,20 @@ export default function DashboardPage() {
     <>
       <InProgressBanner items={data.inProgress} projectMap={projectMap} />
       <UpNextTable items={data.upNext} projectMap={projectMap} onLaunchDevelop={handleLaunchDevelop} />
+      {data.projectScores && data.projectScores.length > 0 && (
+        <div className="flex items-center gap-3 mt-4 flex-wrap">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Health:</span>
+          {data.projectScores.slice(0, 8).map(s => (
+            <span key={s.projectId} className={`text-xs px-2 py-0.5 rounded-full ${
+              s.score >= 80 ? 'bg-green-500/20 text-green-300' :
+              s.score >= 50 ? 'bg-amber-500/20 text-amber-300' :
+              'bg-red-500/20 text-red-300'
+            }`}>
+              {s.projectName}: {s.score}
+            </span>
+          ))}
+        </div>
+      )}
       <BottomStrip
         pipeline={data.pipeline}
         health={data.health}
