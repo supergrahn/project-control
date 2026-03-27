@@ -1,69 +1,81 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, Brain, Focus, Bell } from 'lucide-react'
+import { Settings, Brain, Focus, Bell, Menu } from 'lucide-react'
 import { ProjectTabs } from './ProjectTabs'
 import { useFocus } from '@/hooks/useFocus'
-import { useProjects } from '@/hooks/useProjects'
+import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { useNotifications, useMarkRead } from '@/hooks/useNotifications'
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', href: '/' },
-  { label: 'Ideas', href: '/ideas' },
-  { label: 'Specs', href: '/specs' },
-  { label: 'Plans', href: '/plans' },
-  { label: 'Developing', href: '/developing' },
-  { label: 'Sessions', href: '/sessions' },
-  { label: 'Memory', href: '/memory' },
-  { label: 'Context', href: '/context' },
-  { label: 'Tech Audit', href: '/tech-audit' },
-  { label: 'Search', href: '/search' },
-  { label: 'Insights', href: '/insights' },
-  { label: 'Git', href: '/git-activity' },
-  { label: 'Kanban', href: '/kanban' },
-  { label: 'Bookmarks', href: '/bookmarks' },
-  { label: 'Timeline', href: '/timeline' },
-  { label: 'Templates', href: '/templates' },
-  { label: 'Usage', href: '/usage' },
-  { label: 'Compare', href: '/compare' },
+const FLOW_ITEMS = [
+  { label: 'Ideas', slug: 'ideas' },
+  { label: 'Specs', slug: 'specs' },
+  { label: 'Plans', slug: 'plans' },
+  { label: 'In Development', slug: 'developing' },
+  { label: 'Reports', slug: 'reports' },
 ]
 
 type TopNavProps = {
   onAssistantToggle?: () => void
   isAssistantOpen?: boolean
+  onDrawerToggle?: () => void
+  isDrawerOpen?: boolean
 }
 
-export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {}) {
+export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isDrawerOpen }: TopNavProps = {}) {
   const pathname = usePathname()
   const { focusIds, isFocused, toggleFocus, clearFocus } = useFocus()
   const { data: allProjects = [] } = useProjects()
+  const { selectedProject } = useProjectStore()
   const [showFocusMenu, setShowFocusMenu] = useState(false)
   const { data: notifData } = useNotifications()
   const markRead = useMarkRead()
   const [showNotifs, setShowNotifs] = useState(false)
+  const notifsRef = useRef<HTMLDivElement>(null)
   const unreadCount = notifData?.unreadCount ?? 0
+
+  useEffect(() => {
+    if (!showNotifs) return
+    const handler = (e: MouseEvent) => {
+      if (notifsRef.current && !notifsRef.current.contains(e.target as Node)) {
+        setShowNotifs(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showNotifs])
 
   return (
     <header className="border-b border-zinc-800 bg-zinc-950">
       <div className="h-11 flex items-center gap-4 px-4">
         <span className="font-bold text-violet-400 text-sm shrink-0">⬡ Project Control</span>
         <nav className="flex gap-1 ml-2">
-          {NAV_ITEMS.map((t) => (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`px-3 py-1 rounded text-sm transition-colors ${
-                (t.href === '/' ? pathname === '/' : pathname.startsWith(t.href))
-                  ? 'bg-violet-500/20 text-violet-300'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
+          {FLOW_ITEMS.map((item) => {
+            const href = selectedProject ? `/projects/${selectedProject.id}/${item.slug}` : null
+            const isActive = href ? pathname.startsWith(href) : false
+            if (!href) {
+              return (
+                <span key={item.slug} className="px-3 py-1 rounded text-sm text-zinc-600 cursor-not-allowed">
+                  {item.label}
+                </span>
+              )
+            }
+            return (
+              <Link
+                key={item.slug}
+                href={href}
+                className={`px-3 py-1 rounded text-sm transition-colors ${
+                  isActive ? 'bg-violet-500/20 text-violet-300' : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {item.label}
+              </Link>
+            )
+          })}
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          {/* Focus */}
           <div className="relative">
             <button
               onClick={() => setShowFocusMenu(p => !p)}
@@ -90,7 +102,8 @@ export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {})
               </div>
             )}
           </div>
-          <div className="relative">
+          {/* Bell */}
+          <div ref={notifsRef} className="relative">
             <button onClick={() => setShowNotifs(p => !p)}
               className={`p-1.5 rounded transition-colors relative ${unreadCount > 0 ? 'text-amber-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
               <Bell size={16} />
@@ -114,7 +127,7 @@ export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {})
                     <div key={e.id} className="px-3 py-2 border-b border-zinc-800/50 hover:bg-zinc-800/50 cursor-pointer"
                       onClick={() => markRead.mutate({ eventId: e.id })}>
                       <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${e.severity === 'warn' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                        <span className={`w-1.5 h-1.5 rounded-full ${e.severity === 'warn' ? 'bg-amber-500' : e.severity === 'info' ? 'bg-blue-400' : 'bg-red-500'}`} />
                         <span className="text-xs text-zinc-300 flex-1 truncate">{e.summary}</span>
                       </div>
                     </div>
@@ -126,18 +139,30 @@ export function TopNav({ onAssistantToggle, isAssistantOpen }: TopNavProps = {})
               </div>
             )}
           </div>
+          {/* Assistant */}
           {onAssistantToggle && (
             <button
               onClick={onAssistantToggle}
               className={`p-1.5 rounded transition-colors ${isAssistantOpen ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
-              title="Toggle Assistant (AI)"
+              title="Toggle Assistant"
             >
               <Brain size={16} />
             </button>
           )}
+          {/* Settings */}
           <Link href="/settings" className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
             <Settings size={16} />
           </Link>
+          {/* Drawer toggle */}
+          {onDrawerToggle && (
+            <button
+              onClick={onDrawerToggle}
+              className={`p-1.5 rounded transition-colors ${isDrawerOpen ? 'text-violet-400 bg-violet-500/10' : 'text-zinc-500 hover:text-zinc-300'}`}
+              title="More tools"
+            >
+              <Menu size={16} />
+            </button>
+          )}
         </div>
       </div>
       {isFocused && (
