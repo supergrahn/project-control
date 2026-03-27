@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: 'Specs', href: '/specs' },
   { label: 'Plans', href: '/plans' },
   { label: 'Developing', href: '/developing' },
+  { label: 'Sessions', href: '/sessions' },
   { label: 'Memory', href: '/memory' },
 ]
 
