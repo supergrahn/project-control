@@ -2,12 +2,13 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, Brain, Focus, Bell, Menu } from 'lucide-react'
+import { Settings, Brain, Focus, Bell, Menu, Activity } from 'lucide-react'
 import { ProjectTabs } from './ProjectTabs'
 import { useFocus } from '@/hooks/useFocus'
 import { useProjects, useProjectStore } from '@/hooks/useProjects'
 import { useNotifications, useMarkRead } from '@/hooks/useNotifications'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
+import { useSessions } from '@/hooks/useSessions'
 
 const FLOW_ITEMS = [
   { label: 'Ideas', slug: 'ideas' },
@@ -22,9 +23,11 @@ type TopNavProps = {
   isAssistantOpen?: boolean
   onDrawerToggle?: () => void
   isDrawerOpen?: boolean
+  onOrchestratorToggle?: () => void
+  isOrchestratorOpen?: boolean
 }
 
-export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isDrawerOpen }: TopNavProps = {}) {
+export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isDrawerOpen, onOrchestratorToggle, isOrchestratorOpen }: TopNavProps = {}) {
   const pathname = usePathname()
   const { focusIds, isFocused, toggleFocus, clearFocus } = useFocus()
   const { data: allProjects = [] } = useProjects()
@@ -36,6 +39,8 @@ export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isD
   const notifsRef = useRef<HTMLDivElement>(null)
   const unreadCount = notifData?.unreadCount ?? 0
   const { windows, toggleAll } = useSessionWindows()
+  const { data: activeSessions = [] } = useSessions({ status: 'active' })
+  const activeCount = activeSessions.length
 
   useEffect(() => {
     if (!showNotifs) return
@@ -156,6 +161,23 @@ export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isD
               </span>
             )}
           </div>
+          {/* Orchestrator */}
+          {onOrchestratorToggle && (
+            <div className="relative">
+              <button
+                onClick={onOrchestratorToggle}
+                className={`p-1.5 rounded transition-colors ${isOrchestratorOpen ? 'text-green-400 bg-green-500/10' : activeCount > 0 ? 'text-green-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+                title="Orchestrator"
+              >
+                <Activity size={16} />
+              </button>
+              {activeCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-green-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {activeCount > 9 ? '9+' : activeCount}
+                </span>
+              )}
+            </div>
+          )}
           {/* Settings */}
           <Link href="/settings" className="p-1.5 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
             <Settings size={16} />
