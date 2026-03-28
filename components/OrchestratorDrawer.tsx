@@ -18,7 +18,7 @@ type PhaseColors = {
 }
 
 function phaseColors(phase: string): PhaseColors {
-  const p = phase.toLowerCase()
+  const p = (phase ?? '').toLowerCase()
   if (p === 'idea' || p === 'ideate') return { badge: 'bg-purple-600', border: 'border-l-purple-500', dot: 'bg-purple-400', text: 'text-purple-400' }
   if (p === 'spec') return { badge: 'bg-blue-600', border: 'border-l-blue-500', dot: 'bg-blue-400', text: 'text-blue-400' }
   if (p === 'plan') return { badge: 'bg-amber-500', border: 'border-l-amber-400', dot: 'bg-amber-400', text: 'text-amber-400' }
