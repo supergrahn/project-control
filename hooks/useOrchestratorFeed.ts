@@ -51,7 +51,17 @@ export function useOrchestratorFeed(sessions: Session[]) {
             timestamp: new Date().toISOString(),
           }
           setFeed((prev) => [...prev.slice(-500), entry])
-        } catch {}
+        } catch (err) {
+          console.error('[OrchestratorFeed] message parse error:', err)
+        }
+      }
+
+      ws.onerror = () => {
+        wsMap.current.delete(session.id)
+      }
+
+      ws.onclose = () => {
+        wsMap.current.delete(session.id)
       }
 
       wsMap.current.set(session.id, ws)
