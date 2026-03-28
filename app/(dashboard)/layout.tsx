@@ -13,6 +13,7 @@ import { PasteModal } from '@/components/PasteModal'
 import { ShortcutGuide } from '@/components/ShortcutGuide'
 import { FocusProvider } from '@/hooks/useFocus'
 import { NavDrawer } from '@/components/nav/NavDrawer'
+import { OrchestratorDrawer } from '@/components/OrchestratorDrawer'
 import { SessionWindowProvider, useSessionWindows } from '@/hooks/useSessionWindows'
 import { FloatingSessionWindow } from '@/components/FloatingSessionWindow'
 import { SessionPillBar } from '@/components/SessionPillBar'
@@ -23,6 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [showPaste, setShowPaste] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
+  const [showOrchestrator, setShowOrchestrator] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
   const { openProject, selectedProject } = useProjectStore()
@@ -86,7 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SessionWindowProvider>
       <FocusProvider>
         <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-          <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} />
+          <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} onOrchestratorToggle={() => setShowOrchestrator(p => !p)} isOrchestratorOpen={showOrchestrator} />
           {claudeAvailable === false && (
             <div className="px-4 pt-3">
               <ClaudeNotFound />
@@ -108,6 +110,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
           <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
           <NavDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
+          <OrchestratorDrawer isOpen={showOrchestrator} onClose={() => setShowOrchestrator(false)} />
         </div>
         <FloatingWindowsRenderer />
         <SessionPillBar />
