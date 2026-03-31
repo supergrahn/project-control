@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
-import { TopNav } from '@/components/nav/TopNav'
 import { ClaudeNotFound } from '@/components/ClaudeNotFound'
 import { useCommandPalette, type Command } from '@/hooks/useCommandPalette'
 import { useProjects, useProjectStore } from '@/hooks/useProjects'
@@ -12,18 +11,19 @@ import { QuickCapture } from '@/components/QuickCapture'
 import { PasteModal } from '@/components/PasteModal'
 import { ShortcutGuide } from '@/components/ShortcutGuide'
 import { FocusProvider } from '@/hooks/useFocus'
-import { NavDrawer } from '@/components/nav/NavDrawer'
 import { OrchestratorDrawer } from '@/components/OrchestratorDrawer'
 import { SessionWindowProvider, useSessionWindows } from '@/hooks/useSessionWindows'
 import { FloatingSessionWindow } from '@/components/FloatingSessionWindow'
 import { SessionPillBar } from '@/components/SessionPillBar'
+import useSWR from 'swr'
+import { useParams } from 'next/navigation'
+import { Sidebar } from '@/components/layout/Sidebar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
   const [showQuickCapture, setShowQuickCapture] = useState(false)
   const [showPaste, setShowPaste] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
-  const [showDrawer, setShowDrawer] = useState(false)
   const [showOrchestrator, setShowOrchestrator] = useState(false)
   const router = useRouter()
   const { data: projects = [] } = useProjects()
@@ -87,36 +87,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SessionWindowProvider>
       <FocusProvider>
-        <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
-          <TopNav onAssistantToggle={assistant.toggle} isAssistantOpen={assistant.isOpen} onDrawerToggle={() => setShowDrawer(p => !p)} isDrawerOpen={showDrawer} onOrchestratorToggle={() => setShowOrchestrator(p => !p)} isOrchestratorOpen={showOrchestrator} />
-          {claudeAvailable === false && (
-            <div className="px-4 pt-3">
-              <ClaudeNotFound />
+        <div style={{ display: 'flex', height: '100vh', background: '#0e1012', overflow: 'hidden' }}>
+          <SidebarWrapper />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {claudeAvailable === false && (
+              <div className="px-4 pt-3">
+                <ClaudeNotFound />
+              </div>
+            )}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+              <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>{children}</main>
+              <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
             </div>
-          )}
-          <div className="flex-1 flex overflow-hidden">
-            <main className="flex-1 p-6 overflow-y-auto">{children}</main>
-            <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
           </div>
-          {palette.isOpen && (
-            <CommandPalette
-              commands={palette.filtered}
-              query={palette.query}
-              onQueryChange={palette.setQuery}
-              onClose={palette.close}
-            />
-          )}
-          <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
-          <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
-          <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
-          <NavDrawer isOpen={showDrawer} onClose={() => setShowDrawer(false)} />
-          <OrchestratorDrawer isOpen={showOrchestrator} onClose={() => setShowOrchestrator(false)} />
         </div>
+        {palette.isOpen && (
+          <CommandPalette
+            commands={palette.filtered}
+            query={palette.query}
+            onQueryChange={palette.setQuery}
+            onClose={palette.close}
+          />
+        )}
+        <QuickCapture isOpen={showQuickCapture} onClose={() => setShowQuickCapture(false)} />
+        <PasteModal isOpen={showPaste} onClose={() => setShowPaste(false)} />
+        <ShortcutGuide isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+        <OrchestratorDrawer isOpen={showOrchestrator} onClose={() => setShowOrchestrator(false)} />
         <FloatingWindowsRenderer />
         <SessionPillBar />
       </FocusProvider>
     </SessionWindowProvider>
   )
+}
+
+function SidebarWrapper() {
+  const params = useParams()
+  const projectId = params?.projectId as string | undefined
+  const { data: project } = useSWR(projectId ? `/api/projects/${projectId}` : null, (url: string) => fetch(url).then(r => r.json()))
+
+  if (!projectId || !project) return null
+  return <Sidebar projectId={projectId} projectName={project.name} projectPath={project.path} />
 }
 
 function FloatingWindowsRenderer() {
