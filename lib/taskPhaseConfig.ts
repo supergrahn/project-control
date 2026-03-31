@@ -15,6 +15,6 @@ export const STATUS_TO_SESSION_PHASES: Record<TaskStatus, string[]> = {
   idea:       ['ideate', 'brainstorm'],
   speccing:   ['spec'],
   planning:   ['plan'],
-  developing: ['develop'],
+  developing: ['develop', 'orchestrator'],
   done:       [],
 }
