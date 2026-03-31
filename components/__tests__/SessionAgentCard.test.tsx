@@ -77,4 +77,20 @@ describe('SessionAgentCard', () => {
     fireEvent.click(screen.getByText('Open Terminal'))
     expect(mockOnOpenTerminal).toHaveBeenCalled()
   })
+
+  it('does not parse pill from multi-line text with tool name on a later line', () => {
+    const multiLineEntry = {
+      id: 'e3', sessionId: 'sess-1', label: 'Redesign', phase: 'spec',
+      text: 'Some output\nWrite · should-not-match.tsx',
+      timestamp: '2026-03-31T08:02:00Z',
+    }
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={[multiLineEntry]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    // Should NOT find a WRITE pill since Write is not on the first line
+    expect(screen.queryByText('WRITE')).not.toBeInTheDocument()
+    // Should show waiting state
+    expect(screen.getByText('Waiting for tool calls…')).toBeInTheDocument()
+  })
 })

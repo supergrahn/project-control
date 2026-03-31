@@ -5,10 +5,10 @@ import { PHASE_INITIALS, PHASE_TO_STATUS } from '@/lib/sessionPhaseConfig'
 import { PHASE_CONFIG } from '@/lib/taskPhaseConfig'
 
 // Parse a raw feed text line into a pill descriptor
-type Pill = { type: 'Write' | 'Edit' | 'Bash' | 'Read' | 'Glob' | 'Grep' | 'other'; detail: string }
+type Pill = { type: 'Write' | 'Edit' | 'Bash' | 'Read' | 'Glob' | 'Grep'; detail: string }
 
 function parsePill(text: string): Pill | null {
-  const match = text.match(/^(Write|Edit|Bash|Read|Glob|Grep)\s+·\s+(.+)$/m)
+  const match = text.match(/^(Write|Edit|Bash|Read|Glob|Grep)\s+·\s+(.+)$/)
   if (!match) return null
   return { type: match[1] as Pill['type'], detail: match[2].trim() }
 }
@@ -30,7 +30,7 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
   const isLive = !session.ended_at
   const initials = PHASE_INITIALS[session.phase] ?? session.phase.slice(0, 2).toUpperCase()
   const taskStatus = PHASE_TO_STATUS[session.phase] ?? 'developing'
-  const phaseStyle = PHASE_CONFIG[taskStatus]
+  const phaseStyle = PHASE_CONFIG[taskStatus] ?? PHASE_CONFIG['developing']
 
   const pills = feedEntries
     .slice(-5)
