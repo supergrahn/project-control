@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { Task, TaskStatus } from '@/lib/db/tasks'
 import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
-import { mutate as globalMutate } from 'swr'
+import { stopSession } from '@/lib/sessionActions'
 
 type DrawerSection = 'artifacts' | 'sessions' | 'notes'
 
@@ -28,8 +28,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
 
   async function handleStop() {
     if (!activeSessionId) return
-    await fetch(`/api/sessions/${activeSessionId}`, { method: 'DELETE' })
-    await globalMutate((key: unknown) => typeof key === 'string' && key.includes('/api/sessions'))
+    await stopSession(activeSessionId)
   }
 
   function handleOpenTerminal() {
