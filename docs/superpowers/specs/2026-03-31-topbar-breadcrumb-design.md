@@ -20,12 +20,22 @@ One new component (`components/layout/TopBar.tsx`) rendered inside `app/(dashboa
 After this change:
 
 ```
-<div>          ← right column (flex column)
-  <TopBar />   ← 38px bar, only when selectedProject exists
-  <main>       ← page content (unchanged)
+<div>                ← right column (flex column)
+  <TopBar />         ← 38px bar, only when selectedProject exists
+  <div>              ← horizontal flex row (overflow hidden, flex 1)
+    <main>           ← page content (unchanged)
+    <AssistantPanel> ← unchanged
 ```
 
-A `TopBarWrapper` function (same pattern as existing `SidebarWrapper`) reads `selectedProject` from `useProjectStore` and renders nothing when no project is selected (e.g. on `/memory`, `/search`).
+`<TopBarWrapper />` is inserted between the optional `<ClaudeNotFound>` banner and the existing horizontal flex `<div>` that wraps `<main>` and `<AssistantPanel>`. It does not wrap or replace any existing element.
+
+A `TopBarWrapper` function (same pattern as existing `SidebarWrapper`) reads `selectedProject` from `useProjectStore` and renders nothing when no project is active. Exact guard:
+
+```typescript
+if (!projectId || !selectedProject || selectedProject.id !== projectId) return null
+```
+
+This handles direct URL navigation before the store hydrates from localStorage.
 
 ---
 
@@ -76,7 +86,7 @@ A `TopBarWrapper` function (same pattern as existing `SidebarWrapper`) reads `se
 
 ## Settings Drawer
 
-Standard drawer pattern used elsewhere in the project: a fixed overlay div + a fixed `<aside>` sliding in from the right.
+Standard drawer pattern used elsewhere in the project: a fixed overlay div + a fixed `<aside>` sliding in from the right. All styling uses **inline styles** (not Tailwind), consistent with the other components added in this project.
 
 **Width:** 420px  
 **Background:** `#141618`  
@@ -105,6 +115,7 @@ Three directory path fields. Each is a `<label>` + `<input>` pair.
 
 ### Save button
 
+- Before calling the mutation, each field value is mapped: `value.trim() === '' ? null : value.trim()`
 - Calls `useUpdateSettings({ id: projectId, settings: { ideas_dir, specs_dir, plans_dir } })`
 - While pending: label "Saving…", button disabled
 - On success: drawer closes, react-query cache invalidated (handled by the mutation's `onSuccess`)
@@ -128,7 +139,7 @@ These are shown as muted label/value pairs for reference, with a note: "To renam
 | Action | File |
 |---|---|
 | Create | `components/layout/TopBar.tsx` |
-| Modify | `app/(dashboard)/layout.tsx` — add `<TopBarWrapper />` above `<main>` |
+| Modify | `app/(dashboard)/layout.tsx` — insert `<TopBarWrapper />` between the `<ClaudeNotFound>` banner and the horizontal flex div containing `<main>` + `<AssistantPanel>` |
 
 ---
 
