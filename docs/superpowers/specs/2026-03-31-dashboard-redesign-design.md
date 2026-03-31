@@ -50,7 +50,7 @@ Paperclip-inspired, already partially in use. Apply consistently:
 │    Git                  │
 ├─────────────────────────┤
 │  + Add Project          │  ← bottom fixed, opens NewProjectModal
-│  [TM] tomespen          │  ← user avatar initials + username
+│  [TM] tomespen          │  ← git user.name initials + name (from GET /api/me)
 └─────────────────────────┘
 ```
 
@@ -67,7 +67,7 @@ Paperclip-inspired, already partially in use. Apply consistently:
 
 ## 3. Dashboard Page
 
-**File:** `app/(dashboard)/projects/[id]/page.tsx` — currently a redirect or empty; replace with full dashboard.
+**File:** `app/(dashboard)/projects/[projectId]/page.tsx` — currently a redirect or empty; replace with full dashboard.
 
 ### Layout
 
@@ -117,11 +117,22 @@ The Activity panel is **Dashboard-only** — rendered inside `page.tsx`, not in 
 interface SessionAgentCardProps {
   session: Session          // id, project_id, phase, status, label, created_at, ended_at
   task?: Task               // optional — matched by phase/project
-  activeSessionId: string
 }
 ```
 
-**Avatar:** 2-letter initials from phase (`ideate→ID`, `spec→SP`, `plan→PL`, `develop→DV`), background color from `PHASE_CONFIG[status].bgColor`, text from `PHASE_CONFIG[status].color`.
+**Avatar:** 2-letter initials from session phase using this mapping (defined in `lib/sessionPhaseConfig.ts`):
+```typescript
+const PHASE_INITIALS: Record<string, string> = {
+  ideate: 'ID', brainstorm: 'BR', spec: 'SP', plan: 'PL',
+  develop: 'DV', orchestrator: 'OR',
+}
+// Phase → TaskStatus for PHASE_CONFIG color lookup:
+const PHASE_TO_STATUS: Record<string, TaskStatus> = {
+  ideate: 'idea', brainstorm: 'idea', spec: 'speccing',
+  plan: 'planning', develop: 'developing', orchestrator: 'developing',
+}
+```
+Background color from `PHASE_CONFIG[PHASE_TO_STATUS[session.phase]].bgColor`, text color from `.color`.
 
 **Live badge:** green dot + "Live" if `!session.ended_at`, else grey "Finished".
 
@@ -175,14 +186,14 @@ Triggered by "Add Project" button in sidebar bottom.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| Project name | text input | Auto-populated from repo directory name on path selection |
-| Git repo path | text input + Browse button | Must be an existing directory; validated client-side |
+| Project name | text input | Auto-populated from repo directory name on path validation |
+| Git repo path | text input | Absolute path; validated against `/api/projects/validate-path` on blur |
 | Description | textarea (optional) | Stored in `projects.description` |
 
 ### Behavior
 
-- "Browse" button opens a native file dialog via `<input type="file" webkitdirectory>` trick, or user types path directly.
-- On path change: fetch `/api/projects/validate-path?path=...` (new lightweight endpoint) to confirm the path is a git repo (`git rev-parse` check). Show inline error if not a git repo.
+- Path is text input only — the browser file API cannot return absolute file system paths. User types or pastes the absolute path.
+- On path blur: fetch `/api/projects/validate-path?path=...` to confirm the path is a git repo. Show inline error if not a git repo or doesn't exist.
 - On submit: POST `/api/projects` with `{ name, path, description }` — same as current flow.
 - On success: navigate to the new project's dashboard + close modal.
 
@@ -205,10 +216,12 @@ These currently live inline in `TaskDetailView`. Extracting avoids duplication n
 
 ## 8. Data Flow
 
+**Note on data fetching libraries:** `useSessions` uses `@tanstack/react-query`; `useTasks` uses SWR. Both are already installed. Use each as-is — do not migrate either.
+
 ```
 Dashboard page
-├── useActiveSessions(projectId)        → sessions[]
-├── useTasks(projectId)                 → tasks[] (for "Waiting" grid + Actions Required)
+├── useSessions({ status: 'active', projectId })  → sessions[]  [react-query]
+├── useTasks(projectId)                           → tasks[]     [SWR]
 │
 ├── SessionAgentCard (per session)
 │   └── useOrchestratorFeed(sessionId) → tool events (existing hook)
@@ -220,7 +233,8 @@ Dashboard page
 
 No new database tables. No changes to existing API routes except:
 - `GET /api/projects/validate-path` — new, read-only
-- `app/(dashboard)/projects/[id]/page.tsx` — content replaces redirect
+- `GET /api/me` — new, returns `{ name: string, initials: string }` from `git config user.name`
+- `app/(dashboard)/projects/[projectId]/page.tsx` — content replaces redirect
 
 ---
 
@@ -228,14 +242,16 @@ No new database tables. No changes to existing API routes except:
 
 | Action | File |
 |--------|------|
-| Rewrite | `app/(dashboard)/projects/[id]/page.tsx` |
+| Rewrite | `app/(dashboard)/projects/[projectId]/page.tsx` |
 | Rewrite | `components/layout/Sidebar.tsx` |
 | Create | `components/dashboard/SessionAgentCard.tsx` |
 | Create | `components/dashboard/ActivityPanel.tsx` |
 | Create | `components/projects/NewProjectModal.tsx` |
 | Create | `hooks/useProjectFeed.ts` |
 | Create | `lib/sessionActions.ts` |
+| Create | `lib/sessionPhaseConfig.ts` |
 | Create | `app/api/projects/validate-path/route.ts` |
+| Create | `app/api/me/route.ts` |
 
 ---
 
