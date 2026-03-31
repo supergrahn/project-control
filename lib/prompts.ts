@@ -1,4 +1,6 @@
 // lib/prompts.ts
+import { readFileSync } from 'fs'
+import type { Task } from '@/lib/db/tasks'
 export type Phase = 'ideate' | 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
 
@@ -120,4 +122,41 @@ export function buildArgs(opts: {
     args.push(opts.userContext.trim())
   }
   return args
+}
+
+export function buildTaskContext(task: Pick<Task, 'idea_file' | 'spec_file' | 'plan_file' | 'notes'>): string {
+  const sections: string[] = []
+
+  if (task.idea_file) {
+    try {
+      const content = readFileSync(task.idea_file, 'utf8')
+      sections.push(`## Idea\n${content}`)
+    } catch {}
+  }
+  if (task.spec_file) {
+    try {
+      const content = readFileSync(task.spec_file, 'utf8')
+      sections.push(`## Spec\n${content}`)
+    } catch {}
+  }
+  if (task.plan_file) {
+    try {
+      const content = readFileSync(task.plan_file, 'utf8')
+      sections.push(`## Plan\n${content}`)
+    } catch {}
+  }
+  if (task.notes) {
+    sections.push(`## Correction Notes\n${task.notes}`)
+  }
+
+  return sections.join('\n\n')
+}
+
+export function generateOutputPath(dir: string, taskTitle: string): string {
+  const date = new Date().toISOString().split('T')[0]
+  const slug = taskTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  return `${dir}/${date}-${slug}.md`
 }

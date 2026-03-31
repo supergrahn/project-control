@@ -2,6 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { initDb } from '@/lib/db'
 import type { Database } from 'better-sqlite3'
 import { createTask, getTask, getTasksByProject, updateTask, advanceTaskStatus } from '@/lib/db/tasks'
+import { buildTaskContext, generateOutputPath } from '@/lib/prompts'
+import type { Task } from '@/lib/db/tasks'
+import { writeFileSync, mkdirSync } from 'fs'
+import { tmpdir } from 'os'
+import path from 'path'
 
 let db: Database
 
@@ -118,5 +123,42 @@ describe('advanceTaskStatus', () => {
     advanceTaskStatus(db, 'th', 'planning')
     const unchanged = advanceTaskStatus(db, 'th', 'idea')
     expect(unchanged.status).toBe('planning')
+  })
+})
+
+describe('buildTaskContext', () => {
+  it('returns empty string for task with no files', () => {
+    const task = { idea_file: null, spec_file: null, plan_file: null, notes: null } as Task
+    expect(buildTaskContext(task)).toBe('')
+  })
+
+  it('includes idea file content when present', () => {
+    const dir = path.join(tmpdir(), 'pc-test-' + Date.now())
+    mkdirSync(dir, { recursive: true })
+    const ideaPath = path.join(dir, 'idea.md')
+    writeFileSync(ideaPath, '# My Idea\nDo the thing')
+    const task = { idea_file: ideaPath, spec_file: null, plan_file: null, notes: null } as Task
+    const ctx = buildTaskContext(task)
+    expect(ctx).toContain('## Idea')
+    expect(ctx).toContain('Do the thing')
+  })
+
+  it('includes notes when present', () => {
+    const task = { idea_file: null, spec_file: null, plan_file: null, notes: 'Watch out for X' } as Task
+    const ctx = buildTaskContext(task)
+    expect(ctx).toContain('## Correction Notes')
+    expect(ctx).toContain('Watch out for X')
+  })
+})
+
+describe('generateOutputPath', () => {
+  it('produces a dated slug path in the given dir', () => {
+    const result = generateOutputPath('/tmp/ideas', 'My Feature Task')
+    expect(result).toMatch(/^\/tmp\/ideas\/\d{4}-\d{2}-\d{2}-my-feature-task\.md$/)
+  })
+
+  it('slugifies special characters', () => {
+    const result = generateOutputPath('/tmp/specs', 'Auth: JWT + Refresh')
+    expect(result).toContain('auth-jwt-refresh')
   })
 })
