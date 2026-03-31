@@ -21,8 +21,6 @@ function deriveActions(tasks: Task[]): ActionItem[] {
         tag: 'Plan ready', tagColor: '#8f77c9',
         href: `/projects/${t.project_id}/plans`,
       })
-    } else if (t.status === 'developing' && !t.plan_file) {
-      // developing with no plan on file — nudge user to check output
     }
   }
   return actions
