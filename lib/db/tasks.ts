@@ -1,0 +1,100 @@
+import type { Database } from 'better-sqlite3'
+
+export type TaskStatus = 'idea' | 'speccing' | 'planning' | 'developing' | 'done'
+
+export type Task = {
+  id: string
+  project_id: string
+  title: string
+  status: TaskStatus
+  idea_file: string | null
+  spec_file: string | null
+  plan_file: string | null
+  dev_summary: string | null
+  commit_refs: string | null
+  doc_refs: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CreateTaskInput = {
+  id: string
+  projectId: string
+  title: string
+}
+
+export function createTask(db: Database, input: CreateTaskInput): Task {
+  const now = new Date().toISOString()
+  db.prepare(`
+    INSERT INTO tasks (id, project_id, title, status, created_at, updated_at)
+    VALUES (?, ?, ?, 'idea', ?, ?)
+  `).run(input.id, input.projectId, input.title, now, now)
+  return getTask(db, input.id)!
+}
+
+export function getTask(db: Database, id: string): Task | undefined {
+  return db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as Task | undefined
+}
+
+export function getTasksByProject(
+  db: Database,
+  projectId: string,
+  status?: TaskStatus
+): Task[] {
+  if (status) {
+    return db.prepare(
+      'SELECT * FROM tasks WHERE project_id = ? AND status = ? ORDER BY updated_at DESC'
+    ).all(projectId, status) as Task[]
+  }
+  return db.prepare(
+    'SELECT * FROM tasks WHERE project_id = ? ORDER BY updated_at DESC'
+  ).all(projectId) as Task[]
+}
+
+export type UpdateTaskInput = {
+  idea_file?: string | null
+  spec_file?: string | null
+  plan_file?: string | null
+  dev_summary?: string | null
+  commit_refs?: string[]
+  doc_refs?: string[]
+  notes?: string | null
+}
+
+export function updateTask(db: Database, id: string, input: UpdateTaskInput): Task {
+  const updates: string[] = []
+  const values: unknown[] = []
+
+  if ('idea_file' in input)   { updates.push('idea_file = ?');   values.push(input.idea_file) }
+  if ('spec_file' in input)   { updates.push('spec_file = ?');   values.push(input.spec_file) }
+  if ('plan_file' in input)   { updates.push('plan_file = ?');   values.push(input.plan_file) }
+  if ('dev_summary' in input) { updates.push('dev_summary = ?'); values.push(input.dev_summary) }
+  if ('commit_refs' in input) { updates.push('commit_refs = ?'); values.push(JSON.stringify(input.commit_refs)) }
+  if ('doc_refs' in input)    { updates.push('doc_refs = ?');    values.push(JSON.stringify(input.doc_refs)) }
+  if ('notes' in input)       { updates.push('notes = ?');       values.push(input.notes) }
+
+  if (updates.length === 0) return getTask(db, id)!
+
+  updates.push('updated_at = ?')
+  values.push(new Date().toISOString(), id)
+
+  db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+  return getTask(db, id)!
+}
+
+const STATUS_ORDER: TaskStatus[] = ['idea', 'speccing', 'planning', 'developing', 'done']
+
+export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatus): Task {
+  const task = getTask(db, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+
+  const currentIndex = STATUS_ORDER.indexOf(task.status)
+  const newIndex = STATUS_ORDER.indexOf(newStatus)
+
+  if (newIndex <= currentIndex) return task
+
+  const now = new Date().toISOString()
+  db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(newStatus, now, id)
+  return getTask(db, id)!
+}
