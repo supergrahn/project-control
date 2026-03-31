@@ -177,6 +177,25 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   items TEXT NOT NULL,
   created_at TEXT NOT NULL
 )`) } catch {}
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tasks (
+        id          TEXT PRIMARY KEY,
+        project_id  TEXT NOT NULL REFERENCES projects(id),
+        title       TEXT NOT NULL,
+        status      TEXT NOT NULL DEFAULT 'idea',
+        idea_file   TEXT,
+        spec_file   TEXT,
+        plan_file   TEXT,
+        dev_summary TEXT,
+        commit_refs TEXT,
+        doc_refs    TEXT,
+        notes       TEXT,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      )
+    `)
+  } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
