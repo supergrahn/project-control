@@ -21,8 +21,8 @@ function getUncommittedCount(projectPath: string): number {
   } catch { return 0 }
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ projectId: string }> }) {
-  const { projectId } = await params
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = await params
   const db = getDb()
   const project = db.prepare('SELECT path FROM projects WHERE id = ?').get(projectId) as { path: string } | undefined
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
