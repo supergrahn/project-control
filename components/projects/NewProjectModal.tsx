@@ -12,6 +12,7 @@ export function NewProjectModal({ onClose }: Props) {
   const [name, setName] = useState('')
   const [pathError, setPathError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   async function validatePath(rawPath: string) {
     if (!rawPath.trim()) return
@@ -19,6 +20,10 @@ export function NewProjectModal({ onClose }: Props) {
     setPathError(null)
     try {
       const res = await fetch(`/api/projects/validate-path?path=${encodeURIComponent(rawPath.trim())}`)
+      if (!res.ok) {
+        setPathError('Could not validate path')
+        return
+      }
       const data = await res.json()
       if (data.valid) {
         if (!name) setName(data.name)
@@ -36,9 +41,13 @@ export function NewProjectModal({ onClose }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!path.trim() || !name.trim() || pathError) return
-    const result = await addProject.mutateAsync({ name: name.trim(), path: path.trim() })
-    onClose()
-    router.push(`/projects/${result.id}`)
+    try {
+      const result = await addProject.mutateAsync({ name: name.trim(), path: path.trim() })
+      onClose()
+      router.push(`/projects/${result.id}`)
+    } catch {
+      setSubmitError('Failed to add project. Please try again.')
+    }
   }
 
   const overlay: React.CSSProperties = {
@@ -64,12 +73,13 @@ export function NewProjectModal({ onClose }: Props) {
         </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
-            <label style={label}>Git repo path</label>
+            <label style={label} htmlFor="modal-path">Git repo path</label>
             <input
+              id="modal-path"
               style={{ ...input, borderColor: pathError ? '#c04040' : '#1e2124' }}
               placeholder="/absolute/path/to/repo"
               value={path}
-              onChange={e => { setPath(e.target.value); setPathError(null) }}
+              onChange={e => { setPath(e.target.value); setPathError(null); setSubmitError(null) }}
               onBlur={e => validatePath(e.target.value)}
               autoFocus
             />
@@ -77,14 +87,16 @@ export function NewProjectModal({ onClose }: Props) {
             {pathError && <div style={{ color: '#c04040', fontSize: 11, marginTop: 4 }}>{pathError}</div>}
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={label}>Project name</label>
+            <label style={label} htmlFor="modal-name">Project name</label>
             <input
+              id="modal-name"
               style={input}
               placeholder="Project name"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={e => { setName(e.target.value); setSubmitError(null) }}
             />
           </div>
+          {submitError && <div style={{ color: '#c04040', fontSize: 11, marginTop: 4 }}>{submitError}</div>}
           <div style={btnRow}>
             <button type="button" onClick={onClose}
               style={{ background: 'none', border: '1px solid #1e2124', color: '#8a9199', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13 }}>
@@ -93,7 +105,7 @@ export function NewProjectModal({ onClose }: Props) {
             <button type="submit"
               disabled={!path.trim() || !name.trim() || !!pathError || validating || addProject.isPending}
               style={{
-                background: !path.trim() || !name.trim() || !!pathError ? '#1c1f22' : '#5b9bd5',
+                background: !path.trim() || !name.trim() || !!pathError || validating ? '#1c1f22' : '#5b9bd5',
                 border: 'none', color: '#e2e6ea', borderRadius: 6, padding: '7px 14px',
                 cursor: 'pointer', fontSize: 13, fontWeight: 600,
               }}>
