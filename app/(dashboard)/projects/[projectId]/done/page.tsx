@@ -1,20 +1,19 @@
 'use client'
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useTasks, patchTask } from '@/hooks/useTasks'
+import { useTasks } from '@/hooks/useTasks'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
-import { NewTaskModal } from '@/components/tasks/NewTaskModal'
+import { patchTask } from '@/hooks/useTasks'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
 
-export default function IdeasPage() {
+export default function DonePage() {
   const { projectId } = useParams() as { projectId: string }
-  const { tasks, isLoading } = useTasks(projectId, 'idea')
+  const { tasks, isLoading } = useTasks(projectId, 'done')
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [drawerSection, setDrawerSection] = useState<DrawerSection | null>(null)
-  const [showNewModal, setShowNewModal] = useState(false)
 
   if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
 
@@ -24,7 +23,7 @@ export default function IdeasPage() {
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ padding: '16px 24px', borderBottom: '1px solid #1c1f22' }}>
             <button onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer', fontSize: 12 }}>
-              ← Ideas
+              ← Done
             </button>
           </div>
           <TaskDetailView task={selectedTask} onOpenDrawer={setDrawerSection} />
@@ -42,40 +41,17 @@ export default function IdeasPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, margin: 0 }}>💡 Ideas</h1>
-        <button
-          onClick={() => setShowNewModal(true)}
-          style={{ background: '#0d1a2d', color: '#5b9bd5', border: '1px solid #5b9bd522', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' }}
-        >
-          + New Task
-        </button>
-      </div>
+      <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, marginBottom: 20 }}>✓ Done</h1>
 
       {tasks.length === 0 && (
-        <div style={{ color: '#2e3338', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>No ideas yet</div>
+        <div style={{ color: '#2e3338', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>No completed tasks yet</div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, opacity: 0.75 }}>
         {tasks.map(task => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onOpen={setSelectedTask}
-            onAction={async (t, action) => {
-              if (action === 'Start Spec') await patchTask(t.id, { status: 'speccing' })
-            }}
-          />
+          <TaskCard key={task.id} task={task} onOpen={setSelectedTask} />
         ))}
       </div>
-
-      {showNewModal && (
-        <NewTaskModal
-          projectId={projectId}
-          onCreated={() => {}}
-          onClose={() => setShowNewModal(false)}
-        />
-      )}
     </div>
   )
 }

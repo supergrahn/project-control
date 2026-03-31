@@ -1,116 +1,65 @@
 'use client'
 import { useState } from 'react'
-import { Plus } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
-import { CardGrid } from '@/components/CardGrid'
-import { MarkdownCard } from '@/components/cards/MarkdownCard'
-import { FileDrawer } from '@/components/FileDrawer'
-import { NewFileDialog } from '@/components/NewFileDialog'
-import { SetupPrompt } from '@/components/SetupPrompt'
-import { useFiles, useCreateFile, usePromoteFile, type MarkdownFile } from '@/hooks/useFiles'
-import { useProjectStore } from '@/hooks/useProjects'
-import { useLaunchSession } from '@/hooks/useSessions'
-import { useSessionWindows } from '@/hooks/useSessionWindows'
-
-const DIR = 'specs'
+import { useParams } from 'next/navigation'
+import { useTasks, patchTask } from '@/hooks/useTasks'
+import { TaskCard } from '@/components/tasks/TaskCard'
+import { TaskDetailView } from '@/components/tasks/TaskDetailView'
+import { RightDrawer } from '@/components/tasks/RightDrawer'
+import type { Task } from '@/lib/db/tasks'
+import type { DrawerSection } from '@/components/tasks/RightDrawer'
 
 export default function SpecsPage() {
-  const { selectedProject } = useProjectStore()
-  const { data, isLoading, error } = useFiles(selectedProject?.id ?? null, DIR)
-  const files = data ?? []
-  const createFile = useCreateFile()
-  const promoteFile = usePromoteFile()
-  const launchSession = useLaunchSession()
-  const { openWindow, bringToFront } = useSessionWindows()
-  const qc = useQueryClient()
-  const [drawerFile, setDrawerFile] = useState<MarkdownFile | null>(null)
-  const [showNewDialog, setShowNewDialog] = useState(false)
+  const { projectId } = useParams() as { projectId: string }
+  const { tasks, isLoading } = useTasks(projectId, 'speccing')
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [drawerSection, setDrawerSection] = useState<DrawerSection | null>(null)
 
-  if (!selectedProject) {
-    return <p className="text-zinc-500 text-sm">Select a project to view specs.</p>
-  }
+  if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
 
-  if (isLoading) return <p className="text-zinc-500 text-sm">Loading...</p>
-
-  if (data === null || error) return <SetupPrompt dir={DIR} />
-
-  async function startSession(file: MarkdownFile, phase: string) {
-    if (!selectedProject) return
-    try {
-      const result = await launchSession.mutateAsync({
-        projectId: selectedProject.id,
-        phase,
-        sourceFile: file.path,
-        userContext: '',
-        permissionMode: 'default',
-      })
-      if (result.sessionId) {
-        openWindow({
-          id: result.sessionId,
-          project_id: selectedProject.id,
-          label: `${file.title} · ${phase}`,
-          phase,
-          source_file: file.path,
-          status: 'active',
-          created_at: new Date().toISOString(),
-          ended_at: null,
-        })
-        qc.invalidateQueries({ queryKey: ['files', selectedProject.id, DIR] })
-      }
-    } catch {}
+  if (selectedTask) {
+    return (
+      <div style={{ display: 'flex', height: '100%' }}>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '16px 24px', borderBottom: '1px solid #1c1f22' }}>
+            <button onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer', fontSize: 12 }}>
+              ← Specs
+            </button>
+          </div>
+          <TaskDetailView task={selectedTask} onOpenDrawer={setDrawerSection} />
+        </div>
+        <RightDrawer
+          task={selectedTask}
+          section={drawerSection}
+          sessions={[]}
+          onClose={() => setDrawerSection(null)}
+          onNotesChange={async (notes) => { await patchTask(selectedTask.id, { notes }) }}
+        />
+      </div>
+    )
   }
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-semibold text-zinc-100">📋 Specs</h1>
-        <button
-          onClick={() => setShowNewDialog(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-violet-600 hover:bg-violet-500 text-white rounded"
-        >
-          <Plus size={14} /> New Spec
-        </button>
+    <div style={{ padding: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, margin: 0 }}>📐 Specs</h1>
       </div>
 
-      {files.length === 0 && (
-        <p className="text-zinc-600 text-sm">No specs yet. Create one or generate from an idea.</p>
+      {tasks.length === 0 && (
+        <div style={{ color: '#2e3338', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>No specs yet</div>
       )}
-      <CardGrid>
-        {files.map((f) => (
-          <MarkdownCard
-            key={f.path}
-            file={f}
-            badge="spec"
-            onClick={() => setDrawerFile(f)}
-            phaseSessionState={f.sessions.spec}
-            onLiveBadgeClick={() => { if (f.sessions.spec.sessionId) bringToFront(f.sessions.spec.sessionId) }}
-            onViewLog={() => { if (f.sessions.spec.logId) setDrawerFile({ ...f, path: f.sessions.spec.logId, title: `${f.title} — spec log`, content: '' }) }}
-            onResume={() => startSession(f, 'spec')}
-            actions={[
-              { label: '📐 Spec', variant: 'primary', onClick: () => startSession(f, 'spec') },
-              { label: '🗺 → Plans', onClick: () => promoteFile.mutate({ projectId: selectedProject.id, sourceFile: f.path, targetDir: 'plans' }) },
-              { label: '🗺 Create Plan', onClick: () => startSession(f, 'plan') },
-            ]}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        {tasks.map(task => (
+          <TaskCard
+            key={task.id}
+            task={task}
+            onOpen={setSelectedTask}
+            onAction={async (t, action) => {
+              if (action === 'Start Plan') await patchTask(t.id, { status: 'planning' })
+            }}
           />
         ))}
-      </CardGrid>
-
-      <FileDrawer file={drawerFile} onClose={() => setDrawerFile(null)} />
-
-      {showNewDialog && (
-        <NewFileDialog
-          label="Spec"
-          onCancel={() => setShowNewDialog(false)}
-          onConfirm={async (name) => {
-            try {
-              await createFile.mutateAsync({ projectId: selectedProject.id, dir: DIR, name })
-              setShowNewDialog(false)
-            } catch {
-              // mutation failed — leave dialog open, user can retry
-            }
-          }}
-        />
-      )}
-    </>
+      </div>
+    </div>
   )
 }
