@@ -45,12 +45,13 @@ function wrapper({ children }: { children: React.ReactNode }) {
 }
 
 describe('TopBar', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     mockMutateAsync.mockClear()
     mockIsPending = false
-    const { TopBar } = await import('../layout/TopBar')
-    // re-export for use in tests
-    ;(globalThis as any).__TopBar = TopBar
+  })
+
+  afterEach(() => {
+    mockPathname = '/projects/p1/ideas'
   })
 
   it('renders project name in breadcrumb', async () => {
@@ -143,6 +144,5 @@ describe('TopBar', () => {
     const { TopBar } = await import('../layout/TopBar')
     render(<TopBar projectId="p1" projectName="project-control" />, { wrapper })
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    mockPathname = '/projects/p1/ideas'
   })
 })
