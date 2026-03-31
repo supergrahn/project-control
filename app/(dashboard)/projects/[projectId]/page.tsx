@@ -19,9 +19,8 @@ export default function DashboardPage() {
 
   const { feed } = useOrchestratorFeed(activeSessions)
 
-  // Tasks with no active session that are not done — shown in Waiting grid
-  const activeSessionTaskIds = new Set(activeSessions.map(s => s.id))
-  const waitingTasks = tasks.filter(t => t.status !== 'done' && !activeSessionTaskIds.has(t.id))
+  // Tasks that are not done — shown in Waiting grid
+  const waitingTasks = tasks.filter(t => t.status !== 'done')
 
   const headingStyle: React.CSSProperties = {
     color: '#8a9199', fontSize: 11, fontWeight: 600,
@@ -38,14 +37,14 @@ export default function DashboardPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <div style={headingStyle}>Live Sessions</div>
             {activeSessions.length > 0 && (
-              <span style={{ background: '#3a8c5c', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600, marginBottom: 14 }}>
+              <span style={{ background: '#3a8c5c', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600 }}>
                 {activeSessions.length}
               </span>
             )}
           </div>
 
           {activeSessions.length === 0 ? (
-            <div style={{ color: '#2e3338', fontSize: 14, padding: '24px 0' }}>
+            <div style={{ color: '#5a6370', fontSize: 14, padding: '24px 0' }}>
               No active sessions — start one from the pipeline pages.
             </div>
           ) : (
