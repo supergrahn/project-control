@@ -6,7 +6,7 @@ import { EventEmitter } from 'events'
 import { getDb, createSession, endSession, getActiveSessionForFile, getProject, listContextPacks } from './db'
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
-import { getTask } from './db/tasks'
+import { getTask, updateTask } from './db/tasks'
 import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
@@ -193,6 +193,20 @@ export function spawnSession(opts: SpawnOptions): string {
 
   proc.onExit(() => {
     endSession(getDb(), sessionId)
+    // Write artifact refs back to task on session end
+    if (opts.taskId) {
+      const phaseToField: Record<string, 'idea_file' | 'spec_file' | 'plan_file'> = {
+        brainstorm: 'idea_file',
+        spec:       'spec_file',
+        plan:       'plan_file',
+      }
+      const field = phaseToField[opts.phase]
+      if (field && opts.outputPath) {
+        if (fs.existsSync(opts.outputPath)) {
+          updateTask(getDb(), opts.taskId, { [field]: opts.outputPath })
+        }
+      }
+    }
     logEvent(getDb(), {
       projectId: opts.projectId,
       type: 'session_ended',
@@ -232,6 +246,10 @@ export function spawnSession(opts: SpawnOptions): string {
             summary: `Debrief generated: ${path.basename(debriefPath)}`,
             severity: 'info',
           })
+          // Write dev_summary back to task if develop session
+          if (opts.taskId && opts.phase === 'develop') {
+            updateTask(getDb(), opts.taskId, { dev_summary: debriefPath })
+          }
         }
       }).catch(() => {})
     }
