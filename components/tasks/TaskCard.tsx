@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskStatus } from '@/lib/db/tasks'
 import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
+import { deleteTask } from '@/hooks/useTasks'
 
 const NEXT_ACTION: Record<TaskStatus, string | null> = {
   idea:       'Start Spec',
@@ -22,6 +23,7 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
   const config = PHASE_CONFIG[task.status]
   const isLive = !!activeSessionId
   const [lastAction, setLastAction] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
@@ -73,7 +75,7 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
 
       {/* Title */}
       <div style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600, marginBottom: 8, lineHeight: 1.4 }}>
-        {task.title}
+        {task.title.charAt(0).toUpperCase() + task.title.slice(1)}
       </div>
 
       {/* Last Action */}
@@ -125,11 +127,36 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
             {nextAction}
           </button>
         )}
-        <button
-          style={{ background: '#141618', color: '#5a6370', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, cursor: 'pointer' }}
-        >
-          ···
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setMenuOpen(v => !v)}
+            style={{ background: '#141618', color: '#5a6370', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, cursor: 'pointer' }}
+          >
+            ···
+          </button>
+          {menuOpen && (
+            <div style={{
+              position: 'absolute', bottom: '100%', right: 0, marginBottom: 4,
+              background: '#1c1f22', border: '1px solid #2e3338', borderRadius: 6,
+              overflow: 'hidden', zIndex: 10, minWidth: 140,
+            }}>
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  if (window.confirm(`Remove "${task.title}" from the system?`)) {
+                    deleteTask(task.id, task.project_id)
+                  }
+                }}
+                style={{
+                  display: 'block', width: '100%', padding: '8px 12px', background: 'none',
+                  border: 'none', color: '#c04040', fontSize: 12, textAlign: 'left', cursor: 'pointer',
+                }}
+              >
+                Remove from system
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

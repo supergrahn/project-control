@@ -34,6 +34,12 @@ export async function createTask(projectId: string, title: string, notes?: strin
   return task
 }
 
+export async function deleteTask(taskId: string, projectId: string): Promise<void> {
+  const res = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+  if (!res.ok) throw new Error('Failed to delete task')
+  await globalMutate((key: unknown) => typeof key === 'string' && key.startsWith('/api/tasks?projectId='))
+}
+
 export async function patchTask(taskId: string, input: Partial<UpdateTaskInput> & { status?: TaskStatus }): Promise<Task> {
   const res = await fetch(`/api/tasks/${taskId}`, {
     method: 'PATCH',

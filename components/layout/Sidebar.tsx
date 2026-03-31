@@ -43,7 +43,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
   }, [])
 
   const sidebarStyle: React.CSSProperties = {
-    width: 200,
+    width: 240,
     background: '#0c0e10',
     borderRight: '1px solid #1c1f22',
     display: 'flex',
@@ -119,7 +119,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
                 background: DOT_COLORS[i % DOT_COLORS.length],
               }} />
               <span style={{
-                color: p.id === projectId ? '#e2e6ea' : '#8a9199', fontSize: 12,
+                color: p.id === projectId ? '#e2e6ea' : '#8a9199', fontSize: 13,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{p.name}</span>
             </button>
@@ -171,7 +171,7 @@ function NavItem({ href, active, badge, badgeColor, children }: {
         background: active ? '#1c1f22' : 'none',
         borderLeft: active ? '2px solid #5b9bd5' : '2px solid transparent',
       }}>
-        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 13 }}>{children}</span>
+        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 14 }}>{children}</span>
         {badge !== undefined && (
           <span style={{
             background: badgeColor ?? '#1c1f22', color: '#fff',
@@ -199,10 +199,10 @@ function PipelineNavItem({ projectId, item, active, activeSessions }: {
         padding: '5px 8px', borderRadius: 6, marginBottom: 1,
         background: active ? '#1c1f22' : 'transparent',
       }}>
-        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 12 }}>{item.label}</span>
+        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 13 }}>{item.label}</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           {hasLive && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3a8c5c', display: 'inline-block' }} />}
-          <span style={{ background: '#1c1f22', color: '#454c54', padding: '1px 5px', borderRadius: 10, fontSize: 10 }}>
+          <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: tasks.length > 0 ? 600 : 400 }}>
             {tasks.length}
           </span>
         </span>

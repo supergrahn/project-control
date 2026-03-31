@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
-import { getTask, updateTask, advanceTaskStatus } from '@/lib/db/tasks'
+import { getTask, updateTask, advanceTaskStatus, deleteTask } from '@/lib/db/tasks'
 import type { TaskStatus, UpdateTaskInput } from '@/lib/db/tasks'
 
 export async function GET(
@@ -42,4 +42,16 @@ export async function PATCH(
 
   const updated = updateTask(db, id, input)
   return NextResponse.json(updated)
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const db = getDb()
+  const task = getTask(db, id)
+  if (!task) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  deleteTask(db, id)
+  return NextResponse.json({ ok: true })
 }

@@ -85,6 +85,10 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
 
 const STATUS_ORDER: TaskStatus[] = ['idea', 'speccing', 'planning', 'developing', 'done']
 
+export function deleteTask(db: Database, id: string): void {
+  db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
+}
+
 export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatus): Task {
   const task = getTask(db, id)
   if (!task) throw new Error(`Task ${id} not found`)
