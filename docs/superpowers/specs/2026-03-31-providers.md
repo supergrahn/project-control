@@ -108,7 +108,7 @@ List view showing all configured providers with:
 | Create | `app/api/providers/[id]/route.ts` — `GET`, `PATCH`, `DELETE` |
 | Create | `lib/sessions/resolveProvider.ts` — hierarchical resolution logic |
 | Create | `lib/sessions/rateLimitDetector.ts` — stream parser for rate limit signals |
-| Modify | `lib/sessions/spawn.ts` — call `resolveProvider` before spawning, wire `RateLimitDetector` |
+| Modify | `lib/session-manager.ts` — call `resolveProvider` before spawning, wire `RateLimitDetector`, add `paused` as valid session status |
 | Create | `app/(dashboard)/settings/providers/page.tsx` — provider management UI |
 | Modify | `hooks/useProjects.tsx` — add `provider_id` to `Project` type |
 | Modify | `lib/db/tasks.ts` — add `provider_id` to `Task` type and queries |

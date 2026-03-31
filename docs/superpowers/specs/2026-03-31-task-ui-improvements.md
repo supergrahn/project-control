@@ -63,7 +63,7 @@ Appears in the left column below the description. Subscribes to the active sessi
 **Inactive state:**
 - Muted "No active run" placeholder
 
-The active session for the task is determined by fetching `GET /api/sessions?taskId={taskId}&status=active` — the first result is the live session. The sessions API already supports `taskId` filtering (`SELECT * FROM sessions WHERE task_id = ?`).
+The active session for the task is determined by fetching `GET /api/sessions?taskId={taskId}&status=active` — the first result is the live session. The sessions API already supports `taskId` filtering (`SELECT * FROM sessions WHERE task_id = ?`). The `status=active` filter must be added as part of this track (see File Map).
 
 ---
 
@@ -118,7 +118,7 @@ Replaces `NewTaskModal` everywhere it is currently used. New filename: `componen
 
 **Buttons:**
 - `Save` — creates task with current field values, closes modal, task appears in list
-- `Start now` — creates task + immediately spawns a session for its current phase (idea → brainstorm session), navigates to the task detail page
+- `Start now` — creates task + immediately spawns a session for its current phase (idea → brainstorm session), navigates to the task detail page. If no providers are configured, `Start now` is disabled and shows a tooltip: "No providers configured — add one in Settings → Providers."
 
 **Keyboard:**
 - `Escape` closes
@@ -134,6 +134,7 @@ Replaces `NewTaskModal` everywhere it is currently used. New filename: `componen
 | Modify | `lib/db/tasks.ts` — add `priority`, `labels`, `assignee_agent_id` + migration |
 | Modify | `app/api/tasks/[id]/route.ts` — allow PATCH of new fields |
 | Modify | `app/api/tasks/route.ts` — include new fields in GET/POST responses |
+| Modify | `app/api/sessions/route.ts` — add `status=active` filter when `taskId` provided |
 | Rewrite | `components/tasks/TaskDetailView.tsx` — two-column layout with properties panel |
 | Create | `components/tasks/PropertiesPanel.tsx` — right panel component |
 | Create | `components/tasks/LiveRunsSection.tsx` — WebSocket stream + todo parsing |

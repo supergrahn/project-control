@@ -112,13 +112,13 @@ Two buttons:
 
 | Action | File |
 |---|---|
-| Create | `components/layout/ProjectRail.tsx` — icon rail component |
+| Create | `components/layout/ProjectRail.tsx` — icon rail with project circles, active ring, tooltip, and `+` button that opens `NewProjectWizard` |
 | Modify | `app/(dashboard)/layout.tsx` — insert `<ProjectRail />` left of `<SidebarWrapper />` |
-| Modify | `components/layout/Sidebar.tsx` — remove projects section at bottom |
+| Modify | `components/layout/Sidebar.tsx` — remove projects section at bottom; replace `+ Add Project` button with one that opens `NewProjectWizard` |
 | Delete | `components/projects/NewProjectModal.tsx` |
 | Create | `components/projects/NewProjectWizard.tsx` — 4-step wizard |
-| Modify | `components/layout/Sidebar.tsx` — replace `+ Add Project` button → opens `NewProjectWizard` |
-| Modify | `components/layout/ProjectRail.tsx` — `+` button opens `NewProjectWizard` |
+
+> **Note:** `components/layout/Sidebar.tsx` is also modified by Track C (add Agents nav item) and Track E (add Skills nav item). Build order: Track D first (structural), then C and E (additive).
 
 ---
 
