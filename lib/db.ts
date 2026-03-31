@@ -196,6 +196,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       )
     `)
   } catch {}
+  try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

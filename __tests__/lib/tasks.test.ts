@@ -34,3 +34,11 @@ describe('tasks table', () => {
     expect(row.status).toBe('idea')
   })
 })
+
+describe('sessions.task_id', () => {
+  it('has task_id column', () => {
+    const cols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[]
+    const names = cols.map(c => c.name)
+    expect(names).toContain('task_id')
+  })
+})
