@@ -26,9 +26,17 @@ vi.mock('@/hooks/useProjects', () => ({
   }),
 }))
 
+let mockPathname = '/projects/p1/ideas'
+
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/projects/p1/ideas',
+  usePathname: () => mockPathname,
   useRouter: () => ({ push: vi.fn() }),
+}))
+
+vi.mock('next/link', () => ({
+  default: ({ href, children, style }: { href: string; children: React.ReactNode; style?: React.CSSProperties }) => (
+    <a href={href} style={style}>{children}</a>
+  ),
 }))
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -128,5 +136,13 @@ describe('TopBar', () => {
     render(<TopBar projectId="p1" projectName="project-control" />, { wrapper })
     fireEvent.click(screen.getByLabelText('Open project settings'))
     expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+  })
+
+  it('renders "Dashboard" when pathname is the project root', async () => {
+    mockPathname = '/projects/p1'
+    const { TopBar } = await import('../layout/TopBar')
+    render(<TopBar projectId="p1" projectName="project-control" />, { wrapper })
+    expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    mockPathname = '/projects/p1/ideas'
   })
 })

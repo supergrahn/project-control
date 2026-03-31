@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useProjects, useUpdateSettings } from '@/hooks/useProjects'
 import type { Project } from '@/hooks/useProjects'
 
@@ -26,8 +27,8 @@ function getPageLabel(pathname: string, projectId: string): string {
 
 export function TopBar({ projectId, projectName }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [gearHovered, setGearHovered] = useState(false)
   const pageLabel = getPageLabel(pathname, projectId)
 
   return (
@@ -43,19 +44,24 @@ export function TopBar({ projectId, projectName }: Props) {
         flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <button
-            onClick={() => router.push(`/projects/${projectId}`)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#5a6370', fontSize: 12, fontFamily: 'inherit' }}
+          <Link
+            href={`/projects/${projectId}`}
+            style={{ color: '#5a6370', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}
           >
             {projectName}
-          </button>
+          </Link>
           <span style={{ color: '#2e3338', fontSize: 12, margin: '0 6px' }}>›</span>
           <span style={{ color: '#c8ced6', fontSize: 12, fontWeight: 500 }}>{pageLabel}</span>
         </div>
         <button
           onClick={() => setDrawerOpen(true)}
+          onMouseEnter={() => setGearHovered(true)}
+          onMouseLeave={() => setGearHovered(false)}
           aria-label="Open project settings"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px', color: '#5a6370', fontSize: 14, fontFamily: 'inherit' }}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px',
+            color: gearHovered ? '#8a9199' : '#5a6370', fontSize: 14, fontFamily: 'inherit',
+          }}
         >
           ⚙
         </button>
