@@ -197,6 +197,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     `)
   } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
+  try { db.exec('ALTER TABLE sessions ADD COLUMN output_path TEXT') } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -264,9 +265,11 @@ export function createSession(db: Database.Database, data: {
   label: string
   phase: SessionPhase
   sourceFile: string | null
+  taskId?: string
+  outputPath?: string
 }): void {
-  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, created_at) VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, new Date().toISOString())
+  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, task_id, output_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, data.taskId ?? null, data.outputPath ?? null, new Date().toISOString())
 }
 
 export function getActiveSessions(db: Database.Database): Session[] {

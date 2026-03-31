@@ -6,6 +6,8 @@ import { EventEmitter } from 'events'
 import { getDb, createSession, endSession, getActiveSessionForFile, getProject, listContextPacks } from './db'
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
+import { getTask } from './db/tasks'
+import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
 import { randomUUID } from 'crypto'
@@ -80,6 +82,8 @@ export type SpawnOptions = {
   userContext: string
   permissionMode: PermissionMode
   correctionNote?: string
+  taskId?: string
+  outputPath?: string
 }
 
 export function spawnSession(opts: SpawnOptions): string {
@@ -96,10 +100,25 @@ export function spawnSession(opts: SpawnOptions): string {
 
   const contextPacks = listContextPacks(db, opts.projectId).map(p => ({ title: p.title, content: p.content }))
 
+  // Assemble task context if taskId is provided
+  let fullContext = opts.userContext
+  if (opts.taskId) {
+    const task = getTask(db, opts.taskId)
+    if (task) {
+      let taskBlock = buildTaskContext(task)
+      if (opts.outputPath) {
+        taskBlock += `\n\n## Output Path\nWrite your output to: ${opts.outputPath}`
+      }
+      if (taskBlock) {
+        fullContext = `${taskBlock}\n\n---\n\n${opts.userContext}`
+      }
+    }
+  }
+
   const systemPrompt = buildSessionContext({
     phase: opts.phase,
     sourceFile: opts.sourceFile,
-    userContext: opts.userContext,
+    userContext: fullContext,
     gitHistory: getGitHistory(opts.projectPath),
     correctionNote: opts.correctionNote,
     contextPacks: contextPacks.length > 0 ? contextPacks : null,
@@ -128,6 +147,8 @@ export function spawnSession(opts: SpawnOptions): string {
       label: opts.label,
       phase: opts.phase as import('./db').SessionPhase,
       sourceFile: canonical,
+      taskId: opts.taskId,
+      outputPath: opts.outputPath,
     })
     logEvent(db, {
       projectId: opts.projectId,
