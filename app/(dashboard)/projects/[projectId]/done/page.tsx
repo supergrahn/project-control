@@ -1,11 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
-import { useTasks } from '@/hooks/useTasks'
+import { useTasks, patchTask } from '@/hooks/useTasks'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
-import { patchTask } from '@/hooks/useTasks'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
 
