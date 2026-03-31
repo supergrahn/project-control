@@ -1,16 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import type { Task, TaskStatus } from '@/lib/db/tasks'
-
-const PHASE_CONFIG: Record<TaskStatus, { label: string; icon: string; color: string; bgColor: string }> = {
-  idea:       { label: 'Idea',       icon: '💡', color: '#5b9bd5', bgColor: '#0d1a2d' },
-  speccing:   { label: 'Spec',       icon: '📐', color: '#3a8c5c', bgColor: '#0c1a12' },
-  planning:   { label: 'Plan',       icon: '📋', color: '#8f77c9', bgColor: '#1a1225' },
-  developing: { label: 'Developing', icon: '⚙️', color: '#c97e2a', bgColor: '#160f04' },
-  done:       { label: 'Done',       icon: '✓',  color: '#3a8c5c', bgColor: '#0a120a' },
-}
-
-const STATUS_ORDER: TaskStatus[] = ['idea', 'speccing', 'planning', 'developing', 'done']
+import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
 
 const NEXT_ACTION: Record<TaskStatus, string | null> = {
   idea:       'Start Spec',
@@ -35,7 +26,7 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
 
   useEffect(() => {
     if (!activeSessionId) return
-    const ws = new WebSocket(`ws://localhost:${window.location.port}/api/sessions/${activeSessionId}/ws`)
+    const ws = new WebSocket(`ws://${window.location.host}/api/sessions/${activeSessionId}/ws`)
     wsRef.current = ws
     ws.onmessage = (e) => {
       const text: string = typeof e.data === 'string' ? e.data : ''

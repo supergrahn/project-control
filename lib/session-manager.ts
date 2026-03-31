@@ -196,6 +196,7 @@ export function spawnSession(opts: SpawnOptions): string {
     // Write artifact refs back to task on session end
     if (opts.taskId) {
       const phaseToField: Record<string, 'idea_file' | 'spec_file' | 'plan_file'> = {
+        ideate:     'idea_file',
         brainstorm: 'idea_file',
         spec:       'spec_file',
         plan:       'plan_file',

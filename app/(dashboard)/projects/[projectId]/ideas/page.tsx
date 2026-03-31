@@ -34,7 +34,11 @@ export default function IdeasPage() {
               ← Ideas
             </button>
           </div>
-          <TaskDetailView task={selectedTask} onOpenDrawer={setDrawerSection} />
+          <TaskDetailView
+            task={selectedTask}
+            activeSessionId={taskSessions?.find((s: any) => !s.ended_at)?.id ?? null}
+            onOpenDrawer={setDrawerSection}
+          />
         </div>
         <RightDrawer
           task={selectedTask}

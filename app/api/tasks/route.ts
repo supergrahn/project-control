@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
-import { createTask, getTasksByProject } from '@/lib/db/tasks'
+import { createTask, getTasksByProject, updateTask } from '@/lib/db/tasks'
 import type { TaskStatus } from '@/lib/db/tasks'
 
 export async function GET(req: NextRequest) {
@@ -20,13 +20,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { projectId, title } = body
+  const { projectId, title, notes } = body
 
   if (!projectId || !title?.trim()) {
     return NextResponse.json({ error: 'projectId and title required' }, { status: 400 })
   }
 
   const db = getDb()
-  const task = createTask(db, { id: randomUUID(), projectId, title: title.trim() })
+  let task = createTask(db, { id: randomUUID(), projectId, title: title.trim() })
+  if (notes?.trim()) {
+    task = updateTask(db, task.id, { notes: notes.trim() })
+  }
   return NextResponse.json(task, { status: 201 })
 }

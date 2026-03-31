@@ -22,11 +22,11 @@ export function useTask(taskId: string | null) {
   return { task: data, error, isLoading }
 }
 
-export async function createTask(projectId: string, title: string): Promise<Task> {
+export async function createTask(projectId: string, title: string, notes?: string): Promise<Task> {
   const res = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId, title }),
+    body: JSON.stringify({ projectId, title, notes }),
   })
   if (!res.ok) throw new Error('Failed to create task')
   const task = await res.json()
@@ -43,5 +43,6 @@ export async function patchTask(taskId: string, input: Partial<UpdateTaskInput> 
   if (!res.ok) throw new Error('Failed to update task')
   const task = await res.json()
   await globalMutate(`/api/tasks/${taskId}`)
+  await globalMutate((key: unknown) => typeof key === 'string' && key.startsWith('/api/tasks?projectId='))
   return task
 }

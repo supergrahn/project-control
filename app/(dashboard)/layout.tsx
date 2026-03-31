@@ -15,7 +15,6 @@ import { OrchestratorDrawer } from '@/components/OrchestratorDrawer'
 import { SessionWindowProvider, useSessionWindows } from '@/hooks/useSessionWindows'
 import { FloatingSessionWindow } from '@/components/FloatingSessionWindow'
 import { SessionPillBar } from '@/components/SessionPillBar'
-import useSWR from 'swr'
 import { useParams } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 
@@ -123,10 +122,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 function SidebarWrapper() {
   const params = useParams()
   const projectId = params?.projectId as string | undefined
-  const { data: project } = useSWR(projectId ? `/api/projects/${projectId}` : null, (url: string) => fetch(url).then(r => r.json()))
+  const { selectedProject } = useProjectStore()
 
-  if (!projectId || !project) return null
-  return <Sidebar projectId={projectId} projectName={project.name} projectPath={project.path} />
+  if (!projectId || !selectedProject || selectedProject.id !== projectId) return null
+  return <Sidebar projectId={projectId} projectName={selectedProject.name} projectPath={selectedProject.path} />
 }
 
 function FloatingWindowsRenderer() {

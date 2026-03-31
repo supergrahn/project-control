@@ -1,6 +1,9 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import type { Task, TaskStatus } from '@/lib/db/tasks'
+import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
+import { useSessionWindows } from '@/hooks/useSessionWindows'
+import { mutate as globalMutate } from 'swr'
 
 type DrawerSection = 'artifacts' | 'sessions' | 'notes'
 
@@ -8,16 +11,6 @@ type Props = {
   task: Task
   activeSessionId?: string | null
   onOpenDrawer: (section: DrawerSection) => void
-}
-
-const STATUS_ORDER: TaskStatus[] = ['idea', 'speccing', 'planning', 'developing', 'done']
-
-const PHASE_CONFIG: Record<TaskStatus, { label: string; icon: string; color: string; bgColor: string }> = {
-  idea:       { label: 'Idea',       icon: '💡', color: '#5b9bd5', bgColor: '#0d1a2d' },
-  speccing:   { label: 'Spec',       icon: '📐', color: '#3a8c5c', bgColor: '#0c1a12' },
-  planning:   { label: 'Plan',       icon: '📋', color: '#8f77c9', bgColor: '#1a1225' },
-  developing: { label: 'Developing', icon: '⚙️', color: '#c97e2a', bgColor: '#160f04' },
-  done:       { label: 'Done',       icon: '✓',  color: '#3a8c5c', bgColor: '#0a120a' },
 }
 
 const ARTIFACT_FIELDS: Record<TaskStatus, keyof Task | null> = {
@@ -31,10 +24,31 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
   const [expandedPhase, setExpandedPhase] = useState<TaskStatus | null>(task.status === 'done' ? null : task.status)
   const [logLines, setLogLines] = useState<LogLine[]>([])
   const logEndRef = useRef<HTMLDivElement>(null)
+  const { openWindow } = useSessionWindows()
+
+  async function handleStop() {
+    if (!activeSessionId) return
+    await fetch(`/api/sessions/${activeSessionId}`, { method: 'DELETE' })
+    await globalMutate((key: unknown) => typeof key === 'string' && key.includes('/api/sessions'))
+  }
+
+  function handleOpenTerminal() {
+    if (!activeSessionId) return
+    openWindow({
+      id: activeSessionId,
+      project_id: task.project_id,
+      label: task.title,
+      phase: task.status,
+      source_file: null,
+      status: 'active',
+      created_at: task.updated_at,
+      ended_at: null,
+    })
+  }
 
   useEffect(() => {
     if (!activeSessionId) return
-    const ws = new WebSocket(`ws://localhost:${window.location.port}/api/sessions/${activeSessionId}/ws`)
+    const ws = new WebSocket(`ws://${window.location.host}/api/sessions/${activeSessionId}/ws`)
     ws.onmessage = (e) => {
       const text: string = typeof e.data === 'string' ? e.data : ''
       const match = text.match(/^(Write|Edit|Bash|Read|Glob|Grep)\s+·\s+(.+)$/m)
@@ -156,10 +170,18 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
                   )}
                   {isActive && (
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button style={{ flex: 1, background: cfg.bgColor, color: cfg.color, border: `1px solid ${cfg.color}33`, borderRadius: 6, padding: '5px 0', fontSize: 11, cursor: 'pointer' }}>
+                      <button
+                        onClick={handleOpenTerminal}
+                        disabled={!activeSessionId}
+                        style={{ flex: 1, background: cfg.bgColor, color: activeSessionId ? cfg.color : '#454c54', border: `1px solid ${cfg.color}33`, borderRadius: 6, padding: '5px 0', fontSize: 11, cursor: activeSessionId ? 'pointer' : 'default' }}
+                      >
                         Open Terminal
                       </button>
-                      <button style={{ background: '#1c1f22', color: '#5a6370', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer' }}>
+                      <button
+                        onClick={handleStop}
+                        disabled={!activeSessionId}
+                        style={{ background: '#1c1f22', color: activeSessionId ? '#c97e2a' : '#454c54', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: activeSessionId ? 'pointer' : 'default' }}
+                      >
                         Stop
                       </button>
                     </div>

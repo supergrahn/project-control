@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
+import useSWR from 'swr'
 import { useTasks, patchTask } from '@/hooks/useTasks'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
@@ -14,6 +15,12 @@ export default function DonePage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [drawerSection, setDrawerSection] = useState<DrawerSection | null>(null)
 
+  const { data: taskSessions } = useSWR(
+    selectedTask ? `/api/sessions?projectId=${projectId}&taskId=${selectedTask.id}` : null,
+    (url: string) => fetch(url).then(r => r.json()),
+    { refreshInterval: 3000 }
+  )
+
   if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
 
   if (selectedTask) {
@@ -25,12 +32,16 @@ export default function DonePage() {
               ← Done
             </button>
           </div>
-          <TaskDetailView task={selectedTask} onOpenDrawer={setDrawerSection} />
+          <TaskDetailView
+            task={selectedTask}
+            activeSessionId={taskSessions?.find((s: any) => !s.ended_at)?.id ?? null}
+            onOpenDrawer={setDrawerSection}
+          />
         </div>
         <RightDrawer
           task={selectedTask}
           section={drawerSection}
-          sessions={[]}
+          sessions={taskSessions ?? []}
           onClose={() => setDrawerSection(null)}
           onNotesChange={async (notes) => { await patchTask(selectedTask.id, { notes }) }}
         />

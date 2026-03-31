@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { readdirSync, existsSync } from 'fs'
 import path from 'path'
 import { getDb } from '@/lib/db'
-import { createTask, getTasksByProject, updateTask } from '@/lib/db/tasks'
+import { createTask, getTasksByProject, updateTask, advanceTaskStatus } from '@/lib/db/tasks'
 import type { TaskStatus } from '@/lib/db/tasks'
 
 function getFileKey(filename: string): string {
@@ -52,26 +52,31 @@ export async function POST(req: NextRequest) {
 
   const allKeys = new Set([...ideaMap.keys(), ...specMap.keys(), ...planMap.keys()])
 
-  // Check existing tasks to avoid duplicates
+  // Check existing tasks to avoid duplicates — match by file paths, not titles
   const existing = getTasksByProject(db, projectId)
-  const existingTitles = new Set(existing.map(t => t.title))
+  const existingPaths = new Set(
+    existing.flatMap(t => [t.idea_file, t.spec_file, t.plan_file].filter(Boolean) as string[])
+  )
 
   let created = 0
   let skipped = 0
 
   for (const key of allKeys) {
-    const title = key.replace(/-/g, ' ')
-    if (existingTitles.has(title)) { skipped++; continue }
-
     const ideaFile = ideaMap.get(key) ?? null
     const specFile = specMap.get(key) ?? null
     const planFile = planMap.get(key) ?? null
+
+    // Skip if any of the resolved paths already belong to a task
+    const paths = [ideaFile, specFile, planFile].filter(Boolean) as string[]
+    if (paths.some(p => existingPaths.has(p))) { skipped++; continue }
+
+    const title = key.replace(/-/g, ' ')
     const status = inferStatus(!!ideaFile, !!specFile, !!planFile)
 
     const task = createTask(db, { id: randomUUID(), projectId, title })
     updateTask(db, task.id, { idea_file: ideaFile, spec_file: specFile, plan_file: planFile })
     if (status !== 'idea') {
-      db.prepare('UPDATE tasks SET status = ? WHERE id = ?').run(status, task.id)
+      advanceTaskStatus(db, task.id, status)
     }
     created++
   }

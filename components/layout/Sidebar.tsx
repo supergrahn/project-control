@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import useSWR from 'swr'
 import { useTasks } from '@/hooks/useTasks'
+import { STATUS_TO_SESSION_PHASES } from '@/lib/taskPhaseConfig'
 
 type GitInfo = { branch: string; lastCommit: string; uncommitted: number }
 type Session = { id: string; label: string; phase: string; created_at: string; task_id: string | null }
@@ -71,7 +72,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
             projectId={projectId}
             item={item}
             active={pathname.includes(`/${item.status === 'idea' ? 'ideas' : item.status === 'speccing' ? 'specs' : item.status === 'planning' ? 'plans' : item.status === 'developing' ? 'developing' : 'done'}`)}
-            hasLive={activeSessions.some(() => false)}
+            hasLive={activeSessions.some(s => (STATUS_TO_SESSION_PHASES[item.status] ?? []).includes(s.phase))}
           />
         ))}
       </div>

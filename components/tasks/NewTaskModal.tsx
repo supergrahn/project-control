@@ -29,7 +29,7 @@ export function NewTaskModal({ projectId, onCreated, onClose }: Props) {
     if (!title.trim()) return
     setLoading(true)
     try {
-      await createTask(projectId, title.trim())
+      await createTask(projectId, title.trim(), description.trim() || undefined)
       onCreated()
       onClose()
     } finally {

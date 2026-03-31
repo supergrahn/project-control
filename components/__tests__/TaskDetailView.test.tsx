@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
+import { SessionWindowProvider } from '@/hooks/useSessionWindows'
 import type { Task } from '@/lib/db/tasks'
 
 const task: Task = {
@@ -21,18 +22,18 @@ const task: Task = {
 
 describe('TaskDetailView', () => {
   it('renders task title', () => {
-    render(<TaskDetailView task={task} onOpenDrawer={vi.fn()} />)
+    render(<SessionWindowProvider><TaskDetailView task={task} onOpenDrawer={vi.fn()} /></SessionWindowProvider>)
     expect(screen.getByText('Auth redesign')).toBeInTheDocument()
   })
 
   it('shows completed phases as collapsed rows', () => {
-    render(<TaskDetailView task={task} onOpenDrawer={vi.fn()} />)
+    render(<SessionWindowProvider><TaskDetailView task={task} onOpenDrawer={vi.fn()} /></SessionWindowProvider>)
     expect(screen.getByText(/idea/i)).toBeInTheDocument()
     expect(screen.getByText(/spec/i)).toBeInTheDocument()
   })
 
   it('shows pending phases as dashed rows', () => {
-    render(<TaskDetailView task={task} onOpenDrawer={vi.fn()} />)
+    render(<SessionWindowProvider><TaskDetailView task={task} onOpenDrawer={vi.fn()} /></SessionWindowProvider>)
     expect(screen.getByText(/developing/i)).toBeInTheDocument()
     expect(screen.getByText(/done/i)).toBeInTheDocument()
   })
