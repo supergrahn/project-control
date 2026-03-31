@@ -118,6 +118,8 @@ function SettingsForm({ projectId, project, onClose }: { projectId: string; proj
   const [specsDir, setSpecsDir] = useState(project.specs_dir ?? '')
   const [plansDir, setPlansDir] = useState(project.plans_dir ?? '')
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [migrating, setMigrating] = useState(false)
+  const [migrateResult, setMigrateResult] = useState<{ created: number; skipped: number } | null>(null)
 
   const toNullable = (v: string): string | null => v.trim() === '' ? null : v.trim()
 
@@ -177,6 +179,42 @@ function SettingsForm({ projectId, project, onClose }: { projectId: string; proj
       {saveError && (
         <div style={{ color: '#c04040', fontSize: 12, marginTop: 8 }}>{saveError}</div>
       )}
+
+      <div style={{ borderTop: '1px solid #1e2124', marginTop: 24, paddingTop: 20 }}>
+        <div style={{ color: '#8a9199', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Task Migration</div>
+        <div style={{ color: '#5a6370', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+          Import existing files from the configured directories into the task system. Safe to run multiple times.
+        </div>
+        <button
+          onClick={async () => {
+            setMigrating(true)
+            setMigrateResult(null)
+            try {
+              const res = await fetch('/api/migrate/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId }),
+              })
+              setMigrateResult(await res.json())
+            } finally {
+              setMigrating(false)
+            }
+          }}
+          disabled={migrating}
+          style={{
+            background: '#141618', color: migrating ? '#5a6370' : '#8a9199',
+            border: '1px solid #1c1f22', borderRadius: 6, padding: '6px 14px',
+            fontSize: 12, cursor: migrating ? 'default' : 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          {migrating ? 'Migrating…' : 'Run Migration'}
+        </button>
+        {migrateResult && (
+          <div style={{ color: '#3a8c5c', fontSize: 12, marginTop: 8 }}>
+            ✓ Created {migrateResult.created}, skipped {migrateResult.skipped} existing
+          </div>
+        )}
+      </div>
 
       <div style={{ borderTop: '1px solid #1e2124', marginTop: 24, paddingTop: 20 }}>
         {[
