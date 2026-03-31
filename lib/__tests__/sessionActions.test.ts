@@ -35,4 +35,10 @@ describe('stopSession', () => {
     expect(predicate('/api/sessions?status=active')).toBe(true)
     expect(predicate('/api/tasks?projectId=x')).toBe(false)
   })
+
+  it('does not invalidate cache when DELETE fails', async () => {
+    mockFetch.mockResolvedValue({ ok: false })
+    await stopSession('sess-123')
+    expect(mockMutate).not.toHaveBeenCalled()
+  })
 })
