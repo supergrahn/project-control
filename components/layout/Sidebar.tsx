@@ -222,7 +222,7 @@ function Row({ label, value, valueColor, mono }: { label: string; value: string;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ color: '#2e3338', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 8px 6px' }}>
+    <div style={{ color: '#454c54', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 8px 6px' }}>
       {children}
     </div>
   )

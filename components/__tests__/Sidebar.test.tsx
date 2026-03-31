@@ -1,5 +1,5 @@
 // components/__tests__/Sidebar.test.tsx
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import { Sidebar } from '../layout/Sidebar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SWRConfig } from 'swr'
@@ -61,5 +61,12 @@ describe('Sidebar', () => {
   it('renders Add Project button', () => {
     render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
     expect(screen.getByText('+ Add Project')).toBeInTheDocument()
+  })
+
+  it('renders user avatar with initials from /api/me', async () => {
+    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
+    await waitFor(() => {
+      expect(screen.getByText('TU')).toBeInTheDocument()
+    })
   })
 })
