@@ -17,6 +17,7 @@ import { FloatingSessionWindow } from '@/components/FloatingSessionWindow'
 import { SessionPillBar } from '@/components/SessionPillBar'
 import { useParams } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { TopBar } from '@/components/layout/TopBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -94,6 +95,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <ClaudeNotFound />
               </div>
             )}
+            <TopBarWrapper />
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
               <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>{children}</main>
               <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
@@ -126,6 +128,14 @@ function SidebarWrapper() {
 
   if (!projectId || !selectedProject || selectedProject.id !== projectId) return null
   return <Sidebar projectId={projectId} projectName={selectedProject.name} projectPath={selectedProject.path} />
+}
+
+function TopBarWrapper() {
+  const params = useParams()
+  const projectId = params?.projectId as string | undefined
+  const { selectedProject } = useProjectStore()
+  if (!projectId || !selectedProject || selectedProject.id !== projectId) return null
+  return <TopBar projectId={projectId} projectName={selectedProject.name} />
 }
 
 function FloatingWindowsRenderer() {
