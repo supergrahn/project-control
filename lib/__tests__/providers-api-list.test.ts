@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/db')>()
@@ -8,6 +8,11 @@ vi.mock('@/lib/db', async (importOriginal) => {
 
 import { GET, POST } from '@/app/api/providers/route'
 import { NextRequest } from 'next/server'
+import { getDb } from '@/lib/db'
+
+beforeEach(() => {
+  getDb().prepare('DELETE FROM providers').run()
+})
 
 describe('GET /api/providers', () => {
   it('returns an empty array when no providers exist', async () => {
@@ -35,6 +40,15 @@ describe('POST /api/providers', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Incomplete' }),
+    }))
+    expect(res.status).toBe(400)
+  })
+
+  it('returns 400 when type is invalid', async () => {
+    const res = await POST(new NextRequest('http://localhost/api/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Test', type: 'openai', command: '/bin/test', config: null }),
     }))
     expect(res.status).toBe(400)
   })
