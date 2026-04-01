@@ -6,7 +6,8 @@ import type { FeedEntry } from '@/hooks/useOrchestratorFeed'
 const makePlanTask = (overrides: Partial<Task> = {}): Task => ({
   id: 't1', project_id: 'p1', title: 'Redesign Sidebar', status: 'planning',
   idea_file: null, spec_file: null, plan_file: '/path/plan.md', dev_summary: null,
-  commit_refs: null, doc_refs: null, notes: null, provider_id: null, created_at: '2026-03-31T08:00:00Z', updated_at: '2026-03-31T08:00:00Z',
+  commit_refs: null, doc_refs: null, notes: null, priority: 'medium', labels: null,
+  assignee_agent_id: null, provider_id: null, created_at: '2026-03-31T08:00:00Z', updated_at: '2026-03-31T08:00:00Z',
   ...overrides,
 })
 

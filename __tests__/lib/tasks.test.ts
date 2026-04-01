@@ -195,6 +195,13 @@ describe('createTask — new fields', () => {
     const task = createTask(db, { id: 'task-labels', projectId, title: 'Labelled task', labels: ['backend', 'auth'] })
     expect(task.labels).toBe('["backend","auth"]')
   })
+
+  it('defaults priority to medium when not provided', () => {
+    const projectId = 'proj-default-prio'
+    db.prepare("INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)").run(projectId, 'Test', '/tmp/dp', new Date().toISOString())
+    const task = createTask(db, { id: 'task-default', projectId, title: 'Default task' })
+    expect(task.priority).toBe('medium')
+  })
 })
 
 describe('updateTask — new fields', () => {
@@ -204,5 +211,13 @@ describe('updateTask — new fields', () => {
     const task = createTask(db, { id: 'task-upd', projectId, title: 'Task' })
     const updated = updateTask(db, task.id, { priority: 'urgent' })
     expect(updated.priority).toBe('urgent')
+  })
+
+  it('updates labels as JSON array', () => {
+    const projectId = 'proj-upd-labels'
+    db.prepare("INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)").run(projectId, 'Test', '/tmp/ul', new Date().toISOString())
+    const task = createTask(db, { id: 'task-upd-labels', projectId, title: 'Task' })
+    const updated = updateTask(db, task.id, { labels: ['frontend', 'ui'] })
+    expect(updated.labels).toBe('["frontend","ui"]')
   })
 })

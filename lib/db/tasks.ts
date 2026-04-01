@@ -2,6 +2,8 @@ import type { Database } from 'better-sqlite3'
 
 export type TaskStatus = 'idea' | 'speccing' | 'planning' | 'developing' | 'done'
 
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
+
 export type Task = {
   id: string
   project_id: string
@@ -14,7 +16,7 @@ export type Task = {
   commit_refs: string | null
   doc_refs: string | null
   notes: string | null
-  priority: string             // 'low' | 'medium' | 'high' | 'urgent'
+  priority: TaskPriority
   labels: string | null        // JSON array string
   assignee_agent_id: string | null
   provider_id: string | null
@@ -26,7 +28,7 @@ export type CreateTaskInput = {
   id: string
   projectId: string
   title: string
-  priority?: string
+  priority?: TaskPriority
   labels?: string[]
   assignee_agent_id?: string | null
 }
@@ -76,8 +78,8 @@ export type UpdateTaskInput = {
   commit_refs?: string[]
   doc_refs?: string[]
   notes?: string | null
-  priority?: string
-  labels?: string | null
+  priority?: TaskPriority
+  labels?: string[] | null
   assignee_agent_id?: string | null
   provider_id?: string | null
 }
@@ -94,7 +96,7 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   if ('doc_refs' in input)    { updates.push('doc_refs = ?');    values.push(JSON.stringify(input.doc_refs)) }
   if ('notes' in input)             { updates.push('notes = ?');             values.push(input.notes) }
   if ('priority' in input)          { updates.push('priority = ?');          values.push(input.priority) }
-  if ('labels' in input)            { updates.push('labels = ?');            values.push(input.labels) }
+  if ('labels' in input)            { updates.push('labels = ?');            values.push(input.labels ? JSON.stringify(input.labels) : null) }
   if ('assignee_agent_id' in input) { updates.push('assignee_agent_id = ?'); values.push(input.assignee_agent_id) }
   if ('provider_id' in input) { updates.push('provider_id = ?'); values.push(input.provider_id) }
 
