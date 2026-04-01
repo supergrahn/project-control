@@ -6,6 +6,8 @@ import { getDb, createSession, endSession, getActiveSessionForFile, getProject, 
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getTask, updateTask } from './db/tasks'
+import { getAgent, updateAgent } from './db/agents'
+import { writeInstructions, deleteInstructions } from './agents/writeInstructions'
 import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
@@ -79,6 +81,21 @@ export function spawnSession(opts: SpawnOptions): string {
   })
   const sessionId = randomUUID()
 
+  if (opts.agentId) {
+    const agent = getAgent(db, opts.agentId)
+    if (agent) {
+      const project = getProject(db, opts.projectId)
+      if (project) {
+        try {
+          writeInstructions(agent, project, provider.type)
+        } catch (err) {
+          console.warn('Agent provider resolution failed:', err)
+        }
+        updateAgent(db, opts.agentId, { status: 'running' })
+      }
+    }
+  }
+
   // Block concurrent sessions on the same file
   if (opts.sourceFile) {
     const canonical = fs.realpathSync(opts.sourceFile)
@@ -137,6 +154,7 @@ export function spawnSession(opts: SpawnOptions): string {
       sourceFile: canonical,
       taskId: opts.taskId,
       outputPath: opts.outputPath,
+      agentId: opts.agentId,
     })
     logEvent(db, {
       projectId: opts.projectId,
@@ -193,6 +211,13 @@ export function spawnSession(opts: SpawnOptions): string {
 
   proc.onExit(() => {
     endSession(getDb(), sessionId)
+    if (opts.agentId) {
+      const project = getProject(getDb(), opts.projectId)
+      if (project) {
+        deleteInstructions(project, provider.type)
+      }
+      updateAgent(getDb(), opts.agentId, { status: 'idle' })
+    }
     // Write artifact refs back to task on session end
     if (opts.taskId) {
       const phaseToField: Record<string, 'idea_file' | 'spec_file' | 'plan_file'> = {
