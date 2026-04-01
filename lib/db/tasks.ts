@@ -14,6 +14,7 @@ export type Task = {
   commit_refs: string | null
   doc_refs: string | null
   notes: string | null
+  provider_id: string | null
   created_at: string
   updated_at: string
 }
@@ -60,6 +61,7 @@ export type UpdateTaskInput = {
   commit_refs?: string[]
   doc_refs?: string[]
   notes?: string | null
+  provider_id?: string | null
 }
 
 export function updateTask(db: Database, id: string, input: UpdateTaskInput): Task {
@@ -73,6 +75,7 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   if ('commit_refs' in input) { updates.push('commit_refs = ?'); values.push(JSON.stringify(input.commit_refs)) }
   if ('doc_refs' in input)    { updates.push('doc_refs = ?');    values.push(JSON.stringify(input.doc_refs)) }
   if ('notes' in input)       { updates.push('notes = ?');       values.push(input.notes) }
+  if ('provider_id' in input) { updates.push('provider_id = ?'); values.push(input.provider_id) }
 
   if (updates.length === 0) return getTask(db, id)!
 

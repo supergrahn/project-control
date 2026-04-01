@@ -42,3 +42,24 @@ describe('tasks.provider_id migration', () => {
     expect(cols.map(c => c.name)).toContain('provider_id')
   })
 })
+
+import { createTask, updateTask } from '@/lib/db/tasks'
+import { createProvider } from '@/lib/db/providers'
+
+describe('tasks.provider_id field', () => {
+  it('createTask returns provider_id as null by default', () => {
+    db.prepare('INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)')
+      .run('tp-proj', 'P', '/tmp/p', new Date().toISOString())
+    const task = createTask(db, { id: 'tp-1', projectId: 'tp-proj', title: 'T' })
+    expect(task.provider_id).toBeNull()
+  })
+
+  it('updateTask can set provider_id', () => {
+    db.prepare('INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)')
+      .run('tp-proj2', 'P2', '/tmp/p2', new Date().toISOString())
+    createProvider(db, { id: 'tp-prov', name: 'TP', type: 'claude', command: '/bin/claude', config: null })
+    const task = createTask(db, { id: 'tp-2', projectId: 'tp-proj2', title: 'T2' })
+    const updated = updateTask(db, 'tp-2', { provider_id: 'tp-prov' })
+    expect(updated.provider_id).toBe('tp-prov')
+  })
+})
