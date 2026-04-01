@@ -2,7 +2,7 @@ import type { Database } from 'better-sqlite3'
 import { randomUUID } from 'crypto'
 import { getTaskSourceConfig } from '@/lib/db/taskSourceConfig'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
-import { createTask, updateTask, setTaskStatus, deleteTask, getTask } from '@/lib/db/tasks'
+import { createTask, updateTask, deleteTask, getTask } from '@/lib/db/tasks'
 import type { Task } from '@/lib/db/tasks'
 
 export type SyncResult = {
@@ -49,8 +49,8 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
           idea_file: ext.description,
           source_url: ext.url,
           source_meta: JSON.stringify(ext.meta),
+          status: mappedStatus,
         })
-        setTaskStatus(db, existing.id, mappedStatus)
         updated++
       } else {
         // Create new task
@@ -61,15 +61,15 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
           priority: mappedPriority,
           labels: ext.labels.length > 0 ? ext.labels : undefined,
         })
-        // Set source fields and status via updateTask
+        // Set source fields, status, and description in one update
         updateTask(db, task.id, {
           source: adapter.key,
           source_id: ext.sourceId,
           source_url: ext.url,
           source_meta: JSON.stringify(ext.meta),
           idea_file: ext.description,
+          status: mappedStatus,
         })
-        setTaskStatus(db, task.id, mappedStatus)
         created++
       }
     }

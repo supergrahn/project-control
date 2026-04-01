@@ -36,23 +36,25 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
   // Validate adapter exists
   const adapter = getTaskSourceAdapter(adapterKey)
+  const db = getDb()
+  const existingConfig = getTaskSourceConfig(db, projectId)
 
-  // Validate required fields
+  // Strip redacted placeholder values before validation
   for (const field of adapter.configFields) {
-    if (field.required && !config[field.key]) {
-      return NextResponse.json({ error: `${field.label} is required` }, { status: 400 })
+    if (field.type === 'password' && config[field.key] === '••••••••') {
+      if (existingConfig) {
+        config[field.key] = existingConfig.config[field.key]
+      } else {
+        // Can't restore — no existing config. Treat as empty so validation catches it.
+        config[field.key] = ''
+      }
     }
   }
 
-  const db = getDb()
-
-  // Strip redacted placeholder values (don't overwrite existing credentials)
-  const existingConfig = getTaskSourceConfig(db, projectId)
-  if (existingConfig) {
-    for (const field of adapter.configFields) {
-      if (field.type === 'password' && config[field.key] === '••••••••') {
-        config[field.key] = existingConfig.config[field.key]
-      }
+  // Validate required fields (after redaction stripping)
+  for (const field of adapter.configFields) {
+    if (field.required && !config[field.key]) {
+      return NextResponse.json({ error: `${field.label} is required` }, { status: 400 })
     }
   }
 

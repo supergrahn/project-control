@@ -178,7 +178,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John Doe',
-                          value: JSON.stringify([{ id: '100', name: 'John Doe' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                         {
                           id: 'status_col',
@@ -197,7 +199,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'Jane Doe',
-                          value: JSON.stringify([{ id: '200', name: 'Jane Doe' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 200, kind: 'person' }],
+                          }),
                         },
                       ],
                     },
@@ -244,7 +248,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                         {
                           id: 'status_col',
@@ -296,7 +302,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                         {
                           id: 'custom_status',
@@ -349,7 +357,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                         {
                           id: 'priority_col',
@@ -400,7 +410,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                       ],
                     },
@@ -445,10 +457,12 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John, Jane',
-                          value: JSON.stringify([
-                            { id: '100', name: 'John' },
-                            { id: '200', name: 'Jane' },
-                          ]),
+                          value: JSON.stringify({
+                            personsAndTeams: [
+                              { id: 100, kind: 'person' },
+                              { id: 200, kind: 'person' },
+                            ],
+                          }),
                         },
                       ],
                     },
@@ -470,7 +484,7 @@ describe('Monday.com Adapter', () => {
         api_token: 'token',
       })
 
-      expect(tasks[0].assignees).toEqual(['John', 'Jane'])
+      expect(tasks[0].assignees).toEqual(['100', '200'])
     })
 
     it('should set labels from group title', async () => {
@@ -491,7 +505,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                       ],
                     },
@@ -534,7 +550,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                       ],
                     },
@@ -602,7 +620,9 @@ describe('Monday.com Adapter', () => {
                           id: 'people_col',
                           type: 'people',
                           text: 'John',
-                          value: JSON.stringify([{ id: '100', name: 'John' }]),
+                          value: JSON.stringify({
+                            personsAndTeams: [{ id: 100, kind: 'person' }],
+                          }),
                         },
                       ],
                       customField: 'custom value',

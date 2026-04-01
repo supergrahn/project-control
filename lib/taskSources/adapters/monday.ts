@@ -3,21 +3,18 @@ import type { ConfigField, ExternalTask, TaskSourceAdapter } from './types'
 
 /**
  * Parse Monday.com people column value to extract user IDs.
- * The value is typically a JSON string containing user objects with id fields.
+ * Monday.com format: { personsAndTeams: [{ id, kind }] }
  */
 function extractUserIds(value: string | null | undefined): string[] {
   if (!value) return []
 
   try {
     const parsed = JSON.parse(value)
-    if (Array.isArray(parsed)) {
-      return parsed
-        .filter((item) => item && typeof item === 'object' && item.id)
-        .map((item) => String(item.id))
-    }
-    if (parsed && typeof parsed === 'object' && parsed.id) {
-      return [String(parsed.id)]
-    }
+    // Monday.com format: { personsAndTeams: [{ id, kind }] }
+    const persons = parsed?.personsAndTeams || (Array.isArray(parsed) ? parsed : [])
+    return persons
+      .filter((item) => item && typeof item === 'object' && item.id)
+      .map((item) => String(item.id))
   } catch {
     // If JSON parse fails, return empty array
   }
@@ -352,7 +349,8 @@ function getColumnValue(item: any, columnId: string): string | null {
 }
 
 /**
- * Extract assignee names from all people columns in an item.
+ * Extract assignee IDs from all people columns in an item.
+ * Monday.com format: { personsAndTeams: [{ id, kind }] }
  */
 function extractAssigneesFromItem(item: any, peopleColumnIds: string[]): string[] {
   const assignees: string[] = []
@@ -363,14 +361,12 @@ function extractAssigneesFromItem(item: any, peopleColumnIds: string[]): string[
     if (columnValue && columnValue.value) {
       try {
         const parsed = JSON.parse(columnValue.value)
-        if (Array.isArray(parsed)) {
-          parsed.forEach((person) => {
-            if (person && person.name) {
-              assignees.push(person.name)
-            }
-          })
-        } else if (parsed && parsed.name) {
-          assignees.push(parsed.name)
+        // Monday.com format: { personsAndTeams: [{ id, kind }] }
+        const persons = parsed?.personsAndTeams || (Array.isArray(parsed) ? parsed : [])
+        for (const person of persons) {
+          if (person && person.id) {
+            assignees.push(String(person.id))
+          }
         }
       } catch {
         // If parse fails, skip
