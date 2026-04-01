@@ -137,7 +137,7 @@ describe('buildTaskContext', () => {
     mkdirSync(dir, { recursive: true })
     const ideaPath = path.join(dir, 'idea.md')
     writeFileSync(ideaPath, '# My Idea\nDo the thing')
-    const task = { idea_file: ideaPath, spec_file: null, plan_file: null, notes: null } as Task
+    const task = { idea_file: `file://${ideaPath}`, spec_file: null, plan_file: null, notes: null } as Task
     const ctx = buildTaskContext(task)
     expect(ctx).toContain('## Idea')
     expect(ctx).toContain('Do the thing')
