@@ -44,10 +44,10 @@ export function NavDrawer({ isOpen, onClose }: NavDrawerProps) {
       {/* Backdrop */}
       <div className="fixed inset-0 z-40 bg-black/30" onClick={onClose} />
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full w-64 bg-zinc-900 border-l border-zinc-800 z-50 flex flex-col shadow-2xl">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Menu</span>
-          <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
+      <div className="fixed right-0 top-0 h-full w-64 bg-bg-primary border-l border-border-default z-50 flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border-default">
+          <span className="text-xs font-semibold text-text-secondary uppercase tracking-wider">Menu</span>
+          <button onClick={onClose} className="p-1 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary">
             <X size={14} />
           </button>
         </div>

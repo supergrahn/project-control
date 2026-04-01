@@ -109,12 +109,12 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-zinc-800 shrink-0" />
+      <div className="border-t border-border-default shrink-0" />
 
       {/* Combined feed */}
       <div ref={feedRef} className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-0.5">
         {feed.length === 0 && (
-          <p className="text-[10px] text-zinc-700 text-center py-4">Waiting for output...</p>
+          <p className="text-[10px] text-text-faint text-center py-4">Waiting for output...</p>
         )}
         {feed.map((entry) => {
           const colors = phaseColors(entry.phase)
@@ -124,10 +124,10 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
               <span className={`text-[10px] font-medium shrink-0 ${colors.text} max-w-[60px] truncate`}>
                 {entry.label}
               </span>
-              <span className="text-[10px] text-zinc-600 shrink-0">
+              <span className="text-[10px] text-text-faint shrink-0">
                 {relativeTime(entry.timestamp)}
               </span>
-              <span className="font-mono text-[10px] text-zinc-400 truncate flex-1">
+              <span className="font-mono text-[10px] text-text-secondary truncate flex-1">
                 {entry.text.replace(/\n$/, '')}
               </span>
             </div>
