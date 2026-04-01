@@ -33,22 +33,22 @@ export function SessionCard({ session, onOpen, onStop }: Props) {
   }, [session.id])
 
   return (
-    <div className="bg-zinc-900 border border-emerald-500/30 rounded-lg overflow-hidden flex flex-col">
-      <div className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-2 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_theme(colors.emerald.400)]" />
-        <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wide">Active</span>
-        <span className="ml-auto text-zinc-500 text-xs">{formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}</span>
+    <div className="bg-bg-primary border border-accent-green/30 rounded-lg overflow-hidden flex flex-col">
+      <div className="bg-accent-green/10 border-b border-accent-green/30 px-4 py-2 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-accent-green shadow-[0_0_6px_theme(colors.emerald.400)]" />
+        <span className="text-accent-green text-xs font-semibold uppercase tracking-wide">Active</span>
+        <span className="ml-auto text-text-muted text-xs">{formatDistanceToNow(new Date(session.created_at), { addSuffix: true })}</span>
       </div>
       <div className="p-4 flex-1">
-        <p className="text-sm font-semibold text-zinc-100 mb-1">{session.label}</p>
-        <p className="text-xs text-zinc-500 mb-3 capitalize">{session.phase}</p>
-        <div className="bg-zinc-950 rounded p-2 h-10 overflow-hidden font-mono text-[10px] text-emerald-400 leading-relaxed">
-          {preview || <span className="text-zinc-600">Waiting for output...</span>}
+        <p className="text-sm font-semibold text-text-primary mb-1">{session.label}</p>
+        <p className="text-xs text-text-muted mb-3 capitalize">{session.phase}</p>
+        <div className="bg-bg-base rounded p-2 h-10 overflow-hidden font-mono text-[10px] text-accent-green leading-relaxed">
+          {preview || <span className="text-text-faint">Waiting for output...</span>}
         </div>
       </div>
-      <div className="border-t border-zinc-800 bg-zinc-950 px-3 py-2 flex gap-2">
-        <button onClick={onOpen} className="text-xs px-2.5 py-1 bg-violet-500/20 text-violet-300 hover:bg-violet-500/30 rounded">Open →</button>
-        <button onClick={onStop} className="text-xs px-2.5 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded flex items-center gap-1"><Square size={10} /> Stop</button>
+      <div className="border-t border-border-default bg-bg-base px-3 py-2 flex gap-2">
+        <button onClick={onOpen} className="text-xs px-2.5 py-1 bg-accent-blue/20 text-accent-blue hover:bg-accent-blue/30 rounded">Open →</button>
+        <button onClick={onStop} className="text-xs px-2.5 py-1 bg-accent-red/10 text-accent-red hover:bg-accent-red/20 rounded flex items-center gap-1"><Square size={10} /> Stop</button>
       </div>
     </div>
   )

@@ -129,20 +129,20 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
   return (
     <div
       style={{ left: x, top: y, width, height, zIndex, resize: 'both' as React.CSSProperties['resize'], overflow: 'auto' }}
-      className="fixed flex flex-col bg-zinc-950 border border-zinc-700 rounded-lg shadow-2xl"
+      className="fixed flex flex-col bg-bg-base border border-border-strong rounded-lg shadow-2xl"
       onMouseDown={() => onBringToFront(session.id)}
     >
       {/* Title bar / drag handle */}
       <div
         onMouseDown={onTitleMouseDown}
-        className="flex items-center gap-2 px-3 py-2 border-b border-zinc-800 shrink-0 cursor-move select-none"
+        className="flex items-center gap-2 px-3 py-2 border-b border-border-default shrink-0 cursor-move select-none"
       >
-        <span className={`w-1.5 h-1.5 rounded-full ${termStatus === 'active' ? 'bg-emerald-400' : termStatus === 'ended' ? 'bg-zinc-600' : 'bg-yellow-400'}`} />
-        <span className="text-xs font-medium text-zinc-300 flex-1 truncate">{session.label}</span>
+        <span className={`w-1.5 h-1.5 rounded-full ${termStatus === 'active' ? 'bg-accent-green' : termStatus === 'ended' ? 'bg-text-faint' : 'bg-accent-orange'}`} />
+        <span className="text-xs font-medium text-text-primary flex-1 truncate">{session.label}</span>
         <div className="flex gap-1" onMouseDown={(e) => e.stopPropagation()}>
           <button
             onClick={() => onMinimize(session.id)}
-            className="p-1 text-zinc-500 hover:text-zinc-300 rounded hover:bg-zinc-800"
+            className="p-1 text-text-muted hover:text-text-primary rounded hover:bg-bg-secondary"
             title="Minimize"
           >
             <Minus size={12} />
@@ -152,7 +152,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
               if (termStatus === 'active') killSession.mutate(session.id)
               onClose(session.id)
             }}
-            className="p-1 text-zinc-500 hover:text-red-400 rounded hover:bg-zinc-800"
+            className="p-1 text-text-muted hover:text-accent-red rounded hover:bg-bg-secondary"
             title="Close session"
           >
             <X size={12} />
@@ -161,7 +161,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
       </div>
 
       {termStatus === 'ended' && (
-        <div className="bg-zinc-800/50 text-zinc-400 text-[10px] text-center py-1 shrink-0">
+        <div className="bg-bg-secondary/50 text-text-secondary text-[10px] text-center py-1 shrink-0">
           Session ended — read-only
         </div>
       )}

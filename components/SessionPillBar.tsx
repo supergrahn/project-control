@@ -12,9 +12,9 @@ export function SessionPillBar() {
         <button
           key={w.session.id}
           onClick={() => restoreWindow(w.session.id)}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-full text-xs text-zinc-300 hover:text-zinc-100 hover:bg-zinc-700 shadow-lg"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-secondary border border-border-strong rounded-full text-xs text-text-primary hover:text-text-primary hover:bg-bg-tertiary shadow-lg"
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-accent-green" />
           {w.session.label}
         </button>
       ))}

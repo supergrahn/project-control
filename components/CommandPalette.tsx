@@ -34,34 +34,34 @@ export function CommandPalette({ commands, query, onQueryChange, onClose }: Prop
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-md bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
-          <Search size={14} className="text-zinc-500 shrink-0" />
+      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-md bg-bg-primary border border-border-strong rounded-xl shadow-2xl overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border-default">
+          <Search size={14} className="text-text-muted shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={e => onQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a command..."
-            className="flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder-zinc-600"
+            className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder-text-faint"
           />
-          <kbd className="text-[10px] text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">esc</kbd>
+          <kbd className="text-[10px] text-text-faint bg-bg-secondary px-1.5 py-0.5 rounded">esc</kbd>
         </div>
         <div className="max-h-64 overflow-y-auto">
           {commands.length === 0 && (
-            <p className="px-4 py-6 text-sm text-zinc-600 text-center">No matching commands</p>
+            <p className="px-4 py-6 text-sm text-text-faint text-center">No matching commands</p>
           )}
           {commands.map((cmd, i) => (
             <div
               key={cmd.id}
               className={`flex items-center justify-between px-4 py-2 cursor-pointer transition-colors ${
-                i === activeIndex ? 'bg-violet-500/10 text-zinc-100' : 'text-zinc-400 hover:bg-zinc-800/50'
+                i === activeIndex ? 'bg-accent-blue/10 text-text-primary' : 'text-text-secondary hover:bg-bg-secondary/50'
               }`}
               onClick={() => { cmd.action(); onClose() }}
               onMouseEnter={() => setActiveIndex(i)}
             >
               <span className="text-sm">{cmd.label}</span>
-              {cmd.group && <span className="text-[10px] text-zinc-600">{cmd.group}</span>}
+              {cmd.group && <span className="text-[10px] text-text-faint">{cmd.group}</span>}
             </div>
           ))}
         </div>

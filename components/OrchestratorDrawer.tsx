@@ -56,19 +56,19 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
   const ordered = [...active, ...ended]
 
   return (
-    <div className="fixed right-0 top-0 h-full w-80 bg-zinc-950 border-l border-zinc-800 z-50 flex flex-col shadow-2xl">
+    <div className="fixed right-0 top-0 h-full w-80 bg-bg-base border-l border-border-default z-50 flex flex-col shadow-2xl">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border-default shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Orchestrator</span>
+          <span className="text-xs font-semibold text-text-primary uppercase tracking-wider">Orchestrator</span>
           {active.length > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-zinc-500">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="flex items-center gap-1 text-[10px] text-text-muted">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
               {active.length} active
             </span>
           )}
         </div>
-        <button onClick={onClose} className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300">
+        <button onClick={onClose} className="p-1 rounded hover:bg-bg-secondary text-text-muted hover:text-text-primary">
           <X size={14} />
         </button>
       </div>
@@ -76,7 +76,7 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
       {/* Module list */}
       <div className="shrink-0 overflow-y-auto max-h-[45%]">
         {ordered.length === 0 && (
-          <p className="text-[11px] text-zinc-600 text-center py-6">No active sessions</p>
+          <p className="text-[11px] text-text-faint text-center py-6">No active sessions</p>
         )}
         {ordered.map((session, i) => {
           const colors = phaseColors(session.phase)
@@ -84,9 +84,9 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
           return (
             <div
               key={session.id}
-              className={`flex items-center gap-3 px-4 py-3 border-b border-zinc-800/60 border-l-2 transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 border-b border-border-default/60 border-l-2 transition-colors ${
                 isActive
-                  ? `${colors.border} bg-zinc-900`
+                  ? `${colors.border} bg-bg-primary`
                   : 'border-l-transparent'
               } ${!isActive ? 'opacity-50' : ''}`}
             >
@@ -94,13 +94,13 @@ export function OrchestratorDrawer({ isOpen, onClose }: Props) {
                 {i + 1}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[12px] font-semibold text-zinc-100 truncate">{session.label}</p>
+                <p className="text-[12px] font-semibold text-text-primary truncate">{session.label}</p>
               </div>
               <div className="shrink-0">
                 {isActive ? (
                   <span className={`w-2 h-2 rounded-full ${colors.dot} animate-pulse block`} />
                 ) : (
-                  <CheckCircle size={14} className="text-zinc-500" />
+                  <CheckCircle size={14} className="text-text-muted" />
                 )}
               </div>
             </div>

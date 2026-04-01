@@ -85,27 +85,27 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
 
   return (
     <div
-      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] bg-bg-overlay backdrop-blur-sm"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-lg bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-lg bg-bg-primary border border-border-strong rounded-xl shadow-2xl overflow-hidden">
         {/* Search */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800">
-          <Search size={16} className="text-zinc-500 shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border-default">
+          <Search size={16} className="text-text-muted shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search projects…"
-            className="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-600 outline-none"
+            className="flex-1 bg-transparent text-sm text-text-primary placeholder-text-faint outline-none"
           />
-          <kbd className="text-[10px] text-zinc-600 border border-zinc-700 rounded px-1.5 py-0.5">esc</kbd>
+          <kbd className="text-[10px] text-text-faint border border-border-default rounded px-1.5 py-0.5">esc</kbd>
         </div>
 
         {/* Results */}
         <div ref={listRef} className="max-h-[50vh] overflow-y-auto py-1">
           {filtered.length === 0 && filteredUnreg.length === 0 && (
-            <p className="px-4 py-6 text-sm text-zinc-500 text-center">
+            <p className="px-4 py-6 text-sm text-text-muted text-center">
               {query ? 'No projects match.' : 'No projects yet. Check Settings.'}
             </p>
           )}
@@ -113,7 +113,7 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
           {filtered.length > 0 && (
             <div>
               {query === '' && (
-                <p className="px-4 pt-2 pb-1 text-[10px] text-zinc-600 uppercase tracking-wider">Projects</p>
+                <p className="px-4 pt-2 pb-1 text-[10px] text-text-faint uppercase tracking-wider">Projects</p>
               )}
               {filtered.map((p, i) => (
                 <button
@@ -123,18 +123,18 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
                   onClick={() => handleSelect(p)}
                   onMouseEnter={() => setCursor(i)}
                   className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
-                    i === cursor ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                    i === cursor ? 'bg-bg-secondary' : 'hover:bg-bg-secondary/50'
                   }`}
                 >
-                  <FolderOpen size={14} className={openProjectIds.includes(p.id) ? 'text-violet-400' : 'text-zinc-500'} />
+                  <FolderOpen size={14} className={openProjectIds.includes(p.id) ? 'text-accent-blue' : 'text-text-muted'} />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${openProjectIds.includes(p.id) ? 'text-violet-300' : 'text-zinc-100'}`}>
+                    <p className={`text-sm font-medium truncate ${openProjectIds.includes(p.id) ? 'text-accent-blue' : 'text-text-primary'}`}>
                       {p.name}
                     </p>
-                    <p className="text-[11px] text-zinc-600 truncate">{p.path}</p>
+                    <p className="text-[11px] text-text-faint truncate">{p.path}</p>
                   </div>
                   {p.last_used_at && (
-                    <span className="text-[10px] text-zinc-600 shrink-0">
+                    <span className="text-[10px] text-text-faint shrink-0">
                       {formatDistanceToNow(new Date(p.last_used_at), { addSuffix: true })}
                     </span>
                   )}
@@ -144,8 +144,8 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
           )}
 
           {filteredUnreg.length > 0 && (
-            <div className={filtered.length > 0 ? 'border-t border-zinc-800 mt-1 pt-1' : ''}>
-              <p className="px-4 pt-2 pb-1 text-[10px] text-zinc-600 uppercase tracking-wider">Add from git folder</p>
+            <div className={filtered.length > 0 ? 'border-t border-border-default mt-1 pt-1' : ''}>
+              <p className="px-4 pt-2 pb-1 text-[10px] text-text-faint uppercase tracking-wider">Add from git folder</p>
               {filteredUnreg.map((f, i) => {
                 const idx = filtered.length + i
                 return (
@@ -156,13 +156,13 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
                     onClick={() => handleAddAndSelect(f)}
                     onMouseEnter={() => setCursor(idx)}
                     className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${
-                      idx === cursor ? 'bg-zinc-800' : 'hover:bg-zinc-800/50'
+                      idx === cursor ? 'bg-bg-secondary' : 'hover:bg-bg-secondary/50'
                     }`}
                   >
-                    <Plus size={14} className="text-zinc-600" />
+                    <Plus size={14} className="text-text-faint" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-zinc-400 truncate">{f.name}</p>
-                      <p className="text-[11px] text-zinc-600 truncate">{f.path}</p>
+                      <p className="text-sm text-text-secondary truncate">{f.name}</p>
+                      <p className="text-[11px] text-text-faint truncate">{f.path}</p>
                     </div>
                   </button>
                 )
@@ -171,10 +171,10 @@ export function ProjectSwitcherModal({ onSelect, onClose, openProjectIds }: Prop
           )}
         </div>
 
-        <div className="border-t border-zinc-800 px-4 py-2 flex gap-4 text-[10px] text-zinc-600">
-          <span><kbd className="border border-zinc-700 rounded px-1">↑↓</kbd> navigate</span>
-          <span><kbd className="border border-zinc-700 rounded px-1">↵</kbd> open</span>
-          <span><kbd className="border border-zinc-700 rounded px-1">esc</kbd> close</span>
+        <div className="border-t border-border-default px-4 py-2 flex gap-4 text-[10px] text-text-faint">
+          <span><kbd className="border border-border-default rounded px-1">↑↓</kbd> navigate</span>
+          <span><kbd className="border border-border-default rounded px-1">↵</kbd> open</span>
+          <span><kbd className="border border-border-default rounded px-1">esc</kbd> close</span>
         </div>
       </div>
     </div>

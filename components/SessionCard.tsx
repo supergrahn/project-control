@@ -15,15 +15,15 @@ type SessionData = {
 
 function stepIcon(s: ProgressStep['status']) { return s === 'done' ? '✓' : s === 'active' ? '→' : '○' }
 function stepColour(s: ProgressStep['status']) {
-  return s === 'done' ? 'text-green-400' : s === 'active' ? 'text-blue-400' : 'text-zinc-600'
+  return s === 'done' ? 'text-accent-green' : s === 'active' ? 'text-accent-blue' : 'text-text-faint'
 }
 
 const phaseColour: Record<string, string> = {
-  brainstorm: 'bg-blue-500/20 text-blue-300',
-  spec: 'bg-violet-500/20 text-violet-300',
-  plan: 'bg-violet-500/20 text-violet-300',
-  develop: 'bg-green-500/20 text-green-300',
-  review: 'bg-amber-500/20 text-amber-300',
+  brainstorm: 'bg-accent-blue/20 text-accent-blue',
+  spec: 'bg-accent-blue/20 text-accent-blue',
+  plan: 'bg-accent-blue/20 text-accent-blue',
+  develop: 'bg-accent-green/20 text-accent-green',
+  review: 'bg-accent-orange/20 text-accent-orange',
 }
 
 function elapsed(iso: string) {
@@ -51,24 +51,24 @@ export function SessionCard({ session, latestDecision, proposedActions = [], isG
   const featureName = session.source_file?.split('/').pop()?.replace('.md', '') ?? session.label
 
   return (
-    <div className={`bg-zinc-900 border rounded-lg p-2.5 w-[190px] flex flex-col self-stretch ${
-      isGated ? 'border-amber-500/40' : 'border-zinc-800'
+    <div className={`bg-bg-primary border rounded-lg p-2.5 w-[190px] flex flex-col self-stretch ${
+      isGated ? 'border-accent-orange/40' : 'border-border-default'
     }`}>
       {/* Header */}
       <div className="flex justify-between items-center">
-        <span className="font-semibold text-[11px] text-zinc-300 truncate">{featureName}</span>
+        <span className="font-semibold text-[11px] text-text-primary truncate">{featureName}</span>
         {isGated ? (
-          <span className="bg-amber-500/20 text-amber-400 rounded px-1 text-[9px] shrink-0">⏸ gate</span>
+          <span className="bg-accent-orange/20 text-accent-orange rounded px-1 text-[9px] shrink-0">⏸ gate</span>
         ) : session.status === 'ended' ? (
-          <span className="bg-green-500/20 text-green-400 rounded px-1 text-[9px] shrink-0">✓ done</span>
+          <span className="bg-accent-green/20 text-accent-green rounded px-1 text-[9px] shrink-0">✓ done</span>
         ) : (
-          <span className="bg-violet-500/20 text-violet-300 rounded px-1 text-[9px] shrink-0">● live</span>
+          <span className="bg-accent-blue/20 text-accent-blue rounded px-1 text-[9px] shrink-0">● live</span>
         )}
       </div>
 
       {/* Phase badge */}
       <div className="mt-1.5">
-        <span className={`rounded px-1.5 py-0.5 text-[9px] ${phaseColour[session.phase] ?? 'bg-zinc-800 text-zinc-400'}`}>
+        <span className={`rounded px-1.5 py-0.5 text-[9px] ${phaseColour[session.phase] ?? 'bg-bg-secondary text-text-secondary'}`}>
           {session.phase} · {elapsed(session.created_at)}
         </span>
       </div>
@@ -82,16 +82,16 @@ export function SessionCard({ session, latestDecision, proposedActions = [], isG
               <span className="truncate">{step.label}</span>
             </div>
           ))}
-          <div className="mt-1 h-1 bg-zinc-800 rounded-full overflow-hidden">
-            <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${progress}%` }} />
+          <div className="mt-1 h-1 bg-border-default rounded-full overflow-hidden">
+            <div className="h-full bg-accent-green rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
-          <div className="text-[9px] text-zinc-600">{doneCount}/{steps.length} done</div>
+          <div className="text-[9px] text-text-faint">{doneCount}/{steps.length} done</div>
         </div>
       )}
 
       {/* Orchestrator note */}
       {latestDecision && (
-        <div className="mt-2 px-1.5 py-1 bg-zinc-950 border-l-2 border-amber-800 rounded-r text-[9px] text-zinc-400 leading-snug">
+        <div className="mt-2 px-1.5 py-1 bg-bg-base border-l-2 border-accent-orange rounded-r text-[9px] text-text-secondary leading-snug">
           🤖 {latestDecision.summary}
         </div>
       )}
@@ -105,8 +105,8 @@ export function SessionCard({ session, latestDecision, proposedActions = [], isG
               onClick={() => onAction?.(action.id)}
               className={`flex-1 min-w-0 text-[9px] rounded px-1 py-0.5 cursor-pointer ${
                 action.action_type === 'skip' || action.action_type === 'archive'
-                  ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                  : 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                  ? 'bg-bg-secondary text-text-secondary hover:bg-bg-tertiary'
+                  : 'bg-accent-green/20 text-accent-green hover:bg-accent-green/30'
               }`}
             >
               {action.label}

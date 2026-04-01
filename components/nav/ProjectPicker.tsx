@@ -43,7 +43,7 @@ export function ProjectPicker({ selected, onSelect }: Props) {
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-200"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-bg-secondary hover:bg-bg-tertiary text-sm text-text-primary"
       >
         <FolderOpen size={14} />
         {selected?.name ?? 'Select project'}
@@ -51,19 +51,19 @@ export function ProjectPicker({ selected, onSelect }: Props) {
       </button>
 
       {open && (
-        <div className="absolute top-full mt-1 left-0 z-[9999] w-64 max-h-[70vh] overflow-y-auto rounded-md border border-zinc-700 bg-zinc-900 shadow-xl">
+        <div className="absolute top-full mt-1 left-0 z-[9999] w-64 max-h-[70vh] overflow-y-auto rounded-md border border-border-strong bg-bg-primary shadow-xl">
           {projects.length === 0 && unregistered.length === 0 && (
-            <p className="px-3 py-3 text-xs text-zinc-500">No git projects found in git_root folder. Check Settings.</p>
+            <p className="px-3 py-3 text-xs text-text-muted">No git projects found in git_root folder. Check Settings.</p>
           )}
           {projects.length > 0 && (
             <div className="p-1">
-              <p className="px-2 py-1 text-xs text-zinc-500 uppercase tracking-wider">Projects</p>
+              <p className="px-2 py-1 text-xs text-text-muted uppercase tracking-wider">Projects</p>
               {projects.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   onClick={() => { onSelect(p); setOpen(false) }}
-                  className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-zinc-800 ${selected?.id === p.id ? 'text-violet-300' : 'text-zinc-200'}`}
+                  className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-bg-secondary ${selected?.id === p.id ? 'text-accent-blue' : 'text-text-primary'}`}
                 >
                   {p.name}
                 </button>
@@ -71,8 +71,8 @@ export function ProjectPicker({ selected, onSelect }: Props) {
             </div>
           )}
           {unregistered.length > 0 && (
-            <div className="border-t border-zinc-800 p-1">
-              <p className="px-2 py-1 text-xs text-zinc-500 uppercase tracking-wider">Add from git folder</p>
+            <div className="border-t border-border-default p-1">
+              <p className="px-2 py-1 text-xs text-text-muted uppercase tracking-wider">Add from git folder</p>
               {unregistered.map((f) => (
                 <button
                   key={f.path}
@@ -87,7 +87,7 @@ export function ProjectPicker({ selected, onSelect }: Props) {
                     } catch {}
                     setOpen(false)
                   }}
-                  className="w-full text-left px-3 py-2 rounded text-sm text-zinc-400 hover:bg-zinc-800 flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 rounded text-sm text-text-secondary hover:bg-bg-secondary flex items-center gap-2"
                 >
                   <Plus size={12} /> {f.name}
                 </button>
