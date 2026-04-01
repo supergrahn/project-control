@@ -259,6 +259,18 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       UNIQUE(project_id, key)
     )
   `) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS session_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES sessions(id),
+      type       TEXT NOT NULL,
+      role       TEXT,
+      content    TEXT,
+      metadata   TEXT,
+      created_at TEXT NOT NULL
+    )
+  `) } catch {}
+  try { db.exec('ALTER TABLE tasks ADD COLUMN session_log TEXT') } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

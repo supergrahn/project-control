@@ -20,6 +20,7 @@ export type Task = {
   labels: string | null        // JSON array string
   assignee_agent_id: string | null
   provider_id: string | null
+  session_log: string | null
   created_at: string
   updated_at: string
 }
