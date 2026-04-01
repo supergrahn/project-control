@@ -1,13 +1,14 @@
 import type { TaskSourceAdapter } from './types'
-
-// Adapters will be imported here as they are created
-// import { jiraAdapter } from './jira'
-// import { githubAdapter } from './github'
-// import { mondayAdapter } from './monday'
-// import { donedoneAdapter } from './donedone'
+import { jiraAdapter } from './jira'
+import { githubAdapter } from './github'
+import { mondayAdapter } from './monday'
+import { donedoneAdapter } from './donedone'
 
 const adapters: TaskSourceAdapter[] = [
-  // Will be populated as adapters are implemented
+  jiraAdapter,
+  githubAdapter,
+  mondayAdapter,
+  donedoneAdapter,
 ]
 
 export function getTaskSourceAdapter(key: string): TaskSourceAdapter {

@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws'
 import { handleWebSocket, procMap } from './lib/session-manager'
 import { startOrchestratorMcp } from './server/orchestrator-mcp'
 import { startOrchestratorWatcher } from './server/orchestrator-watcher'
+import { startAllPolling, stopAllPolling } from './lib/taskSources/pollManager'
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
@@ -33,6 +34,7 @@ app.prepare().then(() => {
   })
 
   const shutdown = () => {
+    stopAllPolling()
     for (const proc of procMap.values()) {
       try { proc.kill() } catch {}
     }
@@ -49,4 +51,5 @@ app.prepare().then(() => {
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   startOrchestratorMcp(mcpPort)
   startOrchestratorWatcher()
+  startAllPolling()
 })
