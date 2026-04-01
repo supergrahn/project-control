@@ -248,6 +248,17 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   } catch {}
   try { db.exec('ALTER TABLE projects ADD COLUMN provider_id TEXT') } catch {}
   try { db.exec('ALTER TABLE tasks ADD COLUMN provider_id TEXT') } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id         TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id),
+      name       TEXT NOT NULL,
+      key        TEXT NOT NULL,
+      file_path  TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(project_id, key)
+    )
+  `) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
