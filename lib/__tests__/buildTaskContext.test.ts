@@ -1,69 +1,75 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { writeFileSync, unlinkSync } from 'fs'
 import { buildTaskContext } from '../prompts'
-
-// Mock the fs module
-vi.mock('fs', () => ({
-  readFileSync: vi.fn(),
-}))
-
-import { readFileSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 
 describe('buildTaskContext', () => {
+  let tempDir: string
+  let fileCount = 0
+
   beforeEach(() => {
-    vi.clearAllMocks()
+    tempDir = tmpdir()
+    fileCount = 0
   })
 
   afterEach(() => {
-    vi.clearAllMocks()
+    // Clean up temp files
+    for (let i = 0; i < fileCount; i++) {
+      try {
+        unlinkSync(join(tempDir, `test-file-${i}.md`))
+      } catch {}
+    }
   })
+
+  function createTempFile(content: string): string {
+    const filePath = join(tempDir, `test-file-${fileCount}.md`)
+    writeFileSync(filePath, content, 'utf8')
+    fileCount++
+    return filePath
+  }
 
   describe('file:// prefixed paths', () => {
     it('reads file content when idea_file starts with file://', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockReturnValue('# My Idea\nThis is an idea')
+      const filePath = createTempFile('# My Idea\nThis is an idea')
 
       const result = buildTaskContext({
-        idea_file: 'file:///path/to/idea.md',
+        idea_file: `file://${filePath}`,
         spec_file: null,
         plan_file: null,
         notes: null,
       })
 
-      expect(mockedReadFileSync).toHaveBeenCalledWith('/path/to/idea.md', 'utf8')
       expect(result).toContain('## Idea')
       expect(result).toContain('# My Idea')
       expect(result).toContain('This is an idea')
     })
 
     it('reads file content when spec_file starts with file://', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockReturnValue('# Spec\nDetailed specification')
+      const filePath = createTempFile('# Spec\nDetailed specification')
 
       const result = buildTaskContext({
         idea_file: null,
-        spec_file: 'file:///path/to/spec.md',
+        spec_file: `file://${filePath}`,
         plan_file: null,
         notes: null,
       })
 
-      expect(mockedReadFileSync).toHaveBeenCalledWith('/path/to/spec.md', 'utf8')
       expect(result).toContain('## Spec')
       expect(result).toContain('# Spec')
       expect(result).toContain('Detailed specification')
     })
 
     it('reads file content when plan_file starts with file://', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockReturnValue('# Plan\nImplementation steps')
+      const filePath = createTempFile('# Plan\nImplementation steps')
 
       const result = buildTaskContext({
         idea_file: null,
         spec_file: null,
-        plan_file: 'file:///path/to/plan.md',
+        plan_file: `file://${filePath}`,
         notes: null,
       })
 
-      expect(mockedReadFileSync).toHaveBeenCalledWith('/path/to/plan.md', 'utf8')
       expect(result).toContain('## Plan')
       expect(result).toContain('# Plan')
       expect(result).toContain('Implementation steps')
@@ -72,8 +78,6 @@ describe('buildTaskContext', () => {
 
   describe('inline text content', () => {
     it('treats non-prefixed idea_file as inline text', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-
       const result = buildTaskContext({
         idea_file: 'This is inline idea text',
         spec_file: null,
@@ -81,14 +85,11 @@ describe('buildTaskContext', () => {
         notes: null,
       })
 
-      expect(mockedReadFileSync).not.toHaveBeenCalled()
       expect(result).toContain('## Idea')
       expect(result).toContain('This is inline idea text')
     })
 
     it('treats non-prefixed spec_file as inline text', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-
       const result = buildTaskContext({
         idea_file: null,
         spec_file: 'Inline specification content',
@@ -96,14 +97,11 @@ describe('buildTaskContext', () => {
         notes: null,
       })
 
-      expect(mockedReadFileSync).not.toHaveBeenCalled()
       expect(result).toContain('## Spec')
       expect(result).toContain('Inline specification content')
     })
 
     it('treats non-prefixed plan_file as inline text', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-
       const result = buildTaskContext({
         idea_file: null,
         spec_file: null,
@@ -111,7 +109,6 @@ describe('buildTaskContext', () => {
         notes: null,
       })
 
-      expect(mockedReadFileSync).not.toHaveBeenCalled()
       expect(result).toContain('## Plan')
       expect(result).toContain('Inline plan steps')
     })
@@ -164,14 +161,9 @@ describe('buildTaskContext', () => {
   })
 
   describe('file read failures', () => {
-    it('returns null when file:// path does not exist', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockImplementation(() => {
-        throw new Error('ENOENT: no such file or directory')
-      })
-
+    it('gracefully handles missing file:// path (returns empty content)', () => {
       const result = buildTaskContext({
-        idea_file: 'file:///nonexistent.md',
+        idea_file: 'file:///nonexistent-file-that-does-not-exist.md',
         spec_file: null,
         plan_file: null,
         notes: null,
@@ -181,14 +173,9 @@ describe('buildTaskContext', () => {
     })
 
     it('gracefully handles read errors for spec_file', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockImplementation(() => {
-        throw new Error('Permission denied')
-      })
-
       const result = buildTaskContext({
         idea_file: null,
-        spec_file: 'file:///spec.md',
+        spec_file: 'file:///nonexistent-spec.md',
         plan_file: null,
         notes: null,
       })
@@ -197,15 +184,10 @@ describe('buildTaskContext', () => {
     })
 
     it('gracefully handles read errors for plan_file', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockImplementation(() => {
-        throw new Error('Permission denied')
-      })
-
       const result = buildTaskContext({
         idea_file: null,
         spec_file: null,
-        plan_file: 'file:///plan.md',
+        plan_file: 'file:///nonexistent-plan.md',
         notes: null,
       })
 
@@ -215,8 +197,6 @@ describe('buildTaskContext', () => {
 
   describe('notes field', () => {
     it('always treats notes as inline text (no file:// handling)', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-
       const result = buildTaskContext({
         idea_file: null,
         spec_file: null,
@@ -224,7 +204,6 @@ describe('buildTaskContext', () => {
         notes: 'file://this-should-not-be-treated-as-a-path.md',
       })
 
-      expect(mockedReadFileSync).not.toHaveBeenCalled()
       expect(result).toContain('## Correction Notes')
       expect(result).toContain('file://this-should-not-be-treated-as-a-path.md')
     })
@@ -255,18 +234,14 @@ describe('buildTaskContext', () => {
 
   describe('combined content', () => {
     it('combines all non-null fields with proper formatting', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockImplementation((path: string) => {
-        if (path === '/idea.md') return 'Idea content'
-        if (path === '/spec.md') return 'Spec content'
-        if (path === '/plan.md') return 'Plan content'
-        throw new Error('Unknown file')
-      })
+      const ideaPath = createTempFile('Idea content')
+      const specPath = createTempFile('Spec content')
+      const planPath = createTempFile('Plan content')
 
       const result = buildTaskContext({
-        idea_file: 'file:///idea.md',
-        spec_file: 'file:///spec.md',
-        plan_file: 'file:///plan.md',
+        idea_file: `file://${ideaPath}`,
+        spec_file: `file://${specPath}`,
+        plan_file: `file://${planPath}`,
         notes: 'Correction notes',
       })
 
@@ -281,12 +256,12 @@ describe('buildTaskContext', () => {
     })
 
     it('joins sections with double newlines', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockReturnValue('content')
+      const ideaPath = createTempFile('content')
+      const specPath = createTempFile('content')
 
       const result = buildTaskContext({
-        idea_file: 'file:///idea.md',
-        spec_file: 'file:///spec.md',
+        idea_file: `file://${ideaPath}`,
+        spec_file: `file://${specPath}`,
         plan_file: null,
         notes: null,
       })
@@ -295,17 +270,15 @@ describe('buildTaskContext', () => {
     })
 
     it('handles mix of file:// and inline text', () => {
-      const mockedReadFileSync = readFileSync as ReturnType<typeof vi.fn>
-      mockedReadFileSync.mockReturnValue('file content')
+      const ideaPath = createTempFile('file content')
 
       const result = buildTaskContext({
-        idea_file: 'file:///idea.md',
+        idea_file: `file://${ideaPath}`,
         spec_file: 'inline spec text',
         plan_file: null,
         notes: 'correction',
       })
 
-      expect(mockedReadFileSync).toHaveBeenCalledOnce()
       expect(result).toContain('## Idea')
       expect(result).toContain('file content')
       expect(result).toContain('## Spec')
