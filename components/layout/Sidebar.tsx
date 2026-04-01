@@ -92,6 +92,15 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
               activeSessions={activeSessions}
             />
           ))}
+
+          {/* Team section */}
+          <SectionLabel>Team</SectionLabel>
+          <NavItem
+            href={`/projects/${projectId}/agents`}
+            active={pathname.startsWith(`/projects/${projectId}/agents`)}
+          >
+            Agents
+          </NavItem>
         </div>
 
         {/* Git info */}
