@@ -18,6 +18,7 @@ import { SessionPillBar } from '@/components/SessionPillBar'
 import { useParams } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
+import { ProjectRail } from '@/components/layout/ProjectRail'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -88,6 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SessionWindowProvider>
       <FocusProvider>
         <div style={{ display: 'flex', height: '100vh', background: '#0e1012', overflow: 'hidden' }}>
+          <ProjectRail />
           <SidebarWrapper />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {claudeAvailable === false && (

@@ -9,10 +9,15 @@ export function GET(req: Request) {
   const projectId = url.searchParams.get('projectId') ?? undefined
   const taskId = url.searchParams.get('taskId')
   const db = getDb()
+  const agentId = url.searchParams.get('agentId')
+  if (agentId) {
+    const sessions = db.prepare('SELECT * FROM sessions WHERE agent_id = ? ORDER BY created_at DESC').all(agentId)
+    return NextResponse.json(sessions)
+  }
   if (taskId) {
-    const sessions = db.prepare(
-      'SELECT * FROM sessions WHERE task_id = ? ORDER BY created_at DESC'
-    ).all(taskId)
+    const sessions = status === 'active'
+      ? db.prepare('SELECT * FROM sessions WHERE task_id = ? AND status = ? ORDER BY created_at DESC').all(taskId, 'active')
+      : db.prepare('SELECT * FROM sessions WHERE task_id = ? ORDER BY created_at DESC').all(taskId)
     return NextResponse.json(sessions)
   }
   if (status === 'all') return NextResponse.json(getAllSessions(db, projectId))
@@ -21,7 +26,7 @@ export function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { projectId, phase, sourceFile, userContext = '', permissionMode = 'default', correctionNote } = body
+  const { projectId, phase, sourceFile, userContext = '', permissionMode = 'default', correctionNote, agentId } = body
 
   if (!projectId || !phase) {
     return NextResponse.json({ error: 'projectId and phase required' }, { status: 400 })
@@ -55,6 +60,7 @@ export async function POST(req: Request) {
       userContext,
       permissionMode,
       correctionNote: correctionNote ?? undefined,
+      agentId: agentId ?? undefined,
     })
 
     return NextResponse.json({ sessionId })

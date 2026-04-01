@@ -33,7 +33,8 @@ export async function PATCH(
 
   const allowed: (keyof UpdateTaskInput)[] = [
     'idea_file', 'spec_file', 'plan_file', 'dev_summary',
-    'commit_refs', 'doc_refs', 'notes'
+    'commit_refs', 'doc_refs', 'notes',
+    'priority', 'labels', 'assignee_agent_id',
   ]
   const input: UpdateTaskInput = {}
   for (const key of allowed) {

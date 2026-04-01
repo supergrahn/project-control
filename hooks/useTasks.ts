@@ -22,11 +22,16 @@ export function useTask(taskId: string | null) {
   return { task: data, error, isLoading }
 }
 
-export async function createTask(projectId: string, title: string, notes?: string): Promise<Task> {
+export async function createTask(
+  projectId: string,
+  title: string,
+  notes?: string,
+  options?: { priority?: string; labels?: string[]; assignee_agent_id?: string | null }
+): Promise<Task> {
   const res = await fetch('/api/tasks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId, title, notes }),
+    body: JSON.stringify({ projectId, title, notes, ...options }),
   })
   if (!res.ok) throw new Error('Failed to create task')
   const task = await res.json()

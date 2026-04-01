@@ -6,6 +6,7 @@ export type Project = {
   id: string; name: string; path: string
   ideas_dir: string | null; specs_dir: string | null; plans_dir: string | null
   last_used_at: string | null
+  provider_id: string | null
 }
 
 export type ScannedFolder = { name: string; path: string }

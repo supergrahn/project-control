@@ -1,18 +1,23 @@
 import * as pty from 'node-pty'
 import { WebSocket } from 'ws'
-import { execSync } from 'child_process'
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import { getDb, createSession, endSession, getActiveSessionForFile, getProject, listContextPacks } from './db'
 import { logEvent } from './events'
 import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts'
 import { getTask, updateTask } from './db/tasks'
+import { getAgent, updateAgent } from './db/agents'
+import { writeInstructions, deleteInstructions } from './agents/writeInstructions'
+import { getSkillsByProject } from './db/skills'
 import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
 import { randomUUID } from 'crypto'
 import { generateDebrief } from './debrief'
 import { writeFrontmatter } from './frontmatter'
+import { resolveProvider } from './sessions/resolveProvider'
+import { RateLimitDetector } from './sessions/rateLimitDetector'
+import { getActiveProviders } from './db/providers'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -49,29 +54,6 @@ export const ptyMap = globalThis.ptyMap
 export const wsMap = globalThis.wsMap
 export const outputBuffer = globalThis.outputBuffer
 
-// --- Claude binary resolution ---
-function resolveClaude(): string {
-  const candidates = [
-    `${process.env.HOME}/.local/bin/claude`,
-    '/opt/homebrew/bin/claude',
-    '/usr/local/bin/claude',
-    '/usr/bin/claude',
-  ]
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p
-  }
-  try {
-    return execSync('which claude', { encoding: 'utf8' }).trim()
-  } catch {
-    throw new Error('Claude binary not found. Install Claude Code: https://claude.ai/code')
-  }
-}
-
-let CLAUDE_BIN: string | null = null
-try { CLAUDE_BIN = resolveClaude() } catch {}
-
-export function isClaudeAvailable(): boolean { return CLAUDE_BIN !== null }
-
 // --- Session spawning ---
 export type SpawnOptions = {
   projectId: string
@@ -84,12 +66,36 @@ export type SpawnOptions = {
   correctionNote?: string
   taskId?: string
   outputPath?: string
+  agentId?: string
+}
+
+export function isClaudeAvailable(): boolean {
+  return getActiveProviders(getDb()).length > 0
 }
 
 export function spawnSession(opts: SpawnOptions): string {
-  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
   const db = getDb()
+  const provider = resolveProvider(db, {
+    projectId: opts.projectId,
+    taskId: opts.taskId,
+    agentId: opts.agentId,
+  })
   const sessionId = randomUUID()
+
+  if (opts.agentId) {
+    const agent = getAgent(db, opts.agentId)
+    if (agent) {
+      const project = getProject(db, opts.projectId)
+      if (project) {
+        try {
+          writeInstructions(agent, project, provider.type)
+        } catch (err) {
+          console.warn('Agent provider resolution failed:', err)
+        }
+        updateAgent(db, opts.agentId, { status: 'running' })
+      }
+    }
+  }
 
   // Block concurrent sessions on the same file
   if (opts.sourceFile) {
@@ -115,7 +121,7 @@ export function spawnSession(opts: SpawnOptions): string {
     }
   }
 
-  const systemPrompt = buildSessionContext({
+  let systemPrompt = buildSessionContext({
     phase: opts.phase,
     sourceFile: opts.sourceFile,
     userContext: fullContext,
@@ -124,6 +130,28 @@ export function spawnSession(opts: SpawnOptions): string {
     contextPacks: contextPacks.length > 0 ? contextPacks : null,
   })
 
+  // Inject project skills into system prompt
+  const projectSkills = getSkillsByProject(db, opts.projectId)
+  if (projectSkills.length > 0) {
+    const skillsProject = getProject(db, opts.projectId)
+    if (skillsProject) {
+      const skillsContent = projectSkills
+        .map(s => {
+          try {
+            const content = fs.readFileSync(path.join(skillsProject.path, s.file_path), 'utf8')
+            return `## Skill: ${s.name}\n\n${content}`
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+        .join('\n\n---\n\n')
+      if (skillsContent) {
+        systemPrompt += `\n\n---\n\n# Project Skills\n\n${skillsContent}`
+      }
+    }
+  }
+
   const args = buildArgs({
     systemPrompt,
     userContext: opts.userContext,
@@ -131,7 +159,7 @@ export function spawnSession(opts: SpawnOptions): string {
     sessionId,
   })
 
-  const proc = pty.spawn(CLAUDE_BIN!, args, {
+  const proc = pty.spawn(provider.command, args, {
     name: 'xterm-color',
     cols: 80,
     rows: 24,
@@ -149,6 +177,7 @@ export function spawnSession(opts: SpawnOptions): string {
       sourceFile: canonical,
       taskId: opts.taskId,
       outputPath: opts.outputPath,
+      agentId: opts.agentId,
     })
     logEvent(db, {
       projectId: opts.projectId,
@@ -170,6 +199,8 @@ export function spawnSession(opts: SpawnOptions): string {
     } catch {}
   }
 
+  const detector = new RateLimitDetector(provider.type)
+
   ptyMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
   outputBuffer.set(sessionId, [])
@@ -182,6 +213,16 @@ export function spawnSession(opts: SpawnOptions): string {
     if (buf.length > 100) buf.splice(0, buf.length - 100)
     outputBuffer.set(sessionId, buf)
 
+    if (detector.check(data)) {
+      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+      const clients = wsMap.get(sessionId) ?? new Set()
+      for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
+        }
+      }
+    }
+
     // Broadcast to connected clients
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
@@ -193,6 +234,13 @@ export function spawnSession(opts: SpawnOptions): string {
 
   proc.onExit(() => {
     endSession(getDb(), sessionId)
+    if (opts.agentId) {
+      const project = getProject(getDb(), opts.projectId)
+      if (project) {
+        deleteInstructions(project, provider.type)
+      }
+      updateAgent(getDb(), opts.agentId, { status: 'idle' })
+    }
     // Write artifact refs back to task on session end
     if (opts.taskId) {
       const phaseToField: Record<string, 'idea_file' | 'spec_file' | 'plan_file'> = {
@@ -364,9 +412,9 @@ export function spawnOrchestratorSession(opts: {
   projectId: string
   projectPath: string
 }): string {
-  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
   const sessionId = randomUUID()
   const db = getDb()
+  const provider = resolveProvider(db, { projectId: opts.projectId })
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   // Import the actual MCP secret so orchestrator can authenticate
@@ -387,7 +435,7 @@ export function spawnOrchestratorSession(opts: {
     sessionId,
   })
 
-  const proc = pty.spawn(CLAUDE_BIN!, args, {
+  const proc = pty.spawn(provider.command, args, {
     name: 'xterm-color',
     cols: 80,
     rows: 24,
@@ -403,6 +451,8 @@ export function spawnOrchestratorSession(opts: {
     sourceFile: null,
   })
 
+  const detector = new RateLimitDetector(provider.type)
+
   ptyMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
   outputBuffer.set(sessionId, [])
@@ -412,9 +462,20 @@ export function spawnOrchestratorSession(opts: {
     buf.push(...data.split('\n'))
     if (buf.length > 100) buf.splice(0, buf.length - 100)
     outputBuffer.set(sessionId, buf)
+
+    if (detector.check(data)) {
+      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+      const clients = wsMap.get(sessionId) ?? new Set()
+      for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
+        }
+      }
+    }
+
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'output', data }))
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'output', data }))
     }
   })
 
@@ -424,7 +485,7 @@ export function spawnOrchestratorSession(opts: {
     outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
     }
     wsMap.delete(sessionId)
   })

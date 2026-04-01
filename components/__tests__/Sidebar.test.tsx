@@ -1,5 +1,6 @@
 // components/__tests__/Sidebar.test.tsx
 import { render, screen, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
 import { Sidebar } from '../layout/Sidebar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SWRConfig } from 'swr'
@@ -9,6 +10,7 @@ import { SessionWindowProvider } from '@/hooks/useSessionWindows'
 vi.mock('@/hooks/useTasks', () => ({
   useTasks: () => ({ tasks: [], error: null, isLoading: false }),
 }))
+vi.mock('@/components/projects/NewProjectWizard', () => ({ NewProjectWizard: () => null }))
 vi.mock('@/hooks/useSessions', () => ({
   useSessions: () => ({ data: [], isLoading: false }),
 }))
@@ -52,12 +54,6 @@ describe('Sidebar', () => {
     expect(pipeline.closest('div')?.textContent).not.toMatch(/[💡📐📋⚙️]/)
   })
 
-  it('renders Projects section with project names', () => {
-    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
-    expect(screen.getByText('project-control')).toBeInTheDocument()
-    expect(screen.getByText('other-repo')).toBeInTheDocument()
-  })
-
   it('renders Add Project button', () => {
     render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
     expect(screen.getByText('+ Add Project')).toBeInTheDocument()
@@ -68,5 +64,11 @@ describe('Sidebar', () => {
     await waitFor(() => {
       expect(screen.getByText('TU')).toBeInTheDocument()
     })
+  })
+
+  it('renders Skills nav item linking to /projects/p1/skills', () => {
+    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
+    const link = screen.getByRole('link', { name: /^skills$/i })
+    expect(link).toHaveAttribute('href', '/projects/p1/skills')
   })
 })

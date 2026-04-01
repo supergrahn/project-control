@@ -12,7 +12,7 @@ import type {
 // Re-export types for convenience
 export type { Orchestrator, OrchestratorDecision, SessionProposedAction, AutomationLevel, DecisionSeverity }
 
-export type SessionStatus = 'active' | 'ended'
+export type SessionStatus = 'active' | 'ended' | 'paused'
 export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'orchestrator'
 
 export type Project = {
@@ -25,6 +25,7 @@ export type Project = {
   created_at: string
   last_used_at: string | null
   automation_level: AutomationLevel
+  provider_id: string | null
 }
 
 export type Session = {
@@ -36,6 +37,7 @@ export type Session = {
   status: SessionStatus
   created_at: string
   ended_at: string | null
+  agent_id: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -211,8 +213,52 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN output_path TEXT') } catch {}
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS agents (
+        id               TEXT PRIMARY KEY,
+        project_id       TEXT NOT NULL REFERENCES projects(id),
+        name             TEXT NOT NULL,
+        title            TEXT,
+        provider_id      TEXT,
+        model            TEXT,
+        instructions_path TEXT,
+        status           TEXT NOT NULL DEFAULT 'idle',
+        created_at       TEXT NOT NULL,
+        updated_at       TEXT NOT NULL
+      )
+    `)
+  } catch {}
+  try { db.exec('ALTER TABLE sessions ADD COLUMN agent_id TEXT') } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN labels TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`) } catch {}
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS providers (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        type       TEXT NOT NULL,
+        command    TEXT NOT NULL,
+        config     TEXT,
+        is_active  INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      )
+    `)
+  } catch {}
   try { db.exec('ALTER TABLE projects ADD COLUMN provider_id TEXT') } catch {}
   try { db.exec('ALTER TABLE tasks ADD COLUMN provider_id TEXT') } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS skills (
+      id         TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id),
+      name       TEXT NOT NULL,
+      key        TEXT NOT NULL,
+      file_path  TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(project_id, key)
+    )
+  `) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -282,9 +328,10 @@ export function createSession(db: Database.Database, data: {
   sourceFile: string | null
   taskId?: string
   outputPath?: string
+  agentId?: string
 }): void {
-  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, task_id, output_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, data.taskId ?? null, data.outputPath ?? null, new Date().toISOString())
+  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, task_id, output_path, agent_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, data.taskId ?? null, data.outputPath ?? null, data.agentId ?? null, new Date().toISOString())
 }
 
 export function getActiveSessions(db: Database.Database): Session[] {

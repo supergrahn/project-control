@@ -1,11 +1,14 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import type { Task, TaskStatus } from '@/lib/db/tasks'
-import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
-import { useSessionWindows } from '@/hooks/useSessionWindows'
-import { stopSession } from '@/lib/sessionActions'
+import { useState, useEffect } from 'react'
+import type { Task } from '@/lib/db/tasks'
+import type { Agent } from '@/lib/db/agents'
+import { patchTask } from '@/hooks/useTasks'
+import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
+import { PropertiesPanel } from '@/components/tasks/PropertiesPanel'
 
 type DrawerSection = 'artifacts' | 'sessions' | 'notes'
+
+type Todo = { id: string; content: string; status: 'completed' | 'in_progress' | 'pending' }
 
 type Props = {
   task: Task
@@ -13,184 +16,199 @@ type Props = {
   onOpenDrawer: (section: DrawerSection) => void
 }
 
-const ARTIFACT_FIELDS: Record<TaskStatus, keyof Task | null> = {
-  idea: 'idea_file', speccing: 'spec_file', planning: 'plan_file', developing: 'dev_summary', done: null
-}
-
-type LogLine = { time: string; text: string; color: string }
-
 export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
-  const currentIndex = STATUS_ORDER.indexOf(task.status)
-  const [expandedPhase, setExpandedPhase] = useState<TaskStatus | null>(task.status === 'done' ? null : task.status)
-  const [logLines, setLogLines] = useState<LogLine[]>([])
-  const logEndRef = useRef<HTMLDivElement>(null)
-  const { openWindow } = useSessionWindows()
+  const [title, setTitle] = useState(task.title)
+  const [description, setDescription] = useState(task.notes ?? '')
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [showAgentPicker, setShowAgentPicker] = useState(false)
+  const [agents, setAgents] = useState<Agent[]>([])
 
-  async function handleStop() {
-    if (!activeSessionId) return
-    await stopSession(activeSessionId)
-  }
+  useEffect(() => {
+    fetch(`/api/agents?projectId=${task.project_id}`)
+      .then(r => r.json())
+      .then(data => setAgents(data))
+      .catch(() => {})
+  }, [task.project_id])
 
-  function handleOpenTerminal() {
-    if (!activeSessionId) return
-    openWindow({
-      id: activeSessionId,
-      project_id: task.project_id,
-      label: task.title,
-      phase: task.status,
-      source_file: null,
-      status: 'active',
-      created_at: task.updated_at,
-      ended_at: null,
+  async function handleRunWithAgent(agentId: string) {
+    setShowAgentPicker(false)
+    await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: task.project_id,
+        phase: task.status === 'done' ? 'develop' : task.status,
+        taskId: task.id,
+        userContext: '',
+        permissionMode: 'default',
+        agentId,
+      }),
     })
   }
 
-  useEffect(() => {
-    if (!activeSessionId) return
-    const ws = new WebSocket(`ws://${window.location.host}/api/sessions/${activeSessionId}/ws`)
-    ws.onmessage = (e) => {
-      const text: string = typeof e.data === 'string' ? e.data : ''
-      const match = text.match(/^(Write|Edit|Bash|Read|Glob|Grep)\s+·\s+(.+)$/m)
-      if (!match) return
-      const colorMap: Record<string, string> = { Write: '#8f77c9', Edit: '#8f77c9', Bash: '#5b9bd5', Read: '#5a6370', Glob: '#5a6370', Grep: '#5a6370' }
-      const now = new Date()
-      const time = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
-      setLogLines(prev => [...prev, { time, text: `${match[1]} · ${match[2]}`, color: colorMap[match[1]] ?? '#8a9199' }])
-    }
-    return () => ws.close()
-  }, [activeSessionId])
-
-  useEffect(() => {
-    if (typeof logEndRef.current?.scrollIntoView === 'function') {
-      logEndRef.current.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [logLines])
-
   return (
-    <div style={{ padding: '24px 28px', fontFamily: 'system-ui, sans-serif', maxWidth: 720 }}>
+    <div style={{ display: 'flex', height: '100%', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
+      {/* Left column */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', minWidth: 0 }}>
+        {/* Header breadcrumb */}
+        <div style={{ color: '#454c54', fontSize: 11, marginBottom: 8 }}>
+          {task.project_id} / {task.id}
+        </div>
 
-      {/* Header */}
-      <div style={{ color: '#454c54', fontSize: 11, marginBottom: 4 }}>
-        {task.project_id} / {task.id}
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-        <div style={{ color: '#e2e6ea', fontSize: 18, fontWeight: 700, lineHeight: 1.3 }}>{task.title}</div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0, marginLeft: 16 }}>
+        {/* Editable title */}
+        <input
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          onBlur={() => {
+            if (title !== task.title) patchTask(task.id, { title }).catch(console.error)
+          }}
+          style={{
+            width: '100%',
+            background: 'transparent',
+            border: 'none',
+            borderBottom: '1px solid #1c1f22',
+            color: '#e2e6ea',
+            fontSize: 18,
+            fontWeight: 700,
+            fontFamily: 'system-ui, sans-serif',
+            marginBottom: 16,
+            padding: '4px 0',
+            outline: 'none',
+          }}
+        />
+
+        {/* Editable description */}
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          onBlur={() => {
+            if (description !== (task.notes ?? '')) patchTask(task.id, { notes: description }).catch(console.error)
+          }}
+          rows={4}
+          style={{
+            width: '100%',
+            background: '#0e1012',
+            border: '1px solid #1c1f22',
+            borderRadius: 6,
+            color: '#8a9199',
+            fontSize: 13,
+            fontFamily: 'system-ui, sans-serif',
+            padding: '8px 10px',
+            resize: 'vertical',
+            outline: 'none',
+            marginBottom: 20,
+            boxSizing: 'border-box',
+          }}
+        />
+
+        {/* Drawer buttons */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 24, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
           {(['artifacts', 'sessions', 'notes'] as DrawerSection[]).map(s => (
-            <button key={s} onClick={() => onOpenDrawer(s)} style={{ background: '#141618', color: '#5a6370', border: '1px solid #1c1f22', borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', textTransform: 'capitalize' }}>
+            <button
+              key={s}
+              onClick={() => onOpenDrawer(s)}
+              style={{
+                background: '#141618',
+                color: '#5a6370',
+                border: '1px solid #1c1f22',
+                borderRadius: 6,
+                padding: '4px 8px',
+                fontSize: 11,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
               {s}
             </button>
           ))}
+          <button
+            onClick={() => setShowAgentPicker(v => !v)}
+            style={{
+              background: '#0d1a2d',
+              color: '#5b9bd5',
+              border: '1px solid #5b9bd522',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Run with agent
+          </button>
+          {showAgentPicker && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: 4,
+              background: '#0e1012',
+              border: '1px solid #1c1f22',
+              borderRadius: 8,
+              padding: 8,
+              zIndex: 20,
+              minWidth: 180,
+            }}>
+              {agents.length === 0 && (
+                <div style={{ color: '#5a6370', fontSize: 12, padding: '4px 8px' }}>No agents</div>
+              )}
+              {agents.map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => handleRunWithAgent(a.id)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    color: '#e2e6ea',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    borderRadius: 6,
+                  }}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Live runs */}
+        <LiveRunsSection taskId={task.id} onTodos={setTodos} />
+
+        {/* Agent Tasks checklist */}
+        {todos.length > 0 && (
+          <div style={{ marginTop: 20 }}>
+            <div style={{ color: '#8a9199', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+              Agent Tasks
+            </div>
+            {todos.map(todo => (
+              <div
+                key={todo.id}
+                style={{
+                  color: todo.status === 'completed' ? '#5a6370' : todo.status === 'in_progress' ? '#e2e6ea' : '#5a6370',
+                  fontWeight: todo.status === 'in_progress' ? 700 : 400,
+                  textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
+                  fontSize: 13,
+                  padding: '3px 0',
+                }}
+              >
+                {todo.content}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Comments placeholder */}
+        <div style={{ color: '#2e3338', fontSize: 12, borderTop: '1px solid #1e2124', paddingTop: 16, marginTop: 24 }}>
+          Comments (coming soon)
         </div>
       </div>
 
-      {/* Phase bar */}
-      <div style={{ display: 'flex', gap: 3, marginBottom: 24 }}>
-        {STATUS_ORDER.map((s, i) => {
-          const cfg = PHASE_CONFIG[s]
-          return (
-            <div key={s} style={{
-              height: 3, flex: 1, borderRadius: 2,
-              background: i < currentIndex ? '#3a8c5c' : i === currentIndex ? cfg.color : '#1c1f22',
-              opacity: task.status === 'done' ? 0.6 : 1,
-            }} />
-          )
-        })}
-      </div>
-
-      {/* Phase timeline */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {STATUS_ORDER.map((phase, i) => {
-          const cfg = PHASE_CONFIG[phase]
-          const isActive = phase === task.status && task.status !== 'done'
-          const isPending = i > currentIndex
-          const isExpanded = expandedPhase === phase
-          const artifactField = ARTIFACT_FIELDS[phase]
-          const hasArtifact = artifactField && task[artifactField]
-
-          if (isPending) {
-            return (
-              <div key={phase} style={{ border: '1px dashed #1c1f22', borderRadius: 8, opacity: 0.35 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px' }}>
-                  <span style={{ width: 18, height: 18, borderRadius: '50%', border: '1.5px dashed #2e3338', display: 'inline-block', flexShrink: 0 }} />
-                  <span style={{ color: '#2e3338', fontWeight: 600, fontSize: 12 }}>{cfg.icon} {cfg.label}</span>
-                </div>
-              </div>
-            )
-          }
-
-          return (
-            <div key={phase} style={{ border: `1px solid ${isActive ? cfg.color + '44' : '#1c1f22'}`, borderRadius: 8, overflow: 'hidden' }}>
-              <div
-                onClick={() => setExpandedPhase(isExpanded ? null : phase)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', background: isActive ? cfg.bgColor : '#0e1012', cursor: 'pointer' }}
-              >
-                <span style={{
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: isActive ? cfg.bgColor : '#0c1a12',
-                  border: `1.5px solid ${cfg.color}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 9, color: cfg.color, flexShrink: 0,
-                }}>
-                  {isActive ? <span style={{ width: 5, height: 5, background: cfg.color, borderRadius: '50%', display: 'inline-block' }} /> : '✓'}
-                </span>
-                <span style={{ color: isActive ? cfg.color : '#5a6370', fontWeight: 600, fontSize: 12 }}>{cfg.icon} {cfg.label}</span>
-                <span style={{ color: isActive ? cfg.color + '55' : '#2e3338', fontSize: 10, marginLeft: 'auto' }}>
-                  {isExpanded ? '∨' : '›'}
-                </span>
-              </div>
-
-              {isExpanded && (
-                <div style={{ padding: '10px 12px', background: '#0a0c0e', borderTop: `1px solid ${cfg.color}22` }}>
-                  {isActive && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontFamily: 'monospace', fontSize: 11, marginBottom: 10, maxHeight: 200, overflowY: 'auto' }}>
-                      {logLines.length === 0 && (
-                        <div style={{ color: '#454c54' }}>No actions yet</div>
-                      )}
-                      {logLines.map((line, idx) => (
-                        <div key={idx} style={{
-                          display: 'flex', gap: 8,
-                          background: idx === logLines.length - 1 ? cfg.bgColor : 'transparent',
-                          padding: idx === logLines.length - 1 ? '3px 6px' : '0',
-                          borderRadius: 4,
-                          borderLeft: idx === logLines.length - 1 ? `2px solid ${cfg.color}` : 'none',
-                        }}>
-                          <span style={{ color: '#2e3338', flexShrink: 0 }}>{line.time}</span>
-                          <span style={{ color: line.color }}>{line.text}</span>
-                        </div>
-                      ))}
-                      <div ref={logEndRef} />
-                    </div>
-                  )}
-                  {!isActive && hasArtifact && (
-                    <div style={{ color: '#5a6370', fontSize: 11 }}>
-                      Artifact: <span style={{ color: cfg.color }}>{String(task[artifactField as keyof Task]).split('/').pop()}</span>
-                    </div>
-                  )}
-                  {isActive && (
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button
-                        onClick={handleOpenTerminal}
-                        disabled={!activeSessionId}
-                        style={{ flex: 1, background: cfg.bgColor, color: activeSessionId ? cfg.color : '#454c54', border: `1px solid ${cfg.color}33`, borderRadius: 6, padding: '5px 0', fontSize: 11, cursor: activeSessionId ? 'pointer' : 'default' }}
-                      >
-                        Open Terminal
-                      </button>
-                      <button
-                        onClick={handleStop}
-                        disabled={!activeSessionId}
-                        style={{ background: '#1c1f22', color: activeSessionId ? '#c97e2a' : '#454c54', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: activeSessionId ? 'pointer' : 'default' }}
-                      >
-                        Stop
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* Right column */}
+      <PropertiesPanel task={task} />
     </div>
   )
 }

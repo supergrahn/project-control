@@ -6,7 +6,7 @@ import { useTasks, patchTask } from '@/hooks/useTasks'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
-import { NewTaskModal } from '@/components/tasks/NewTaskModal'
+import { CreateTaskModal } from '@/components/tasks/CreateTaskModal'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
 
@@ -22,6 +22,15 @@ export default function IdeasPage() {
     (url: string) => fetch(url).then(r => r.json()),
     { refreshInterval: 3000 }
   )
+
+  async function handleNavigate(taskId: string) {
+    const res = await fetch(`/api/tasks/${taskId}`)
+    if (res.ok) {
+      const t = await res.json()
+      setSelectedTask(t)
+    }
+    setShowNewModal(false)
+  }
 
   if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
 
@@ -81,10 +90,11 @@ export default function IdeasPage() {
       </div>
 
       {showNewModal && (
-        <NewTaskModal
+        <CreateTaskModal
           projectId={projectId}
           onCreated={() => {}}
           onClose={() => setShowNewModal(false)}
+          onNavigate={handleNavigate}
         />
       )}
     </div>

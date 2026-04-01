@@ -4,6 +4,18 @@ import type { FeedEntry } from '@/hooks/useOrchestratorFeed'
 import { PHASE_INITIALS, PHASE_TO_STATUS } from '@/lib/sessionPhaseConfig'
 import { PHASE_CONFIG } from '@/lib/taskPhaseConfig'
 
+type Todo = { id: string; content: string; status: 'completed' | 'in_progress' | 'pending' }
+
+function parseTodos(entries: FeedEntry[]): Todo[] {
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const match = entries[i].text.match(/^TodoWrite\s+·\s+(\[.+\])/)
+    if (match) {
+      try { return JSON.parse(match[1]) } catch {}
+    }
+  }
+  return []
+}
+
 // Parse a raw feed text line into a pill descriptor
 type Pill = { type: 'Write' | 'Edit' | 'Bash' | 'Read' | 'Glob' | 'Grep'; detail: string }
 
@@ -31,6 +43,9 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
   const initials = PHASE_INITIALS[session.phase] ?? session.phase.slice(0, 2).toUpperCase()
   const taskStatus = PHASE_TO_STATUS[session.phase] ?? 'developing'
   const phaseStyle = PHASE_CONFIG[taskStatus] ?? PHASE_CONFIG['developing']
+
+  const todos = parseTodos(feedEntries)
+  const completedCount = todos.filter(t => t.status === 'completed').length
 
   const pills = feedEntries
     .slice(-5)
@@ -66,6 +81,20 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
             <span style={{ color: isLive ? '#3a8c5c' : '#454c54', fontSize: 11, fontWeight: 600 }}>
               {isLive ? 'Live' : 'Finished'}
             </span>
+            {isLive && todos.length > 0 && (
+              <span style={{
+                color: phaseStyle.color,
+                background: phaseStyle.bgColor,
+                border: `1px solid ${phaseStyle.color}33`,
+                borderRadius: 10,
+                padding: '1px 6px',
+                fontSize: 10,
+                fontWeight: 600,
+                marginLeft: 4,
+              }}>
+                {completedCount} / {todos.length}
+              </span>
+            )}
           </div>
         </div>
       </div>
