@@ -8,6 +8,7 @@ import { buildArgs, buildSessionContext, Phase, PermissionMode } from './prompts
 import { getTask, updateTask } from './db/tasks'
 import { getAgent, updateAgent } from './db/agents'
 import { writeInstructions, deleteInstructions } from './agents/writeInstructions'
+import { getSkillsByProject } from './db/skills'
 import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
@@ -120,7 +121,7 @@ export function spawnSession(opts: SpawnOptions): string {
     }
   }
 
-  const systemPrompt = buildSessionContext({
+  let systemPrompt = buildSessionContext({
     phase: opts.phase,
     sourceFile: opts.sourceFile,
     userContext: fullContext,
@@ -128,6 +129,28 @@ export function spawnSession(opts: SpawnOptions): string {
     correctionNote: opts.correctionNote,
     contextPacks: contextPacks.length > 0 ? contextPacks : null,
   })
+
+  // Inject project skills into system prompt
+  const projectSkills = getSkillsByProject(db, opts.projectId)
+  if (projectSkills.length > 0) {
+    const skillsProject = getProject(db, opts.projectId)
+    if (skillsProject) {
+      const skillsContent = projectSkills
+        .map(s => {
+          try {
+            const content = fs.readFileSync(path.join(skillsProject.path, s.file_path), 'utf8')
+            return `## Skill: ${s.name}\n\n${content}`
+          } catch {
+            return null
+          }
+        })
+        .filter(Boolean)
+        .join('\n\n---\n\n')
+      if (skillsContent) {
+        systemPrompt += `\n\n---\n\n# Project Skills\n\n${skillsContent}`
+      }
+    }
+  }
 
   const args = buildArgs({
     systemPrompt,
