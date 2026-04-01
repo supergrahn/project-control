@@ -1,0 +1,382 @@
+import type { TaskStatus, TaskPriority } from '@/lib/db/tasks'
+import type { ConfigField, ExternalTask, TaskSourceAdapter } from './types'
+
+/**
+ * Parse Monday.com people column value to extract user IDs.
+ * The value is typically a JSON string containing user objects with id fields.
+ */
+function extractUserIds(value: string | null | undefined): string[] {
+  if (!value) return []
+
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item) => item && typeof item === 'object' && item.id)
+        .map((item) => String(item.id))
+    }
+    if (parsed && typeof parsed === 'object' && parsed.id) {
+      return [String(parsed.id)]
+    }
+  } catch {
+    // If JSON parse fails, return empty array
+  }
+
+  return []
+}
+
+/**
+ * Map Monday.com status to internal TaskStatus.
+ * Supports English and Norwegian keywords.
+ */
+function mapStatus(raw: string): TaskStatus {
+  if (!raw) return 'idea'
+
+  const normalized = raw.toLowerCase().trim()
+
+  // Done states
+  if (/^(done|ferdig|complete|completed|closed)$/.test(normalized)) {
+    return 'done'
+  }
+
+  // Developing/active states
+  if (/^(working|active|in\s+progress|aktiv|in\s+review)$/.test(normalized)) {
+    return 'developing'
+  }
+
+  // Stuck/blocked states
+  if (/^(stuck|waiting|venter|blocked)$/.test(normalized)) {
+    return 'idea'
+  }
+
+  // Default to idea for anything else
+  return 'idea'
+}
+
+/**
+ * Map Monday.com priority to internal TaskPriority.
+ * Supports English and Norwegian keywords.
+ */
+function mapPriority(raw: string | null): TaskPriority {
+  if (!raw) return 'medium'
+
+  const normalized = raw.toLowerCase().trim()
+
+  // Urgent
+  if (/^(critical|urgent|kritisk)$/.test(normalized)) {
+    return 'urgent'
+  }
+
+  // High
+  if (/^(high|høy)$/.test(normalized)) {
+    return 'high'
+  }
+
+  // Medium
+  if (/^(medium|middels|normal)$/.test(normalized)) {
+    return 'medium'
+  }
+
+  // Low
+  if (/^(low|lav)$/.test(normalized)) {
+    return 'low'
+  }
+
+  // Default to medium
+  return 'medium'
+}
+
+/**
+ * Monday.com GraphQL API adapter for fetching tasks.
+ * Requires Monday.com API token and board configuration.
+ */
+export const mondayAdapter: TaskSourceAdapter = {
+  key: 'monday',
+  name: 'Monday.com',
+
+  configFields: [
+    {
+      key: 'api_token',
+      label: 'API Token',
+      type: 'password',
+      required: true,
+    },
+    {
+      key: 'board_ids',
+      label: 'Board IDs',
+      type: 'text',
+      placeholder: '123456, 789012',
+      required: true,
+    },
+    {
+      key: 'user_id',
+      label: 'User ID',
+      type: 'text',
+      required: true,
+      helpText: 'Your Monday.com user ID',
+    },
+    {
+      key: 'subdomain',
+      label: 'Subdomain',
+      type: 'text',
+      required: true,
+      helpText: 'Your Monday.com subdomain (e.g., company)',
+    },
+    {
+      key: 'status_col_id',
+      label: 'Status Column ID',
+      type: 'text',
+      required: false,
+      helpText: 'Auto-detects if empty',
+    },
+    {
+      key: 'priority_col_id',
+      label: 'Priority Column ID',
+      type: 'text',
+      required: false,
+      helpText: 'Auto-detects if empty',
+    },
+  ],
+
+  async fetchTasks(config: Record<string, string>): Promise<ExternalTask[]> {
+    const { api_token, board_ids, user_id, subdomain, status_col_id, priority_col_id } = config
+
+    if (!api_token || !board_ids || !user_id || !subdomain) {
+      throw new Error('Missing required Monday.com configuration: api_token, board_ids, user_id, subdomain')
+    }
+
+    const boardIdList = board_ids
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => id)
+
+    if (boardIdList.length === 0) {
+      throw new Error('board_ids must contain at least one board ID')
+    }
+
+    const tasks: ExternalTask[] = []
+
+    // Fetch tasks from each board
+    for (const boardId of boardIdList) {
+      const boardTasks = await fetchBoardTasks(
+        api_token,
+        boardId,
+        user_id,
+        subdomain,
+        status_col_id,
+        priority_col_id,
+      )
+      tasks.push(...boardTasks)
+    }
+
+    return tasks
+  },
+
+  mapStatus,
+  mapPriority,
+}
+
+/**
+ * Fetch tasks from a single Monday.com board.
+ */
+async function fetchBoardTasks(
+  apiToken: string,
+  boardId: string,
+  userId: string,
+  subdomain: string,
+  statusColId: string | undefined,
+  priorityColId: string | undefined,
+): Promise<ExternalTask[]> {
+  const query = `
+    query {
+      boards(ids: [${boardId}]) {
+        items_page(limit: 100) {
+          items {
+            id
+            name
+            column_values {
+              id
+              type
+              text
+              value
+            }
+            group {
+              title
+            }
+          }
+        }
+        columns {
+          id
+          title
+          type
+        }
+      }
+    }
+  `
+
+  const response = await fetch('https://api.monday.com/v2', {
+    method: 'POST',
+    headers: {
+      Authorization: apiToken,
+      'API-Version': '2024-10',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(
+      `Monday.com API error: ${response.status} ${response.statusText} - ${errorText}`,
+    )
+  }
+
+  const data = (await response.json()) as any
+
+  if (data.errors) {
+    throw new Error(`Monday.com GraphQL error: ${JSON.stringify(data.errors)}`)
+  }
+
+  if (!data.data || !data.data.boards || data.data.boards.length === 0) {
+    return []
+  }
+
+  const board = data.data.boards[0]
+  const columns = board.columns || []
+  const items = board.items_page?.items || []
+
+  // Auto-detect status and priority columns
+  const statusColumn = findStatusColumn(columns, statusColId)
+  const priorityColumn = findPriorityColumn(columns, priorityColId)
+
+  // Find people columns for user filtering
+  const peopleColumnIds = findPeopleColumns(columns)
+
+  // Filter items by user and map to ExternalTask
+  return items
+    .filter((item: any) => {
+      // Check if user is assigned to this item via people columns
+      return isUserAssignedToItem(item, peopleColumnIds, userId)
+    })
+    .map((item: any) => {
+      const statusValue = statusColumn
+        ? getColumnValue(item, statusColumn.id)
+        : null
+      const priorityValue = priorityColumn
+        ? getColumnValue(item, priorityColumn.id)
+        : null
+      const assignees = extractAssigneesFromItem(item, peopleColumnIds)
+
+      return {
+        sourceId: item.id,
+        title: item.name || '(Untitled)',
+        description: null, // Monday items don't have a description field in basic query
+        status: statusValue || 'new',
+        priority: priorityValue,
+        url: `https://${subdomain}.monday.com/boards/${boardId}/pulses/${item.id}`,
+        labels: item.group?.title ? [item.group.title] : [],
+        assignees,
+        meta: item,
+      } as ExternalTask
+    })
+}
+
+/**
+ * Find the status column in a board.
+ * Prefers user-provided statusColId, then looks for type 'status'.
+ */
+function findStatusColumn(columns: any[], statusColId?: string): any {
+  if (statusColId) {
+    return columns.find((col) => col.id === statusColId)
+  }
+
+  return columns.find((col) => col.type === 'status')
+}
+
+/**
+ * Find the priority column in a board.
+ * Prefers user-provided priorityColId, then looks for title matching /priority/i.
+ */
+function findPriorityColumn(columns: any[], priorityColId?: string): any {
+  if (priorityColId) {
+    return columns.find((col) => col.id === priorityColId)
+  }
+
+  // Look for column with title matching /priority/i
+  return columns.find((col) => /priority/i.test(col.title))
+}
+
+/**
+ * Find all people columns in a board.
+ */
+function findPeopleColumns(columns: any[]): string[] {
+  return columns
+    .filter((col) => col.type === 'people' || col.type === 'multiple-person')
+    .map((col) => col.id)
+}
+
+/**
+ * Check if a user is assigned to an item.
+ */
+function isUserAssignedToItem(
+  item: any,
+  peopleColumnIds: string[],
+  userId: string,
+): boolean {
+  const columnValues = item.column_values || []
+
+  for (const peopleColId of peopleColumnIds) {
+    const columnValue = columnValues.find((cv: any) => cv.id === peopleColId)
+    if (columnValue) {
+      const userIds = extractUserIds(columnValue.value)
+      if (userIds.includes(userId)) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Get the text value of a column for an item.
+ */
+function getColumnValue(item: any, columnId: string): string | null {
+  const columnValues = item.column_values || []
+  const columnValue = columnValues.find((cv: any) => cv.id === columnId)
+
+  if (!columnValue) return null
+
+  // Return text if available, otherwise value
+  return columnValue.text || columnValue.value || null
+}
+
+/**
+ * Extract assignee names from all people columns in an item.
+ */
+function extractAssigneesFromItem(item: any, peopleColumnIds: string[]): string[] {
+  const assignees: string[] = []
+  const columnValues = item.column_values || []
+
+  for (const peopleColId of peopleColumnIds) {
+    const columnValue = columnValues.find((cv: any) => cv.id === peopleColId)
+    if (columnValue && columnValue.value) {
+      try {
+        const parsed = JSON.parse(columnValue.value)
+        if (Array.isArray(parsed)) {
+          parsed.forEach((person) => {
+            if (person && person.name) {
+              assignees.push(person.name)
+            }
+          })
+        } else if (parsed && parsed.name) {
+          assignees.push(parsed.name)
+        }
+      } catch {
+        // If parse fails, skip
+      }
+    }
+  }
+
+  return assignees
+}
