@@ -14,6 +14,9 @@ export type Task = {
   commit_refs: string | null
   doc_refs: string | null
   notes: string | null
+  priority: string             // 'low' | 'medium' | 'high' | 'urgent'
+  labels: string | null        // JSON array string
+  assignee_agent_id: string | null
   provider_id: string | null
   created_at: string
   updated_at: string
@@ -23,14 +26,26 @@ export type CreateTaskInput = {
   id: string
   projectId: string
   title: string
+  priority?: string
+  labels?: string[]
+  assignee_agent_id?: string | null
 }
 
 export function createTask(db: Database, input: CreateTaskInput): Task {
   const now = new Date().toISOString()
   db.prepare(`
-    INSERT INTO tasks (id, project_id, title, status, created_at, updated_at)
-    VALUES (?, ?, ?, 'idea', ?, ?)
-  `).run(input.id, input.projectId, input.title, now, now)
+    INSERT INTO tasks (id, project_id, title, status, priority, labels, assignee_agent_id, created_at, updated_at)
+    VALUES (?, ?, ?, 'idea', ?, ?, ?, ?, ?)
+  `).run(
+    input.id,
+    input.projectId,
+    input.title,
+    input.priority ?? 'medium',
+    input.labels ? JSON.stringify(input.labels) : null,
+    input.assignee_agent_id ?? null,
+    now,
+    now,
+  )
   return getTask(db, input.id)!
 }
 
@@ -61,6 +76,9 @@ export type UpdateTaskInput = {
   commit_refs?: string[]
   doc_refs?: string[]
   notes?: string | null
+  priority?: string
+  labels?: string | null
+  assignee_agent_id?: string | null
   provider_id?: string | null
 }
 
@@ -74,7 +92,10 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   if ('dev_summary' in input) { updates.push('dev_summary = ?'); values.push(input.dev_summary) }
   if ('commit_refs' in input) { updates.push('commit_refs = ?'); values.push(JSON.stringify(input.commit_refs)) }
   if ('doc_refs' in input)    { updates.push('doc_refs = ?');    values.push(JSON.stringify(input.doc_refs)) }
-  if ('notes' in input)       { updates.push('notes = ?');       values.push(input.notes) }
+  if ('notes' in input)             { updates.push('notes = ?');             values.push(input.notes) }
+  if ('priority' in input)          { updates.push('priority = ?');          values.push(input.priority) }
+  if ('labels' in input)            { updates.push('labels = ?');            values.push(input.labels) }
+  if ('assignee_agent_id' in input) { updates.push('assignee_agent_id = ?'); values.push(input.assignee_agent_id) }
   if ('provider_id' in input) { updates.push('provider_id = ?'); values.push(input.provider_id) }
 
   if (updates.length === 0) return getTask(db, id)!

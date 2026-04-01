@@ -212,6 +212,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN output_path TEXT') } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN labels TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`) } catch {}
   try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS providers (
