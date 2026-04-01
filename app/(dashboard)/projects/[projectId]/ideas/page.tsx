@@ -23,6 +23,15 @@ export default function IdeasPage() {
     { refreshInterval: 3000 }
   )
 
+  async function handleNavigate(taskId: string) {
+    const res = await fetch(`/api/tasks/${taskId}`)
+    if (res.ok) {
+      const t = await res.json()
+      setSelectedTask(t)
+    }
+    setShowNewModal(false)
+  }
+
   if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
 
   if (selectedTask) {
@@ -85,7 +94,7 @@ export default function IdeasPage() {
           projectId={projectId}
           onCreated={() => {}}
           onClose={() => setShowNewModal(false)}
-          onNavigate={() => {}}
+          onNavigate={handleNavigate}
         />
       )}
     </div>
