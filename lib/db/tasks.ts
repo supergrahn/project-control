@@ -1,5 +1,14 @@
 import type { Database } from 'better-sqlite3'
 
+// Lazy import to avoid potential circular dependency at module load time
+let logStatusChangeImpl: typeof import('./taskStatusLog')['logStatusChange'] | null = null
+function getLogStatusChange() {
+  if (!logStatusChangeImpl) {
+    logStatusChangeImpl = require('./taskStatusLog').logStatusChange
+  }
+  return logStatusChangeImpl
+}
+
 export type TaskStatus = 'idea' | 'speccing' | 'planning' | 'developing' | 'done'
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
@@ -131,10 +140,10 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   // Log status change if status was updated via updateTask (marked as 'sync')
   if ('status' in input && oldTask && oldTask.status !== input.status) {
     try {
-      const { logStatusChange } = require('./taskStatusLog')
-      logStatusChange(db, id, oldTask.status, input.status, 'sync')
+      const logStatusChange = getLogStatusChange()
+      logStatusChange(db, id, oldTask.status, input.status as TaskStatus, 'sync')
     } catch (e) {
-      // Silently ignore if logging fails
+      // Silently ignore logging errors - they shouldn't break the update
     }
   }
 
@@ -161,15 +170,35 @@ export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatu
   return getTask(db, id)!
 }
 
+// Separate transitionTaskStatus into a synchronous-friendly function
+// Lazy require to avoid circular dependency at module load time
 export function transitionTaskStatus(
   db: Database,
   id: string,
   newStatus: TaskStatus,
   reason?: string
 ): { task: Task; warnings: string[] } {
-  // Dynamic import to avoid circular dependencies
-  const { isValidTransition, checkReadiness } = require('./statusValidation') as typeof import('./statusValidation')
-  const { logStatusChange } = require('./taskStatusLog') as typeof import('./taskStatusLog')
+  // Lazy load to avoid circular dependency
+  let isValidTransition: (from: TaskStatus, to: TaskStatus) => boolean
+  let checkReadiness: (db: Database, task: Task, newStatus: TaskStatus) => string[]
+  let logStatusChange: (db: Database, taskId: string, from: TaskStatus, to: TaskStatus, by: 'user' | 'sync' | 'session', reason?: string) => void
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const sv = require('./statusValidation')
+    isValidTransition = sv.isValidTransition
+    checkReadiness = sv.checkReadiness
+  } catch (e) {
+    throw new Error(`Failed to load status validation: ${e}`)
+  }
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const tsl = require('./taskStatusLog')
+    logStatusChange = tsl.logStatusChange
+  } catch (e) {
+    throw new Error(`Failed to load task status log: ${e}`)
+  }
 
   const task = getTask(db, id)
   if (!task) throw new Error(`Task ${id} not found`)
