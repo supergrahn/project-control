@@ -72,7 +72,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
       const term = new Terminal({
         theme: { background: '#09090b', foreground: '#e4e4e7', cursor: '#a78bfa' },
         fontSize: 13,
-        fontFamily: 'ui-monospace, monospace',
+        fontFamily: 'var(--font-mono)',
         cursorBlink: true,
       })
       const fit = new FitAddon()

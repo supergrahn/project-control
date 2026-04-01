@@ -47,7 +47,7 @@ export function RightDrawer({ task, section, sessions, onClose, onNotesChange }:
         flexDirection: 'column',
         flexShrink: 0,
         overflowY: 'auto',
-        fontFamily: 'system-ui, sans-serif',
+        fontFamily: 'var(--font-sans)',
       }}
     >
       {/* Header */}
@@ -148,7 +148,7 @@ function NotesSection({ task, onNotesChange }: { task: Task; onNotesChange: (v: 
         style={{
           width: '100%', minHeight: 120, background: '#141618', border: '1px solid #1c1f22',
           borderRadius: 6, padding: '7px 9px', color: '#8a9199', fontSize: 11,
-          resize: 'vertical', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
+          resize: 'vertical', fontFamily: 'var(--font-sans)', boxSizing: 'border-box',
         }}
       />
     </div>

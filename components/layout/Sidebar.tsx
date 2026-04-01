@@ -188,7 +188,7 @@ function Row({ label, value, valueColor, mono }: { label: string; value: string;
   return (
     <div className="flex justify-between mb-0.75">
       <span className="text-text-faint text-[10px]">{label}</span>
-      <span style={{ color: valueColor ?? '#5a6370', fontSize: 10, fontFamily: mono ? 'monospace' : undefined }}>{value}</span>
+      <span style={{ color: valueColor ?? '#5a6370', fontSize: 10, fontFamily: mono ? 'var(--font-mono)' : undefined }}>{value}</span>
     </div>
   )
 }
