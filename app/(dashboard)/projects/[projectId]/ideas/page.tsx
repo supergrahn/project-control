@@ -6,7 +6,7 @@ import { useTasks, patchTask } from '@/hooks/useTasks'
 import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
-import { NewTaskModal } from '@/components/tasks/NewTaskModal'
+import { CreateTaskModal } from '@/components/tasks/CreateTaskModal'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
 
@@ -81,10 +81,11 @@ export default function IdeasPage() {
       </div>
 
       {showNewModal && (
-        <NewTaskModal
+        <CreateTaskModal
           projectId={projectId}
           onCreated={() => {}}
           onClose={() => setShowNewModal(false)}
+          onNavigate={() => {}}
         />
       )}
     </div>
