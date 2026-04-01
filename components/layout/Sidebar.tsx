@@ -13,6 +13,8 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 type GitInfo = { branch: string; lastCommit: string; uncommitted: number }
 type Me = { name: string; initials: string }
+type Agent = { id: string; name: string; status: string }
+type Skill = { id: string; name: string; key: string }
 
 type Props = { projectId: string; projectName: string; projectPath: string }
 
@@ -35,6 +37,8 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
 
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
   const liveCount = activeSessions.length
+  const { data: agents = [] } = useSWR<Agent[]>(`/api/agents?projectId=${projectId}`, fetcher)
+  const { data: skills = [] } = useSWR<Skill[]>(`/api/skills?projectId=${projectId}`, fetcher)
 
   useEffect(() => {
     fetch('/api/me').then(r => r.json()).then(setMe).catch(() => null)
@@ -78,21 +82,44 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
             />
           ))}
 
-          {/* Team section */}
+          {/* Agents section */}
           <div className="mt-4 pt-3 border-t border-border-default">
-            <SectionLabel>Team</SectionLabel>
-            <NavItem
+            <SectionLabelWithAction
+              label="Agents"
               href={`/projects/${projectId}/agents`}
-              active={pathname.startsWith(`/projects/${projectId}/agents`)}
-            >
-              Agents
-            </NavItem>
-            <NavItem
+            />
+            {agents.map(agent => (
+              <NavItem
+                key={agent.id}
+                href={`/projects/${projectId}/agents/${agent.id}`}
+                active={pathname === `/projects/${projectId}/agents/${agent.id}`}
+              >
+                {agent.name}
+              </NavItem>
+            ))}
+            {agents.length === 0 && (
+              <div className="px-2 py-1 text-[11px] text-text-faint">No agents yet</div>
+            )}
+          </div>
+
+          {/* Skills section */}
+          <div className="mt-4 pt-3 border-t border-border-default">
+            <SectionLabelWithAction
+              label="Skills"
               href={`/projects/${projectId}/skills`}
-              active={pathname.startsWith(`/projects/${projectId}/skills`)}
-            >
-              Skills
-            </NavItem>
+            />
+            {skills.map(skill => (
+              <NavItem
+                key={skill.id}
+                href={`/projects/${projectId}/skills`}
+                active={false}
+              >
+                {skill.name}
+              </NavItem>
+            ))}
+            {skills.length === 0 && (
+              <div className="px-2 py-1 text-[11px] text-text-faint">No skills yet</div>
+            )}
           </div>
 
           {/* Project section */}
@@ -147,7 +174,7 @@ function NavItem({ href, active, badge, badgeColor, children }: {
       <div className={`flex items-center justify-between px-2 py-1.5 rounded border-l-2 mb-0.5 ${
         active ? 'bg-bg-secondary border-l-accent-blue' : 'bg-transparent border-l-transparent'
       }`}>
-        <span className={`text-[14px] font-medium ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{children}</span>
+        <span className={`text-[13px] font-semibold ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{children}</span>
         {badge !== undefined && (
           <span style={{ background: badgeColor ?? '#1c1f22', color: '#fff' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
             {badge}
@@ -172,7 +199,7 @@ function PipelineNavItem({ projectId, item, active, activeSessions }: {
       <div className={`flex items-center justify-between px-2 py-1.25 rounded mb-0.5 ${
         active ? 'bg-bg-secondary' : 'bg-transparent'
       }`}>
-        <span className={`text-[13px] font-medium ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
+        <span className={`text-[13px] font-semibold ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
         <span className="flex items-center gap-1">
           {hasLive && <span className="w-1.25 h-1.25 rounded-full bg-accent-green inline-block" />}
           <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
@@ -197,6 +224,15 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-text-faint text-[10px] uppercase tracking-[0.5px] px-2 py-1 pt-1">
       {children}
+    </div>
+  )
+}
+
+function SectionLabelWithAction({ label, href }: { label: string; href: string }) {
+  return (
+    <div className="flex items-center justify-between px-2 py-1 pt-1">
+      <span className="text-text-faint text-[10px] uppercase tracking-[0.5px]">{label}</span>
+      <Link href={href} className="text-text-faint text-[13px] no-underline hover:text-text-secondary leading-none">+</Link>
     </div>
   )
 }

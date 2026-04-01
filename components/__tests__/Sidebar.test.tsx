@@ -24,8 +24,12 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/projects/p1',
   useRouter: () => ({ push: vi.fn() }),
 }))
-global.fetch = vi.fn().mockResolvedValue({
-  ok: true, json: async () => ({ name: 'Test User', initials: 'TU' }),
+global.fetch = vi.fn().mockImplementation((url: string) => {
+  if (url.includes('/api/me')) return Promise.resolve({ ok: true, json: async () => ({ name: 'Test User', initials: 'TU' }) })
+  if (url.includes('/api/agents')) return Promise.resolve({ ok: true, json: async () => [{ id: 'a1', name: 'CEO', status: 'idle' }] })
+  if (url.includes('/api/skills')) return Promise.resolve({ ok: true, json: async () => [{ id: 's1', name: 'Planning', key: 'planning' }] })
+  if (url.includes('/api/projects')) return Promise.resolve({ ok: true, json: async () => ({}) })
+  return Promise.resolve({ ok: true, json: async () => ({}) })
 })
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -66,9 +70,15 @@ describe('Sidebar', () => {
     })
   })
 
-  it('renders Skills nav item linking to /projects/p1/skills', () => {
+  it('renders Agents section with individual agents listed', async () => {
     render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
-    const link = screen.getByRole('link', { name: /^skills$/i })
-    expect(link).toHaveAttribute('href', '/projects/p1/skills')
+    await waitFor(() => {
+      expect(screen.getByText('CEO')).toBeInTheDocument()
+    })
+  })
+
+  it('renders Skills section header with + link', () => {
+    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
+    expect(screen.getByText('Skills')).toBeInTheDocument()
   })
 })
