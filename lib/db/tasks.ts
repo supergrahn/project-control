@@ -65,13 +65,14 @@ export function getTasksByProject(
   projectId: string,
   status?: TaskStatus
 ): Task[] {
+  const PRIORITY_ORDER = `CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END`
   if (status) {
     return db.prepare(
-      'SELECT * FROM tasks WHERE project_id = ? AND status = ? ORDER BY updated_at DESC'
+      `SELECT * FROM tasks WHERE project_id = ? AND status = ? ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
     ).all(projectId, status) as Task[]
   }
   return db.prepare(
-    'SELECT * FROM tasks WHERE project_id = ? ORDER BY updated_at DESC'
+    `SELECT * FROM tasks WHERE project_id = ? ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
   ).all(projectId) as Task[]
 }
 
@@ -97,6 +98,7 @@ export type UpdateTaskInput = {
 }
 
 export function updateTask(db: Database, id: string, input: UpdateTaskInput): Task {
+  const oldTask = getTask(db, id)
   const updates: string[] = []
   const values: unknown[] = []
 
@@ -125,6 +127,17 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   values.push(new Date().toISOString(), id)
 
   db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+
+  // Log status change if status was updated via updateTask (marked as 'sync')
+  if ('status' in input && oldTask && oldTask.status !== input.status) {
+    try {
+      const { logStatusChange } = require('./taskStatusLog')
+      logStatusChange(db, id, oldTask.status, input.status, 'sync')
+    } catch (e) {
+      // Silently ignore if logging fails
+    }
+  }
+
   return getTask(db, id)!
 }
 
@@ -146,6 +159,39 @@ export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatu
   const now = new Date().toISOString()
   db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(newStatus, now, id)
   return getTask(db, id)!
+}
+
+export function transitionTaskStatus(
+  db: Database,
+  id: string,
+  newStatus: TaskStatus,
+  reason?: string
+): { task: Task; warnings: string[] } {
+  // Dynamic import to avoid circular dependencies
+  const { isValidTransition, checkReadiness } = require('./statusValidation') as typeof import('./statusValidation')
+  const { logStatusChange } = require('./taskStatusLog') as typeof import('./taskStatusLog')
+
+  const task = getTask(db, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+
+  if (!isValidTransition(task.status, newStatus)) {
+    throw new Error(
+      `Invalid transition: ${task.status} → ${newStatus}`
+    )
+  }
+
+  const warnings = checkReadiness(db, task, newStatus)
+
+  const now = new Date().toISOString()
+  db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?')
+    .run(newStatus, now, id)
+
+  logStatusChange(db, id, task.status, newStatus, 'user', reason)
+
+  return {
+    task: getTask(db, id)!,
+    warnings
+  }
 }
 
 export function setTaskStatus(db: Database, id: string, status: TaskStatus): Task {

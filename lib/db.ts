@@ -38,6 +38,7 @@ export type Session = {
   created_at: string
   ended_at: string | null
   agent_id: string | null
+  exit_reason: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -213,6 +214,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
   try { db.exec('ALTER TABLE sessions ADD COLUMN output_path TEXT') } catch {}
+  try { db.exec('ALTER TABLE sessions ADD COLUMN exit_reason TEXT') } catch {}
   try {
     db.exec(`
       CREATE TABLE IF NOT EXISTS agents (
@@ -295,6 +297,30 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       db.exec(`UPDATE tasks SET ${col} = 'file://' || ${col} WHERE ${col} IS NOT NULL AND ${col} NOT LIKE 'file://%'`)
     }
   } catch {}
+  // ── Task Flow: Status Audit Log & Dependencies ──────────────────────────
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS task_status_log (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id),
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      changed_by TEXT NOT NULL DEFAULT 'user',
+      reason TEXT,
+      created_at TEXT NOT NULL
+    )
+  `) } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_status_log_task_id ON task_status_log(task_id)`) } catch {}
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS task_dependencies (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL REFERENCES tasks(id),
+      depends_on_id TEXT NOT NULL REFERENCES tasks(id),
+      created_at TEXT NOT NULL,
+      UNIQUE(task_id, depends_on_id)
+    )
+  `) } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_task_id ON task_dependencies(task_id)`) } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_id)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

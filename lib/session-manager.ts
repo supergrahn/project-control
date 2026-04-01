@@ -25,9 +25,13 @@ import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/s
 declare global {
   var procMap: Map<string, ChildProcess>
   var wsMap: Map<string, Set<WebSocket>>
+  var hangTimers: Map<string, NodeJS.Timeout>
+  var procStderr: Map<string, string>
 }
 globalThis.procMap ??= new Map()
 globalThis.wsMap ??= new Map()
+globalThis.hangTimers ??= new Map()
+globalThis.procStderr ??= new Map()
 
 // Per-project event emitter for orchestrator wake-up
 declare global {
@@ -51,6 +55,32 @@ export function emitSessionEnded(projectId: string, payload: { session_id: strin
 
 export const procMap = globalThis.procMap
 export const wsMap = globalThis.wsMap
+const hangTimers = globalThis.hangTimers
+const procStderr = globalThis.procStderr
+
+// --- Hang timer helpers ---
+function resetHangTimer(sessionId: string): void {
+  if (hangTimers.has(sessionId)) {
+    clearTimeout(hangTimers.get(sessionId)!)
+  }
+
+  const timer = setTimeout(() => {
+    broadcast(sessionId, {
+      type: 'status',
+      state: 'unresponsive',
+      message: 'No output for 5 minutes — session may be stuck',
+    })
+  }, 5 * 60 * 1000) // 5 minutes
+
+  hangTimers.set(sessionId, timer)
+}
+
+function clearHangTimer(sessionId: string): void {
+  if (hangTimers.has(sessionId)) {
+    clearTimeout(hangTimers.get(sessionId)!)
+    hangTimers.delete(sessionId)
+  }
+}
 
 // --- Session spawning ---
 export type SpawnOptions = {
@@ -200,6 +230,7 @@ export function spawnSession(opts: SpawnOptions): string {
 
   procMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
+  resetHangTimer(sessionId) // Start 5-minute hang detection
 
   // Handle spawn failures (e.g. command not found)
   proc.on('error', (err) => {
@@ -208,9 +239,16 @@ export function spawnSession(opts: SpawnOptions): string {
       content: `Spawn error: ${err.message}`,
       metadata: { code: 'spawn_error' },
     })
+    getDb().prepare('UPDATE sessions SET exit_reason = ? WHERE id = ?').run('error', sessionId)
     endSession(getDb(), sessionId)
     procMap.delete(sessionId)
-    broadcast(sessionId, { type: 'status', state: 'ended' })
+    clearHangTimer(sessionId)
+    broadcast(sessionId, {
+      type: 'status',
+      state: 'ended',
+      reason: 'error',
+      message: err.message,
+    })
     wsMap.delete(sessionId)
   })
 
@@ -218,6 +256,7 @@ export function spawnSession(opts: SpawnOptions): string {
   if (proc.stdout) {
     const rl = createInterface({ input: proc.stdout })
     rl.on('line', (line) => {
+      resetHangTimer(sessionId)
       // Parse structured event
       const event = adapter.parseLine(line)
       if (event) {
@@ -233,6 +272,11 @@ export function spawnSession(opts: SpawnOptions): string {
   if (proc.stderr) {
     const rlErr = createInterface({ input: proc.stderr })
     rlErr.on('line', (line) => {
+      resetHangTimer(sessionId)
+      // Accumulate stderr for error detection on close
+      const current = procStderr.get(sessionId) ?? ''
+      procStderr.set(sessionId, current + '\n' + line)
+
       const isRateLimit = adapter.rateLimitPatterns.some(p => p.test(line))
       if (isRateLimit) {
         db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
@@ -241,14 +285,45 @@ export function spawnSession(opts: SpawnOptions): string {
           content: line,
           metadata: { code: 'rate_limit', isRateLimit: true },
         })
-        broadcast(sessionId, { type: 'rate_limit', provider: provider.name })
+        broadcast(sessionId, {
+          type: 'status',
+          state: 'paused',
+          reason: 'rate_limit',
+          provider: provider.name,
+        })
       }
       // Also broadcast stderr as output
       broadcast(sessionId, { type: 'output', data: line })
     })
   }
 
-  proc.on('close', () => {
+  proc.on('close', (code, signal) => {
+    clearHangTimer(sessionId)
+
+    // Determine exit reason
+    let exitReason: string
+    let exitMessage: string
+
+    if (signal === 'SIGTERM' || signal === 'SIGKILL') {
+      exitReason = 'killed'
+      exitMessage = 'Session stopped by user'
+    } else if (code === 0) {
+      exitReason = 'completed'
+      exitMessage = 'Session completed successfully'
+    } else {
+      const stderrContent = procStderr.get(sessionId) ?? ''
+      if (stderrContent && adapter.rateLimitPatterns.some(p => p.test(stderrContent))) {
+        exitReason = 'rate_limit'
+        exitMessage = 'Rate limit exceeded — session ended'
+      } else {
+        exitReason = 'error'
+        exitMessage = stderrContent.split('\n').filter(l => l).slice(-1)[0] || `Process exited with code ${code}`
+      }
+    }
+
+    // Update DB with exit reason
+    getDb().prepare('UPDATE sessions SET exit_reason = ? WHERE id = ?').run(exitReason, sessionId)
+
     endSession(getDb(), sessionId)
     if (opts.agentId) {
       const project = getProject(getDb(), opts.projectId)
@@ -287,10 +362,16 @@ export function spawnSession(opts: SpawnOptions): string {
       summary: `${opts.phase} session ended: ${opts.label}`,
       severity: 'info',
     })
-    emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: 'completed' })
+    emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: exitReason })
 
     procMap.delete(sessionId)
-    broadcast(sessionId, { type: 'status', state: 'ended' })
+    procStderr.delete(sessionId)
+    broadcast(sessionId, {
+      type: 'status',
+      state: 'ended',
+      reason: exitReason,
+      message: exitMessage,
+    })
     wsMap.delete(sessionId)
   })
 
@@ -300,13 +381,22 @@ export function spawnSession(opts: SpawnOptions): string {
 export function killSession(sessionId: string): void {
   const proc = procMap.get(sessionId)
   if (proc) {
+    // Set exit_reason before kill triggers close event
+    getDb().prepare('UPDATE sessions SET exit_reason = ? WHERE id = ?').run('killed', sessionId)
     // proc.kill() triggers the 'close' event which handles cleanup,
     // broadcasting 'ended', flushing events, and map deletion.
     try { proc.kill() } catch {}
   } else {
     // Process already gone — clean up DB and maps directly
+    getDb().prepare('UPDATE sessions SET exit_reason = ? WHERE id = ?').run('killed', sessionId)
     endSession(getDb(), sessionId)
-    broadcast(sessionId, { type: 'status', state: 'ended' })
+    clearHangTimer(sessionId)
+    broadcast(sessionId, {
+      type: 'status',
+      state: 'ended',
+      reason: 'killed',
+      message: 'Session stopped by user',
+    })
     wsMap.delete(sessionId)
   }
 }

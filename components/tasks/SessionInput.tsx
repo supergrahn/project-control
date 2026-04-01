@@ -8,16 +8,40 @@ type Props = {
 
 export function SessionInput({ onSend, disabled }: Props) {
   const [value, setValue] = useState('')
+  const [history, setHistory] = useState<string[]>([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
   function handleSubmit() {
     const trimmed = value.trim()
     if (!trimmed) return
     onSend(trimmed)
+    setHistory(prev => {
+      const updated = [trimmed, ...prev]
+      return updated.slice(0, 50) // Max 50 entries
+    })
+    setHistoryIndex(-1)
     setValue('')
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (historyIndex < history.length - 1) {
+        const newIndex = historyIndex + 1
+        setHistoryIndex(newIndex)
+        setValue(history[newIndex])
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1
+        setHistoryIndex(newIndex)
+        setValue(history[newIndex])
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1)
+        setValue('')
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit()
     }

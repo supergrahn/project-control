@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { X, Minus } from 'lucide-react'
 import type { Session } from '@/hooks/useSessions'
 import { useKillSession } from '@/hooks/useSessions'
+import { SessionStatusBanner, type SessionState } from '@/components/sessions/SessionStatusBanner'
 
 export type WindowState = {
   session: Session
@@ -29,6 +30,11 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
   const wsRef = useRef<WebSocket | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
   const [termStatus, setTermStatus] = useState<'active' | 'ended' | 'connecting'>('connecting')
+  const [sessionState, setSessionState] = useState<SessionState>('active')
+  const [sessionReason, setSessionReason] = useState<string | undefined>()
+  const [sessionMessage, setSessionMessage] = useState<string | undefined>()
+  const [sessionProvider, setSessionProvider] = useState<string | undefined>()
+  const [retryAfter, setRetryAfter] = useState<number | undefined>()
   const killSession = useKillSession()
 
   // Drag handling
@@ -93,7 +99,14 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
         try {
           const msg = JSON.parse(e.data)
           if (msg.type === 'output') term.write(msg.data + '\r\n')
-          if (msg.type === 'status') setTermStatus(msg.state)
+          if (msg.type === 'status') {
+            setTermStatus(msg.state)
+            setSessionState(msg.state as SessionState)
+            setSessionReason(msg.reason)
+            setSessionMessage(msg.message)
+            setSessionProvider(msg.provider)
+            setRetryAfter(msg.retryAfter)
+          }
         } catch {}
       }
 
@@ -132,6 +145,15 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
       className="fixed flex flex-col bg-bg-base border border-border-strong rounded-lg shadow-2xl"
       onMouseDown={() => onBringToFront(session.id)}
     >
+      {/* Status banner */}
+      <SessionStatusBanner
+        state={sessionState}
+        reason={sessionReason}
+        message={sessionMessage}
+        provider={sessionProvider}
+        retryAfter={retryAfter}
+      />
+
       {/* Title bar / drag handle */}
       <div
         onMouseDown={onTitleMouseDown}
@@ -149,7 +171,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
           </button>
           <button
             onClick={() => {
-              if (termStatus === 'active') killSession.mutate(session.id)
+              if (termStatus === 'active' || sessionState === 'unresponsive') killSession.mutate(session.id)
               onClose(session.id)
             }}
             className="p-1 text-text-muted hover:text-accent-red rounded hover:bg-bg-secondary"
@@ -159,12 +181,6 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
           </button>
         </div>
       </div>
-
-      {termStatus === 'ended' && (
-        <div className="bg-bg-secondary/50 text-text-secondary text-[10px] text-center py-1 shrink-0">
-          Session ended — read-only
-        </div>
-      )}
 
       <div ref={containerRef} className="flex-1 p-1.5 min-h-0" />
     </div>

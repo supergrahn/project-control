@@ -4,6 +4,7 @@ import type { Task } from '@/lib/db/tasks'
 import type { Agent } from '@/lib/db/agents'
 import { patchTask } from '@/hooks/useTasks'
 import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
+import { SessionHistoryPanel } from '@/components/sessions/SessionHistoryPanel'
 import { PropertiesPanel } from '@/components/tasks/PropertiesPanel'
 
 type DrawerSection = 'artifacts' | 'sessions' | 'notes'
@@ -136,6 +137,9 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
             ))}
           </div>
         )}
+
+        {/* Session History */}
+        <SessionHistoryPanel taskId={task.id} />
 
         {/* Comments placeholder */}
         <div className="text-text-disabled text-[12px] border-t border-border-subtle pt-4 mt-6">

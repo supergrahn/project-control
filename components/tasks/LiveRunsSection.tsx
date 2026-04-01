@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
 import { SessionInput } from './SessionInput'
+import { SessionStatusBanner, type SessionState } from '@/components/sessions/SessionStatusBanner'
 
 type Todo = { id: string; content: string; status: 'completed' | 'in_progress' | 'pending' }
 
@@ -43,6 +44,11 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
   const [activeSession, setActiveSession] = useState<SessionShape | null>(null)
   const [logLines, setLogLines] = useState<LogLine[]>([])
   const [stopping, setStopping] = useState(false)
+  const [sessionState, setSessionState] = useState<SessionState>('active')
+  const [sessionReason, setSessionReason] = useState<string | undefined>()
+  const [sessionMessage, setSessionMessage] = useState<string | undefined>()
+  const [sessionProvider, setSessionProvider] = useState<string | undefined>()
+  const [retryAfter, setRetryAfter] = useState<number | undefined>()
   const logEndRef = useRef<HTMLDivElement>(null)
   const lineCounter = useRef(0)
   const onTodosRef = useRef(onTodos)
@@ -83,9 +89,16 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
         return
       }
 
-      if (parsed?.type === 'status' && parsed?.state === 'ended') {
-        setActiveSession(null)
-        onTodosRef.current([])
+      if (parsed?.type === 'status') {
+        setSessionState(parsed.state as SessionState)
+        setSessionReason(parsed.reason)
+        setSessionMessage(parsed.message)
+        setSessionProvider(parsed.provider)
+        setRetryAfter(parsed.retryAfter)
+        if (parsed?.state === 'ended') {
+          setActiveSession(null)
+          onTodosRef.current([])
+        }
         return
       }
 
@@ -162,8 +175,17 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
 
   return (
     <div>
+      {/* Status banner */}
+      <SessionStatusBanner
+        state={sessionState}
+        reason={sessionReason}
+        message={sessionMessage}
+        provider={sessionProvider}
+        retryAfter={retryAfter}
+      />
+
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-2 mt-2">
         <span className="text-text-primary text-[13px] font-semibold">{activeSession.label}</span>
         <span className="text-text-muted text-[11px] bg-bg-secondary border border-border-default rounded px-1.5 py-0.5">
           {activeSession.phase}
