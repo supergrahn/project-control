@@ -1,4 +1,6 @@
-import * as pty from 'node-pty'
+// lib/session-manager.ts
+import { spawn, ChildProcess } from 'child_process'
+import { createInterface } from 'readline'
 import { WebSocket } from 'ws'
 import fs from 'fs'
 import { EventEmitter } from 'events'
@@ -13,21 +15,19 @@ import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
 import { randomUUID } from 'crypto'
-import { generateDebrief } from './debrief'
 import { writeFrontmatter } from './frontmatter'
 import { resolveProvider } from './sessions/resolveProvider'
-import { RateLimitDetector } from './sessions/rateLimitDetector'
 import { getActiveProviders } from './db/providers'
+import { getAdapter } from './sessions/adapters'
+import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 
-// --- PTY maps (survive Next.js hot-reload via globalThis) ---
+// --- Process maps (survive Next.js hot-reload via globalThis) ---
 declare global {
-  var ptyMap: Map<string, pty.IPty>
+  var procMap: Map<string, ChildProcess>
   var wsMap: Map<string, Set<WebSocket>>
-  var outputBuffer: Map<string, string[]>
 }
-globalThis.ptyMap ??= new Map()
+globalThis.procMap ??= new Map()
 globalThis.wsMap ??= new Map()
-globalThis.outputBuffer ??= new Map()
 
 // Per-project event emitter for orchestrator wake-up
 declare global {
@@ -43,16 +43,14 @@ export function getProjectEmitter(projectPath: string): EventEmitter {
 }
 
 export function emitSessionEnded(projectId: string, payload: { session_id: string; source_file: string | null; exit_reason: string }): void {
-  // Look up project path for emitter
   const project = getProject(getDb(), projectId)
   if (project) {
     getProjectEmitter(project.path).emit('session-ended', payload)
   }
 }
 
-export const ptyMap = globalThis.ptyMap
+export const procMap = globalThis.procMap
 export const wsMap = globalThis.wsMap
-export const outputBuffer = globalThis.outputBuffer
 
 // --- Session spawning ---
 export type SpawnOptions = {
@@ -157,14 +155,13 @@ export function spawnSession(opts: SpawnOptions): string {
     userContext: opts.userContext,
     permissionMode: opts.permissionMode,
     sessionId,
+    providerType: provider.type,
   })
 
-  const proc = pty.spawn(provider.command, args, {
-    name: 'xterm-color',
-    cols: 80,
-    rows: 24,
+  const proc = spawn(provider.command, args, {
     cwd: opts.projectPath,
     env: { ...process.env },
+    stdio: ['pipe', 'pipe', 'pipe'],
   })
 
   const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
@@ -199,40 +196,46 @@ export function spawnSession(opts: SpawnOptions): string {
     } catch {}
   }
 
-  const detector = new RateLimitDetector(provider.type)
+  const adapter = getAdapter(provider.type)
 
-  ptyMap.set(sessionId, proc)
+  procMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
-  outputBuffer.set(sessionId, [])
 
-  proc.onData((data) => {
-    // Rolling 100-line buffer
-    const buf = outputBuffer.get(sessionId) ?? []
-    const lines = data.split('\n')
-    buf.push(...lines)
-    if (buf.length > 100) buf.splice(0, buf.length - 100)
-    outputBuffer.set(sessionId, buf)
-
-    if (detector.check(data)) {
-      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
-      const clients = wsMap.get(sessionId) ?? new Set()
-      for (const ws of clients) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
-        }
+  // Read stdout line-by-line
+  if (proc.stdout) {
+    const rl = createInterface({ input: proc.stdout })
+    rl.on('line', (line) => {
+      // Parse structured event
+      const event = adapter.parseLine(line)
+      if (event) {
+        insertSessionEvent(db, sessionId, event)
+        broadcast(sessionId, { type: 'event', event })
       }
-    }
+      // Always broadcast raw output for terminal view
+      broadcast(sessionId, { type: 'output', data: line })
+    })
+  }
 
-    // Broadcast to connected clients
-    const clients = wsMap.get(sessionId) ?? new Set()
-    for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'output', data }))
+  // Capture stderr for rate limit detection
+  if (proc.stderr) {
+    const rlErr = createInterface({ input: proc.stderr })
+    rlErr.on('line', (line) => {
+      const isRateLimit = adapter.rateLimitPatterns.some(p => p.test(line))
+      if (isRateLimit) {
+        db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+        insertSessionEvent(db, sessionId, {
+          type: 'error',
+          content: line,
+          metadata: { code: 'rate_limit', isRateLimit: true },
+        })
+        broadcast(sessionId, { type: 'rate_limit', provider: provider.name })
       }
-    }
-  })
+      // Also broadcast stderr as output
+      broadcast(sessionId, { type: 'output', data: line })
+    })
+  }
 
-  proc.onExit(() => {
+  proc.on('close', () => {
     endSession(getDb(), sessionId)
     if (opts.agentId) {
       const project = getProject(getDb(), opts.projectId)
@@ -255,6 +258,13 @@ export function spawnSession(opts: SpawnOptions): string {
           updateTask(getDb(), opts.taskId, { [field]: opts.outputPath })
         }
       }
+      // Flush session events to log file
+      const logDir = path.join(process.cwd(), 'data', 'sessions')
+      const logPath = path.join(logDir, `${sessionId}.jsonl`)
+      try {
+        flushSessionEvents(getDb(), sessionId, logPath)
+        updateTask(getDb(), opts.taskId, { session_log: logPath })
+      } catch {}
     }
     logEvent(getDb(), {
       projectId: opts.projectId,
@@ -263,53 +273,9 @@ export function spawnSession(opts: SpawnOptions): string {
       severity: 'info',
     })
     emitSessionEnded(opts.projectId, { session_id: sessionId, source_file: opts.sourceFile, exit_reason: 'completed' })
-    if (opts.sourceFile) {
-      const buf = outputBuffer.get(sessionId) ?? []
 
-      // Save session log and write log_id into frontmatter
-      try {
-        const logsDir = path.join(path.dirname(opts.sourceFile), 'logs')
-        fs.mkdirSync(logsDir, { recursive: true })
-        const base = path.basename(opts.sourceFile, '.md')
-        const logPath = path.join(logsDir, `${base}-${opts.phase}-log.md`)
-        const logFm = `---\nphase: ${opts.phase}\nsource_file: ${opts.sourceFile}\ncreated_at: ${new Date().toISOString()}\n---\n\n`
-        fs.writeFileSync(logPath, logFm + buf.join('\n'), 'utf8')
-
-        const srcContent = fs.readFileSync(opts.sourceFile, 'utf8')
-        const updatedSrc = writeFrontmatter(srcContent, { [`${opts.phase}_log_id`]: logPath })
-        fs.writeFileSync(opts.sourceFile, updatedSrc, 'utf8')
-      } catch {}
-
-      // Generate post-session debrief (non-blocking) — keep existing code
-      generateDebrief({
-        outputBuffer: buf,
-        sessionLabel: opts.label,
-        phase: opts.phase,
-        sourceFile: opts.sourceFile,
-        projectPath: opts.projectPath,
-      }).then(debriefPath => {
-        if (debriefPath) {
-          logEvent(getDb(), {
-            projectId: opts.projectId,
-            type: 'debrief_generated',
-            summary: `Debrief generated: ${path.basename(debriefPath)}`,
-            severity: 'info',
-          })
-          // Write dev_summary back to task if develop session
-          if (opts.taskId && opts.phase === 'develop') {
-            updateTask(getDb(), opts.taskId, { dev_summary: debriefPath })
-          }
-        }
-      }).catch(() => {})
-    }
-    ptyMap.delete(sessionId)
-    outputBuffer.delete(sessionId)
-    const clients = wsMap.get(sessionId) ?? new Set()
-    for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
-      }
-    }
+    procMap.delete(sessionId)
+    broadcast(sessionId, { type: 'status', state: 'ended' })
     wsMap.delete(sessionId)
   })
 
@@ -317,18 +283,28 @@ export function spawnSession(opts: SpawnOptions): string {
 }
 
 export function killSession(sessionId: string): void {
-  const proc = ptyMap.get(sessionId)
+  const proc = procMap.get(sessionId)
   if (proc) {
     try { proc.kill() } catch {}
-    ptyMap.delete(sessionId)
-    outputBuffer.delete(sessionId)
+    procMap.delete(sessionId)
   }
   endSession(getDb(), sessionId)
   wsMap.delete(sessionId)
 }
 
 export function isAlive(sessionId: string): boolean {
-  return ptyMap.has(sessionId)
+  return procMap.has(sessionId)
+}
+
+// --- Broadcast helper ---
+function broadcast(sessionId: string, msg: Record<string, unknown>): void {
+  const clients = wsMap.get(sessionId) ?? new Set()
+  const json = JSON.stringify(msg)
+  for (const ws of clients) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(json)
+    }
+  }
 }
 
 // --- WebSocket handler ---
@@ -340,17 +316,27 @@ export function handleWebSocket(ws: WebSocket): void {
     try {
       msg = JSON.parse(raw.toString())
     } catch {
-      return // ignore malformed JSON
+      return
     }
 
     if (msg.type === 'attach') {
       const { sessionId } = msg
       attachedSessionId = sessionId
 
-      // Send buffered output as replay
-      const buf = outputBuffer.get(sessionId) ?? []
-      if (buf.length > 0) {
-        ws.send(JSON.stringify({ type: 'output', data: buf.join('\n') }))
+      // Replay events from session_events table
+      const events = getSessionEvents(getDb(), sessionId)
+      for (const event of events) {
+        ws.send(JSON.stringify({
+          type: 'event',
+          event: {
+            id: event.id,
+            type: event.type,
+            role: event.role,
+            content: event.content,
+            metadata: event.metadata ? JSON.parse(event.metadata) : null,
+            created_at: event.created_at,
+          },
+        }))
       }
 
       // Register client
@@ -358,16 +344,15 @@ export function handleWebSocket(ws: WebSocket): void {
       wsMap.get(sessionId)!.add(ws)
 
       // Send current status
-      const alive = ptyMap.has(sessionId)
+      const alive = procMap.has(sessionId)
       ws.send(JSON.stringify({ type: 'status', state: alive ? 'active' : 'ended' }))
     }
 
     if (msg.type === 'input' && attachedSessionId) {
-      ptyMap.get(attachedSessionId)?.write(msg.data)
-    }
-
-    if (msg.type === 'resize' && attachedSessionId) {
-      ptyMap.get(attachedSessionId)?.resize(msg.cols, msg.rows)
+      const proc = procMap.get(attachedSessionId)
+      if (proc?.stdin?.writable) {
+        proc.stdin.write(msg.data + '\n')
+      }
     }
   })
 
@@ -417,7 +402,6 @@ export function spawnOrchestratorSession(opts: {
   const provider = resolveProvider(db, { projectId: opts.projectId })
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
-  // Import the actual MCP secret so orchestrator can authenticate
   let secret: string
   try {
     const { getMcpSecret } = require('../server/orchestrator-mcp')
@@ -433,14 +417,13 @@ export function spawnOrchestratorSession(opts: {
     userContext: 'Start your orchestrator loop. List sessions and monitor.',
     permissionMode: 'default',
     sessionId,
+    providerType: provider.type,
   })
 
-  const proc = pty.spawn(provider.command, args, {
-    name: 'xterm-color',
-    cols: 80,
-    rows: 24,
+  const proc = spawn(provider.command, args, {
     cwd: opts.projectPath,
     env: { ...process.env },
+    stdio: ['pipe', 'pipe', 'pipe'],
   })
 
   createSession(db, {
@@ -451,42 +434,39 @@ export function spawnOrchestratorSession(opts: {
     sourceFile: null,
   })
 
-  const detector = new RateLimitDetector(provider.type)
+  const adapter = getAdapter(provider.type)
 
-  ptyMap.set(sessionId, proc)
+  procMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
-  outputBuffer.set(sessionId, [])
 
-  proc.onData((data) => {
-    const buf = outputBuffer.get(sessionId) ?? []
-    buf.push(...data.split('\n'))
-    if (buf.length > 100) buf.splice(0, buf.length - 100)
-    outputBuffer.set(sessionId, buf)
-
-    if (detector.check(data)) {
-      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
-      const clients = wsMap.get(sessionId) ?? new Set()
-      for (const ws of clients) {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
-        }
+  if (proc.stdout) {
+    const rl = createInterface({ input: proc.stdout })
+    rl.on('line', (line) => {
+      const event = adapter.parseLine(line)
+      if (event) {
+        insertSessionEvent(db, sessionId, event)
+        broadcast(sessionId, { type: 'event', event })
       }
-    }
+      broadcast(sessionId, { type: 'output', data: line })
+    })
+  }
 
-    const clients = wsMap.get(sessionId) ?? new Set()
-    for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'output', data }))
-    }
-  })
+  if (proc.stderr) {
+    const rlErr = createInterface({ input: proc.stderr })
+    rlErr.on('line', (line) => {
+      const isRateLimit = adapter.rateLimitPatterns.some(p => p.test(line))
+      if (isRateLimit) {
+        db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+        broadcast(sessionId, { type: 'rate_limit', provider: provider.name })
+      }
+      broadcast(sessionId, { type: 'output', data: line })
+    })
+  }
 
-  proc.onExit(() => {
+  proc.on('close', () => {
     endSession(db, sessionId)
-    ptyMap.delete(sessionId)
-    outputBuffer.delete(sessionId)
-    const clients = wsMap.get(sessionId) ?? new Set()
-    for (const ws of clients) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
-    }
+    procMap.delete(sessionId)
+    broadcast(sessionId, { type: 'status', state: 'ended' })
     wsMap.delete(sessionId)
   })
 

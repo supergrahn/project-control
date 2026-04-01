@@ -1,8 +1,22 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('node-pty', () => ({
-  spawn: vi.fn(() => ({ onData: vi.fn(), onExit: vi.fn(), kill: vi.fn() })),
-}))
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>()
+  return {
+    ...actual,
+    spawn: vi.fn(() => {
+      const { EventEmitter } = require('events')
+      const proc = new EventEmitter()
+      proc.stdin = { writable: true, write: vi.fn() }
+      proc.stdout = new EventEmitter()
+      proc.stderr = new EventEmitter()
+      proc.kill = vi.fn()
+      proc.stdout.on = vi.fn()
+      proc.stderr.on = vi.fn()
+      return proc
+    }),
+  }
+})
 
 vi.mock('@/lib/db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/db')>()
@@ -28,8 +42,12 @@ vi.mock('@/lib/prompts', () => ({
 }))
 vi.mock('@/lib/db/tasks', () => ({ getTask: vi.fn(() => undefined), updateTask: vi.fn() }))
 vi.mock('@/lib/git', () => ({ getGitHistory: vi.fn(() => '') }))
-vi.mock('@/lib/debrief', () => ({ generateDebrief: vi.fn(() => Promise.resolve(null)) }))
 vi.mock('@/lib/frontmatter', () => ({ writeFrontmatter: vi.fn((c: string) => c) }))
+vi.mock('@/lib/db/sessionEvents', () => ({
+  insertSessionEvent: vi.fn(),
+  getSessionEvents: vi.fn(() => []),
+  flushSessionEvents: vi.fn(),
+}))
 
 import { spawnSession } from '@/lib/session-manager'
 

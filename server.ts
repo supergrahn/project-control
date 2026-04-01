@@ -2,7 +2,7 @@ import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
 import { WebSocketServer } from 'ws'
-import { handleWebSocket, ptyMap } from './lib/session-manager'
+import { handleWebSocket, procMap } from './lib/session-manager'
 import { startOrchestratorMcp } from './server/orchestrator-mcp'
 import { startOrchestratorWatcher } from './server/orchestrator-watcher'
 
@@ -32,9 +32,8 @@ app.prepare().then(() => {
     }
   })
 
-  // Kill all PTYs on shutdown
   const shutdown = () => {
-    for (const proc of (ptyMap as Map<string, any>).values()) {
+    for (const proc of (procMap as Map<string, any>).values()) {
       try { proc.kill() } catch {}
     }
     process.exit(0)

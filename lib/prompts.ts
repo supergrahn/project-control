@@ -1,6 +1,9 @@
 // lib/prompts.ts
 import { readFileSync } from 'fs'
 import type { Task } from '@/lib/db/tasks'
+import { getAdapter } from './sessions/adapters'
+import type { ProviderType } from './db/providers'
+
 export type Phase = 'ideate' | 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'audit'
 export type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan'
 
@@ -112,16 +115,15 @@ export function buildArgs(opts: {
   userContext: string
   permissionMode: PermissionMode
   sessionId: string
+  providerType: ProviderType
 }): string[] {
-  const args: string[] = [
-    '--system-prompt', opts.systemPrompt,
-    '--session-id', opts.sessionId,
-    '--permission-mode', opts.permissionMode,
-  ]
-  if (opts.userContext.trim()) {
-    args.push(opts.userContext.trim())
-  }
-  return args
+  const adapter = getAdapter(opts.providerType)
+  return adapter.buildArgs({
+    systemPrompt: opts.systemPrompt,
+    userContext: opts.userContext,
+    permissionMode: opts.permissionMode,
+    sessionId: opts.sessionId,
+  })
 }
 
 export function buildTaskContext(task: Pick<Task, 'idea_file' | 'spec_file' | 'plan_file' | 'notes'>): string {
