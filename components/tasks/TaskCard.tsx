@@ -4,6 +4,10 @@ import type { Task, TaskStatus } from '@/lib/db/tasks'
 import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
 import { deleteTask } from '@/hooks/useTasks'
 
+const PRIORITY_COLORS: Record<string, string> = {
+  low: '#5a6370', medium: '#5b9bd5', high: '#c97e2a', urgent: '#c04040',
+}
+
 const NEXT_ACTION: Record<TaskStatus, string | null> = {
   idea:       'Start Spec',
   speccing:   'Start Plan',
@@ -77,6 +81,23 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
       <div style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600, marginBottom: 8, lineHeight: 1.4 }}>
         {task.title.charAt(0).toUpperCase() + task.title.slice(1)}
       </div>
+
+      {/* Priority chip */}
+      <span style={{
+        fontSize: 9,
+        fontWeight: 600,
+        textTransform: 'uppercase' as const,
+        letterSpacing: 0.5,
+        color: PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5',
+        background: (PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5') + '18',
+        border: `1px solid ${(PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5')}33`,
+        borderRadius: 3,
+        padding: '1px 4px',
+        display: 'inline-block',
+        marginTop: 3,
+      }}>
+        {task.priority ?? 'medium'}
+      </span>
 
       {/* Last Action */}
       <div style={{

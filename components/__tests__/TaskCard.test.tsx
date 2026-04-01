@@ -49,3 +49,30 @@ describe('TaskCard', () => {
     expect(screen.getByRole('button', { name: /view history/i })).toBeInTheDocument()
   })
 })
+
+describe('TaskCard — priority chip', () => {
+  it('renders "medium" priority chip', () => {
+    render(<TaskCard task={{ ...baseTask, priority: 'medium', labels: null, assignee_agent_id: null }} onOpen={vi.fn()} />)
+    expect(screen.getByText('medium')).toBeInTheDocument()
+  })
+
+  it('renders "urgent" chip in danger color (#c04040)', () => {
+    render(<TaskCard task={{ ...baseTask, priority: 'urgent', labels: null, assignee_agent_id: null }} onOpen={vi.fn()} />)
+    const chip = screen.getByText('urgent')
+    expect(chip).toBeInTheDocument()
+    // Color rendered as rgb by jsdom
+    expect(chip.style.color).toBe('rgb(192, 64, 64)')
+  })
+
+  it('renders "high" chip in amber color (#c97e2a)', () => {
+    render(<TaskCard task={{ ...baseTask, priority: 'high', labels: null, assignee_agent_id: null }} onOpen={vi.fn()} />)
+    const chip = screen.getByText('high')
+    expect(chip.style.color).toBe('rgb(201, 126, 42)')
+  })
+
+  it('renders "low" chip in muted color (#5a6370)', () => {
+    render(<TaskCard task={{ ...baseTask, priority: 'low', labels: null, assignee_agent_id: null }} onOpen={vi.fn()} />)
+    const chip = screen.getByText('low')
+    expect(chip.style.color).toBe('rgb(90, 99, 112)')
+  })
+})
