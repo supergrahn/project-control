@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
+import { SessionInput } from './SessionInput'
 
 type Todo = { id: string; content: string; status: 'completed' | 'in_progress' | 'pending' }
 
@@ -47,6 +48,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
   const onTodosRef = useRef(onTodos)
   useEffect(() => { onTodosRef.current = onTodos })
   const { openWindow } = useSessionWindows()
+  const wsRef = useRef<WebSocket | null>(null)
 
   // Fetch active session on mount
   useEffect(() => {
@@ -61,44 +63,55 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
   // Open WebSocket when there is an active session
   useEffect(() => {
     if (!activeSession?.id) return
-    const ws = new WebSocket(`ws://${window.location.host}/api/sessions/${activeSession.id}/ws`)
+    const ws = new WebSocket(`ws://${window.location.host}/ws`)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'attach', sessionId: activeSession.id }))
+    }
 
     ws.onmessage = (e: MessageEvent) => {
       const text: string = typeof e.data === 'string' ? e.data : ''
 
-      // Try JSON status message first
+      let parsed: any
       try {
-        const parsed = JSON.parse(text)
-        if (parsed?.type === 'status' && parsed?.state === 'ended') {
-          setActiveSession(null)
-          onTodosRef.current([])
-          return
-        }
+        parsed = JSON.parse(text)
       } catch {
-        // not JSON, continue
+        // Non-JSON — treat as raw output
+        const newLine: LogLine = { id: ++lineCounter.current, text }
+        setLogLines((prev) => [...prev.slice(-499), newLine])
+        return
       }
 
-      // Try TodoWrite match
-      const todoMatch = text.match(/^TodoWrite\s+·\s+(\[.+\])/s)
-      if (todoMatch) {
-        try {
-          const todos: Todo[] = JSON.parse(todoMatch[1])
-          onTodosRef.current(todos)
-        } catch {
-          // ignore parse error
+      if (parsed?.type === 'status' && parsed?.state === 'ended') {
+        setActiveSession(null)
+        onTodosRef.current([])
+        return
+      }
+
+      if (parsed?.type === 'output') {
+        const lineText = parsed.data ?? ''
+        // Try TodoWrite match on output lines
+        const todoMatch = lineText.match(/^TodoWrite\s+·\s+(\[.+\])/s)
+        if (todoMatch) {
+          try {
+            const todos: Todo[] = JSON.parse(todoMatch[1])
+            onTodosRef.current(todos)
+          } catch {}
         }
+        const newLine: LogLine = { id: ++lineCounter.current, text: lineText }
+        setLogLines((prev) => [...prev.slice(-499), newLine])
+        return
       }
 
-      // Append all messages to log lines (capped at 500)
-      const newLine: LogLine = { id: ++lineCounter.current, text }
-      setLogLines((prev) => [...prev.slice(-499), newLine])
+      // Ignore 'event' and 'rate_limit' messages for now — output covers display
     }
 
     ws.onerror = () => {
       setActiveSession(null)
     }
 
-    return () => ws.close()
+    return () => { ws.close(); wsRef.current = null }
   }, [activeSession?.id])
 
   // Scroll to bottom when log lines change
@@ -133,6 +146,12 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
       created_at: activeSession.created_at,
       ended_at: activeSession.ended_at,
     })
+  }
+
+  function handleSendInput(text: string) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'input', data: text }))
+    }
   }
 
   if (!activeSession) {
@@ -187,6 +206,8 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
           Stop
         </button>
       </div>
+
+      <SessionInput onSend={handleSendInput} disabled={!activeSession} />
     </div>
   )
 }

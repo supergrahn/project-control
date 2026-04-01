@@ -8,10 +8,17 @@ global.fetch = vi.fn()
 class MockWebSocket {
   static instances: MockWebSocket[] = []
   onmessage: ((e: MessageEvent) => void) | null = null
+  onopen: (() => void) | null = null
   onerror: ((e: Event) => void) | null = null
   onclose: (() => void) | null = null
+  readyState = 1 // OPEN
   close = vi.fn()
-  constructor(public url: string) { MockWebSocket.instances.push(this) }
+  send = vi.fn()
+  constructor(public url: string) {
+    MockWebSocket.instances.push(this)
+    // Trigger onopen asynchronously
+    setTimeout(() => this.onopen?.(), 0)
+  }
   emit(data: string) { this.onmessage?.({ data } as MessageEvent) }
 }
 vi.stubGlobal('WebSocket', MockWebSocket)
@@ -56,25 +63,32 @@ describe('LiveRunsSection — active state', () => {
     expect(screen.getByText(/brainstorm/i)).toBeInTheDocument()
   })
 
-  it('opens a WebSocket to the active session', async () => {
+  it('opens a WebSocket and sends attach message', async () => {
     render(<LiveRunsSection taskId="task-1" onTodos={vi.fn()} />, { wrapper })
     await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
-    expect(MockWebSocket.instances[0].url).toContain('/api/sessions/sess-1/ws')
+    expect(MockWebSocket.instances[0].url).toContain('/ws')
+    await waitFor(() => {
+      expect(MockWebSocket.instances[0].send).toHaveBeenCalledWith(
+        JSON.stringify({ type: 'attach', sessionId: 'sess-1' })
+      )
+    })
   })
 
-  it('appends terminal output lines from WebSocket messages', async () => {
+  it('appends terminal output from JSON output messages', async () => {
     render(<LiveRunsSection taskId="task-1" onTodos={vi.fn()} />, { wrapper })
     await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
-    act(() => { MockWebSocket.instances[0].emit('Bash · npm test') })
+    act(() => { MockWebSocket.instances[0].emit(JSON.stringify({ type: 'output', data: 'Bash · npm test' })) })
     expect(screen.getByText(/npm test/i)).toBeInTheDocument()
   })
 
-  it('parses TodoWrite messages and calls onTodos', async () => {
+  it('parses TodoWrite messages from output events', async () => {
     const onTodos = vi.fn()
     render(<LiveRunsSection taskId="task-1" onTodos={onTodos} />, { wrapper })
     await waitFor(() => expect(MockWebSocket.instances).toHaveLength(1))
     const todos = [{ id: '1', content: 'Write tests', status: 'pending' }]
-    act(() => { MockWebSocket.instances[0].emit(`TodoWrite · ${JSON.stringify(todos)}`) })
+    act(() => {
+      MockWebSocket.instances[0].emit(JSON.stringify({ type: 'output', data: `TodoWrite · ${JSON.stringify(todos)}` }))
+    })
     expect(onTodos).toHaveBeenCalledWith(todos)
   })
 
@@ -86,10 +100,11 @@ describe('LiveRunsSection — active state', () => {
     expect(onTodos).toHaveBeenLastCalledWith([])
   })
 
-  it('renders Stop and Open terminal buttons', async () => {
+  it('renders Stop, Open Terminal, and input bar', async () => {
     render(<LiveRunsSection taskId="task-1" onTodos={vi.fn()} />, { wrapper })
     await waitFor(() => expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /open terminal/i })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/send input/i)).toBeInTheDocument()
   })
 
   it('calls DELETE /api/sessions/{id} when Stop clicked', async () => {
