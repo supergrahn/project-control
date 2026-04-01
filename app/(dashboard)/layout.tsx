@@ -89,18 +89,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SessionWindowProvider>
       <FocusProvider>
-        <div style={{ display: 'flex', height: '100vh', background: '#0e1012', overflow: 'hidden' }}>
+        <div className="flex h-screen bg-bg-primary overflow-hidden">
           <ProjectRail />
           <SidebarWrapper />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="flex-1 flex flex-col overflow-hidden">
             {claudeAvailable === false && (
               <div className="px-4 pt-3">
                 <ClaudeNotFound />
               </div>
             )}
             <TopBarWrapper />
-            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-              <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}><ErrorBoundary>{children}</ErrorBoundary></main>
+            <div className="flex-1 flex overflow-hidden">
+              <main className="flex-1 p-6 overflow-y-auto"><ErrorBoundary>{children}</ErrorBoundary></main>
               <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
             </div>
           </div>

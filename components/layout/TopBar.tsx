@@ -33,35 +33,25 @@ export function TopBar({ projectId, projectName }: Props) {
 
   return (
     <>
-      <div style={{
-        height: 38,
-        background: '#0c0e10',
-        borderBottom: '1px solid #1c1f22',
-        padding: '0 16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center' }}>
+      <div className="h-[38px] bg-bg-base border-b border-border-default px-4 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center">
           <Link
             href={`/projects/${projectId}`}
-            style={{ color: '#5a6370', fontSize: 12, textDecoration: 'none', fontFamily: 'inherit' }}
+            className="text-text-muted text-[12px] no-underline"
           >
             {projectName}
           </Link>
-          <span style={{ color: '#2e3338', fontSize: 12, margin: '0 6px' }}>›</span>
-          <span style={{ color: '#c8ced6', fontSize: 12, fontWeight: 500 }}>{pageLabel}</span>
+          <span className="text-[#2e3338] text-[12px] mx-1.5">›</span>
+          <span className="text-text-primary text-[12px] font-medium">{pageLabel}</span>
         </div>
         <button
           onClick={() => setDrawerOpen(true)}
           onMouseEnter={() => setGearHovered(true)}
           onMouseLeave={() => setGearHovered(false)}
           aria-label="Open project settings"
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer', padding: '6px 4px',
-            color: gearHovered ? '#8a9199' : '#5a6370', fontSize: 14, fontFamily: 'inherit',
-          }}
+          className={`bg-none border-none cursor-pointer px-1 py-1.5 text-[14px] transition-colors ${
+            gearHovered ? 'text-text-secondary' : 'text-text-muted'
+          }`}
         >
           ⚙
         </button>
@@ -82,29 +72,17 @@ function SettingsDrawer({ projectId, onClose }: { projectId: string; onClose: ()
       <div
         data-testid="drawer-overlay"
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, zIndex: 199 }}
+        className="fixed inset-0 z-[199]"
       />
-      <aside style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: 420,
-        background: '#141618',
-        borderLeft: '1px solid #1e2124',
-        zIndex: 200,
-        display: 'flex',
-        flexDirection: 'column',
-        fontFamily: 'system-ui, sans-serif',
-      }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #1e2124', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ color: '#e2e6ea', fontSize: 14, fontWeight: 700 }}>Project Settings</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer', fontSize: 18, lineHeight: 1, fontFamily: 'inherit' }}>×</button>
+      <aside className="fixed top-0 right-0 bottom-0 w-[420px] bg-bg-secondary border-l border-border-subtle z-[200] flex flex-col font-system">
+        <div className="px-5 py-3.5 border-b border-border-subtle flex justify-between items-center">
+          <span className="text-text-primary text-[14px] font-bold">Project Settings</span>
+          <button onClick={onClose} className="bg-none border-none text-text-muted cursor-pointer text-[18px] leading-none">×</button>
         </div>
-        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+        <div className="p-5 overflow-y-auto flex-1">
           {project
             ? <SettingsForm projectId={projectId} project={project} onClose={onClose} />
-            : <div style={{ color: '#5a6370', fontSize: 12 }}>Loading…</div>
+            : <div className="text-text-muted text-[12px]">Loading…</div>
           }
         </div>
       </aside>
@@ -149,17 +127,13 @@ function SettingsForm({ projectId, project, onClose }: { projectId: string; proj
   return (
     <>
       {fields.map(({ label, placeholder, value, onChange }) => (
-        <div key={label} style={{ marginBottom: 16 }}>
-          <label style={{ display: 'block', color: '#8a9199', fontSize: 12, marginBottom: 6 }}>{label}</label>
+        <div key={label} className="mb-4">
+          <label className="block text-text-secondary text-[12px] mb-1.5">{label}</label>
           <input
             value={value}
             onChange={e => onChange(e.target.value)}
             placeholder={placeholder}
-            style={{
-              width: '100%', background: '#0d0e10', border: '1px solid #1e2124',
-              borderRadius: 6, padding: '7px 10px', color: '#e2e6ea', fontSize: 13,
-              boxSizing: 'border-box', fontFamily: 'inherit',
-            }}
+            className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.75 text-text-primary text-[13px] box-border"
           />
         </div>
       ))}
@@ -167,22 +141,19 @@ function SettingsForm({ projectId, project, onClose }: { projectId: string; proj
       <button
         onClick={handleSave}
         disabled={mutation.isPending}
-        style={{
-          background: '#1c2028', color: mutation.isPending ? '#5a6370' : '#c8ced6',
-          border: '1px solid #2e3338', borderRadius: 6, padding: '7px 16px',
-          fontSize: 13, cursor: mutation.isPending ? 'default' : 'pointer',
-          marginTop: 4, fontFamily: 'inherit',
-        }}
+        className={`bg-[#1c2028] border border-[#2e3338] rounded px-4 py-1.75 text-[13px] mt-1 ${
+          mutation.isPending ? 'text-text-muted cursor-default' : 'text-text-primary cursor-pointer'
+        }`}
       >
         {mutation.isPending ? 'Saving…' : 'Save'}
       </button>
       {saveError && (
-        <div style={{ color: '#c04040', fontSize: 12, marginTop: 8 }}>{saveError}</div>
+        <div className="text-accent-red text-[12px] mt-2">{saveError}</div>
       )}
 
-      <div style={{ borderTop: '1px solid #1e2124', marginTop: 24, paddingTop: 20 }}>
-        <div style={{ color: '#8a9199', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Task Migration</div>
-        <div style={{ color: '#5a6370', fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+      <div className="border-t border-border-subtle mt-6 pt-5">
+        <div className="text-text-secondary text-[12px] font-semibold mb-1.5">Task Migration</div>
+        <div className="text-text-muted text-[12px] mb-2.5 leading-relaxed">
           Import existing files from the configured directories into the task system. Safe to run multiple times.
         </div>
         <button
@@ -201,32 +172,30 @@ function SettingsForm({ projectId, project, onClose }: { projectId: string; proj
             }
           }}
           disabled={migrating}
-          style={{
-            background: '#141618', color: migrating ? '#5a6370' : '#8a9199',
-            border: '1px solid #1c1f22', borderRadius: 6, padding: '6px 14px',
-            fontSize: 12, cursor: migrating ? 'default' : 'pointer', fontFamily: 'inherit',
-          }}
+          className={`bg-bg-secondary border border-border-default rounded px-3.5 py-1.5 text-[12px] ${
+            migrating ? 'text-text-muted cursor-default' : 'text-text-secondary cursor-pointer'
+          }`}
         >
           {migrating ? 'Migrating…' : 'Run Migration'}
         </button>
         {migrateResult && (
-          <div style={{ color: '#3a8c5c', fontSize: 12, marginTop: 8 }}>
+          <div className="text-accent-green text-[12px] mt-2">
             ✓ Created {migrateResult.created}, skipped {migrateResult.skipped} existing
           </div>
         )}
       </div>
 
-      <div style={{ borderTop: '1px solid #1e2124', marginTop: 24, paddingTop: 20 }}>
+      <div className="border-t border-border-subtle mt-6 pt-5">
         {[
           { label: 'Project name', value: project.name },
           { label: 'Root path', value: project.path },
         ].map(({ label, value }) => (
-          <div key={label} style={{ marginBottom: 14 }}>
-            <div style={{ color: '#5a6370', fontSize: 11, marginBottom: 3 }}>{label}</div>
-            <div style={{ color: '#8a9199', fontSize: 12 }}>{value}</div>
+          <div key={label} className="mb-3.5">
+            <div className="text-text-muted text-[11px] mb-0.75">{label}</div>
+            <div className="text-text-secondary text-[12px]">{value}</div>
           </div>
         ))}
-        <div style={{ color: '#2e3338', fontSize: 11, marginTop: 12 }}>
+        <div className="text-[#2e3338] text-[11px] mt-3">
           To rename or move a project, update it directly in the database.
         </div>
       </div>

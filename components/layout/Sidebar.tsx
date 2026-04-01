@@ -40,31 +40,18 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
     fetch('/api/me').then(r => r.json()).then(setMe).catch(() => null)
   }, [])
 
-  const sidebarStyle: React.CSSProperties = {
-    width: 240,
-    background: '#0c0e10',
-    borderRight: '1px solid #1c1f22',
-    display: 'flex',
-    flexDirection: 'column',
-    flexShrink: 0,
-    height: '100vh',
-    position: 'sticky',
-    top: 0,
-    overflow: 'hidden',
-  }
-
   return (
     <>
-      <div style={sidebarStyle}>
+      <div className="w-[240px] bg-bg-base border-r border-border-default flex flex-col flex-shrink-0 h-screen sticky top-0 overflow-hidden">
         {/* App header */}
-        <div style={{ padding: '14px 14px 10px', borderBottom: '1px solid #1c1f22' }}>
-          <div style={{ color: '#e2e6ea', fontWeight: 700, fontSize: 13, letterSpacing: '-0.2px' }}>
+        <div className="px-[14px] pt-[14px] pb-[10px] border-b border-border-default">
+          <div className="text-text-primary font-bold text-[13px] tracking-[-0.2px]">
             Project Control
           </div>
         </div>
 
         {/* Primary nav */}
-        <div style={{ padding: '8px 8px 4px' }}>
+        <div className="px-2 pt-2 pb-1">
           <NavItem
             href={`/projects/${projectId}`}
             active={pathname === `/projects/${projectId}` || pathname === `/projects/${projectId}/dashboard`}
@@ -79,7 +66,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
         </div>
 
         {/* Pipeline section */}
-        <div style={{ padding: '6px 8px', flex: 1, overflowY: 'auto' }}>
+        <div className="px-2 py-1.5 flex-1 overflow-y-auto">
           <SectionLabel>Pipeline</SectionLabel>
           {PIPELINE_ITEMS.map(item => (
             <PipelineNavItem
@@ -108,33 +95,25 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
         </div>
 
         {/* Git info */}
-        <div style={{ padding: '8px 12px', borderTop: '1px solid #1c1f22', background: '#0a0c0e' }}>
-          <Row label="branch" value={git?.branch ?? '…'} valueColor="#5b9bd5" mono />
+        <div className="px-3 py-2 border-t border-border-default bg-[#0a0c0e]">
+          <Row label="branch" value={git?.branch ?? '…'} valueColor="text-accent-blue" mono />
           <Row label="last commit" value={git?.lastCommit ?? '…'} />
         </div>
 
         {/* Bottom: Add Project + user avatar */}
-        <div style={{ borderTop: '1px solid #1c1f22' }}>
+        <div className="border-t border-border-default">
           <button
             onClick={() => setShowAddProject(true)}
-            style={{
-              display: 'block', width: '100%', padding: '10px 14px', background: 'none',
-              border: 'none', color: '#5a6370', fontSize: 12, textAlign: 'left',
-              cursor: 'pointer', borderBottom: '1px solid #1c1f22',
-            }}
+            className="block w-full px-[14px] py-[10px] bg-none border-none text-text-muted text-[12px] text-left cursor-pointer border-b border-border-default"
           >
             + Add Project
           </button>
           {me && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px' }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: '50%', background: '#1a2530',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#5b9bd5', fontSize: 9, fontWeight: 700, flexShrink: 0,
-              }}>
+            <div className="flex items-center gap-2 px-[14px] py-[10px]">
+              <div className="w-6 h-6 rounded-full bg-[#1a2530] flex items-center justify-center text-accent-blue text-[9px] font-bold flex-shrink-0">
                 {me.initials}
               </div>
-              <span style={{ color: '#5a6370', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="text-text-muted text-[12px] overflow-hidden text-ellipsis whitespace-nowrap">
                 {me.name}
               </span>
             </div>
@@ -151,19 +130,15 @@ function NavItem({ href, active, badge, badgeColor, children }: {
   href: string; active: boolean; badge?: number; badgeColor?: string; children: React.ReactNode
 }) {
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '6px 8px', borderRadius: 6, marginBottom: 1,
-        background: active ? '#1c1f22' : 'none',
-        borderLeft: active ? '2px solid #5b9bd5' : '2px solid transparent',
-      }}>
-        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 14 }}>{children}</span>
+    <Link href={href} className="no-underline">
+      <div className={`flex items-center justify-between px-2 py-1.5 rounded border-l-2 mb-0.5 ${
+        active ? 'bg-bg-secondary border-l-accent-blue' : 'bg-transparent border-l-transparent'
+      }`}>
+        <span className={`text-[14px] ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{children}</span>
         {badge !== undefined && (
-          <span style={{
-            background: badgeColor ?? '#1c1f22', color: '#fff',
-            padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: 600,
-          }}>{badge}</span>
+          <span style={{ background: badgeColor ?? '#1c1f22', color: '#fff' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
+            {badge}
+          </span>
         )}
       </div>
     </Link>
@@ -180,16 +155,14 @@ function PipelineNavItem({ projectId, item, active, activeSessions }: {
   const hasLive = activeSessions.some(s => (STATUS_TO_SESSION_PHASES[item.status] ?? []).includes(s.phase))
 
   return (
-    <Link href={`/projects/${projectId}/${item.route}`} style={{ textDecoration: 'none' }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '5px 8px', borderRadius: 6, marginBottom: 1,
-        background: active ? '#1c1f22' : 'transparent',
-      }}>
-        <span style={{ color: active ? '#e2e6ea' : '#8a9199', fontSize: 13 }}>{item.label}</span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {hasLive && <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#3a8c5c', display: 'inline-block' }} />}
-          <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338', padding: '1px 6px', borderRadius: 10, fontSize: 10, fontWeight: tasks.length > 0 ? 600 : 400 }}>
+    <Link href={`/projects/${projectId}/${item.route}`} className="no-underline">
+      <div className={`flex items-center justify-between px-2 py-1.25 rounded mb-0.5 ${
+        active ? 'bg-bg-secondary' : 'bg-transparent'
+      }`}>
+        <span className={`text-[13px] ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
+        <span className="flex items-center gap-1">
+          {hasLive && <span className="w-1.25 h-1.25 rounded-full bg-accent-green inline-block" />}
+          <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
             {tasks.length}
           </span>
         </span>
@@ -200,8 +173,8 @@ function PipelineNavItem({ projectId, item, active, activeSessions }: {
 
 function Row({ label, value, valueColor, mono }: { label: string; value: string; valueColor?: string; mono?: boolean }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-      <span style={{ color: '#454c54', fontSize: 10 }}>{label}</span>
+    <div className="flex justify-between mb-0.75">
+      <span className="text-text-faint text-[10px]">{label}</span>
       <span style={{ color: valueColor ?? '#5a6370', fontSize: 10, fontFamily: mono ? 'monospace' : undefined }}>{value}</span>
     </div>
   )
@@ -209,7 +182,7 @@ function Row({ label, value, valueColor, mono }: { label: string; value: string;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ color: '#454c54', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', padding: '4px 8px 6px' }}>
+    <div className="text-text-faint text-[10px] uppercase tracking-[0.5px] px-2 py-1 pt-1">
       {children}
     </div>
   )

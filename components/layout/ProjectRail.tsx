@@ -16,20 +16,7 @@ export function ProjectRail() {
 
   return (
     <>
-      <div style={{
-        width: 44,
-        height: '100vh',
-        background: '#0d0e10',
-        borderRight: '1px solid #1e2124',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        paddingTop: 8,
-        paddingBottom: 8,
-        gap: 6,
-        flexShrink: 0,
-        position: 'relative',
-      }}>
+      <div className="w-11 h-screen bg-bg-base border-r border-border-subtle flex flex-col items-center py-2 gap-1.5 flex-shrink-0 relative">
         {projects.map((p, i) => (
           <button
             key={p.id}
@@ -58,39 +45,14 @@ export function ProjectRail() {
           </button>
         ))}
         {tooltip && (
-          <div style={{
-            position: 'absolute',
-            left: 48,
-            top: 8,
-            background: '#1e2124',
-            color: '#e2e6ea',
-            fontSize: 12,
-            padding: '4px 8px',
-            borderRadius: 4,
-            whiteSpace: 'nowrap',
-            pointerEvents: 'none',
-            zIndex: 100,
-          }}>
+          <div className="absolute left-12 top-2 bg-border-subtle text-text-primary text-[12px] px-2 py-1 rounded pointer-events-none z-[100]">
             {tooltip}
           </div>
         )}
-        <div style={{ flex: 1 }} />
+        <div className="flex-1" />
         <button
           onClick={() => setShowWizard(true)}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: '50%',
-            background: '#1e2124',
-            color: '#8a9199',
-            fontSize: 20,
-            fontWeight: 300,
-            border: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          className="w-9 h-9 rounded-full bg-border-subtle text-text-secondary text-[20px] font-light border-none cursor-pointer flex items-center justify-center"
         >
           +
         </button>

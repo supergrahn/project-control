@@ -60,7 +60,7 @@ describe('DashboardLayout', () => {
   it('ProjectRail appears before SidebarWrapper in the DOM', () => {
     render(<DashboardLayout><div>content</div></DashboardLayout>, { wrapper })
     const rail = screen.getByTestId('project-rail')
-    const outerDiv = rail.closest('[style*="flex"]')
+    const outerDiv = rail.closest('.flex')
     expect(outerDiv).toBeTruthy()
   })
 })
