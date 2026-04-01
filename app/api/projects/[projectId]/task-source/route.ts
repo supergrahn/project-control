@@ -11,7 +11,7 @@ export async function GET(req: Request, { params }: RouteParams) {
   const { projectId } = await params
   const db = getDb()
   const config = getTaskSourceConfig(db, projectId)
-  if (!config) return NextResponse.json(null)
+  if (!config) return NextResponse.json({ error: 'No task source configured' }, { status: 404 })
 
   // Redact password fields
   const adapter = getTaskSourceAdapter(config.adapter_key)

@@ -43,7 +43,7 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
   useEffect(() => {
     Promise.all([
       fetch('/api/task-sources').then(r => r.json()),
-      fetch(`/api/projects/${projectId}/task-source`).then(r => r.json()),
+      fetch(`/api/projects/${projectId}/task-source`).then(r => r.ok ? r.json() : null),
     ]).then(([adaptersData, configData]) => {
       setAdapters(adaptersData)
       setConfig(configData)

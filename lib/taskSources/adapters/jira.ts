@@ -125,7 +125,7 @@ export const jiraAdapter: TaskSourceAdapter = {
     // Create Basic Auth header
     const credentials = Buffer.from(`${email}:${api_token}`).toString('base64')
 
-    const searchUrl = new URL(`${base_url}/rest/api/3/search`)
+    const searchUrl = new URL(`${base_url}/rest/api/3/search/jql`)
     searchUrl.searchParams.set('jql', jql)
     searchUrl.searchParams.set('maxResults', '100')
 

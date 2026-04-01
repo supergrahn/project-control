@@ -1,6 +1,7 @@
 import { getDb } from '@/lib/db'
 import { listActiveTaskSources } from '@/lib/db/taskSourceConfig'
 import { syncProject } from '@/lib/taskSources/syncService'
+import { logEvent } from '@/lib/events'
 
 const POLL_INTERVAL_MS = 60_000  // 1 minute
 
@@ -24,7 +25,12 @@ export function startPolling(projectId: string): void {
   const timer = setInterval(async () => {
     try {
       const db = getDb()
-      await syncProject(db, projectId)
+      const result = await syncProject(db, projectId)
+      if (result.error) {
+        logEvent(db, { projectId, type: 'task_sync', summary: `Sync failed: ${result.error}`, severity: 'warn' })
+      } else if (result.created > 0 || result.updated > 0 || result.deleted > 0) {
+        logEvent(db, { projectId, type: 'task_sync', summary: `Synced: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`, severity: 'info' })
+      }
     } catch (err) {
       console.error(`[poll] sync failed for project ${projectId}:`, err)
     }

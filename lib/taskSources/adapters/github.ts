@@ -42,7 +42,7 @@ async function fetchTasks(config: Record<string, string>): Promise<ExternalTask[
 
   while (hasMore) {
     const url = new URL('https://api.github.com/search/issues')
-    url.searchParams.set('q', 'is:open+is:issue+assignee:@me')
+    url.searchParams.set('q', 'is:open is:issue assignee:@me')
     url.searchParams.set('per_page', '100')
     url.searchParams.set('page', String(page))
 
