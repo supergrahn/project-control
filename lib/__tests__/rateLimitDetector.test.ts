@@ -14,6 +14,7 @@ describe('RateLimitDetector — codex', () => {
   it('detects rate_limit_exceeded', () => { expect(d.check('rate_limit_exceeded: wait')).toBe(true) })
   it('detects quota_exceeded', () => { expect(d.check('quota_exceeded for plan')).toBe(true) })
   it('detects 429', () => { expect(d.check('Response 429 Too Many Requests')).toBe(true) })
+  it('detects 429 in JSON body', () => { expect(d.check('{"code":429,"error":"rate_limited"}')).toBe(true) })
   it('ignores normal output', () => { expect(d.check('const x = 429')).toBe(false) })
 })
 
@@ -22,6 +23,7 @@ describe('RateLimitDetector — gemini', () => {
   it('detects RESOURCE_EXHAUSTED', () => { expect(d.check('Status: RESOURCE_EXHAUSTED')).toBe(true) })
   it('detects quota exceeded (case-insensitive)', () => { expect(d.check('quota exceeded for project')).toBe(true) })
   it('detects 429', () => { expect(d.check('429 from Gemini API')).toBe(true) })
+  it('detects 429 in JSON body', () => { expect(d.check('{"status":429,"message":"quota exceeded"}')).toBe(true) })
   it('ignores normal output', () => { expect(d.check('Resource loading complete')).toBe(false) })
 })
 
