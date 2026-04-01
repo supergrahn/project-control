@@ -1,13 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
-type ProviderType = 'claude' | 'codex' | 'gemini' | 'ollama'
-
-type Provider = {
-  id: string; name: string; type: ProviderType; command: string
-  config: string | null; is_active: number; created_at: string
-}
+import type { Provider, ProviderType } from '@/lib/db/providers'
 
 const TYPE_LABELS: Record<ProviderType, string> = {
   claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini CLI', ollama: 'Ollama',
@@ -78,9 +72,9 @@ function ConfigFields({ type, config, onChange }: {
 
 export default function ProvidersPage() {
   const qc = useQueryClient()
-  const { data: providers = [], isLoading } = useQuery<Provider[]>({
+  const { data: providers = [], isLoading, isError } = useQuery<Provider[]>({
     queryKey: ['providers'],
-    queryFn: () => fetch('/api/providers').then(r => r.json()),
+    queryFn: () => fetch('/api/providers').then(async r => { if (!r.ok) throw new Error('Failed to load providers'); return r.json() }),
   })
 
   const [showForm, setShowForm] = useState(false)
@@ -104,12 +98,15 @@ export default function ProvidersPage() {
 
   const toggleMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/providers/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toggle_active: true }) }).then(r => r.json()),
+      fetch(`/api/providers/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toggle_active: true }) })
+        .then(async r => { if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'Toggle failed') } return r.json() }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['providers'] }),
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => fetch(`/api/providers/${id}`, { method: 'DELETE' }).then(r => r.json()),
+    mutationFn: (id: string) =>
+      fetch(`/api/providers/${id}`, { method: 'DELETE' })
+        .then(async r => { if (!r.ok) { const e = await r.json(); throw new Error(e.error ?? 'Delete failed') } return r.json() }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['providers'] }),
   })
 
@@ -178,7 +175,9 @@ export default function ProvidersPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isError ? (
+        <div style={{ color: S.danger, fontSize: 13 }}>Failed to load providers.</div>
+      ) : isLoading ? (
         <div style={{ color: S.muted, fontSize: 13 }}>Loading…</div>
       ) : providers.length === 0 ? (
         <div style={{ color: S.dim, fontSize: 14, padding: '32px 0', textAlign: 'center' }}>No providers configured. Add one above.</div>
@@ -207,6 +206,8 @@ export default function ProvidersPage() {
                   </button>
                   <button onClick={() => toggleMutation.mutate(p.id)}
                     title={p.is_active === 1 ? 'Disable' : 'Enable'}
+                    aria-label={p.is_active === 1 ? 'Disable provider' : 'Enable provider'}
+                    aria-pressed={p.is_active === 1}
                     style={{ width: 36, height: 20, borderRadius: 10, background: p.is_active === 1 ? S.primary : S.border, border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
                     <span style={{ position: 'absolute', top: 2, left: p.is_active === 1 ? 18 : 2, width: 16, height: 16, background: '#fff', borderRadius: '50%', transition: 'left 0.15s' }} />
                   </button>
