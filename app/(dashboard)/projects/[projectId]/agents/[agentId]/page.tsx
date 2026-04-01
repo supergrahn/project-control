@@ -180,41 +180,22 @@ function ConfigurationTab({ agent, agentId }: { agent: Agent; agentId: string })
     setTimeout(() => setSaved(false), 2000)
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    background: '#161a1d',
-    border: '1px solid #1c1f22',
-    borderRadius: 6,
-    padding: '8px 10px',
-    color: '#e8eaed',
-    fontSize: 14,
-    boxSizing: 'border-box',
-    outline: 'none',
-  }
-
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    marginBottom: 6,
-    fontSize: 13,
-    color: '#8a9199',
-  }
-
   return (
-    <div style={{ maxWidth: 480 }}>
-      <div style={{ marginBottom: 16 }}>
-        <label style={labelStyle}>Name</label>
-        <input value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
+    <div className="max-w-sm">
+      <div className="mb-4">
+        <label className="block mb-1.5 text-xs font-normal text-text-secondary">Name</label>
+        <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none" />
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <label style={labelStyle}>Title</label>
-        <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
+      <div className="mb-4">
+        <label className="block mb-1.5 text-xs font-normal text-text-secondary">Title</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none" />
       </div>
-      <div style={{ marginBottom: 16 }}>
-        <label style={labelStyle}>Provider</label>
+      <div className="mb-4">
+        <label className="block mb-1.5 text-xs font-normal text-text-secondary">Provider</label>
         <select
           value={providerId}
           onChange={e => setProviderId(e.target.value)}
-          style={inputStyle}
+          className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none"
         >
           <option value="">— None —</option>
           {providers.map((p: Provider) => (
@@ -222,26 +203,18 @@ function ConfigurationTab({ agent, agentId }: { agent: Agent; agentId: string })
           ))}
         </select>
       </div>
-      <div style={{ marginBottom: 24 }}>
-        <label style={labelStyle}>Model</label>
-        <input value={model} onChange={e => setModel(e.target.value)} placeholder="Provider default" style={inputStyle} />
+      <div className="mb-6">
+        <label className="block mb-1.5 text-xs font-normal text-text-secondary">Model</label>
+        <input value={model} onChange={e => setModel(e.target.value)} placeholder="Provider default" className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none" />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '7px 14px',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
+          className="bg-blue-600 text-white border-0 rounded-md px-3.5 py-1.75 text-xs cursor-pointer hover:bg-blue-700"
         >
           Save
         </button>
-        {saved && <span style={{ color: '#3a8c5c', fontSize: 13 }}>Saved</span>}
+        {saved && <span className="text-accent-green text-sm">Saved</span>}
       </div>
     </div>
   )
@@ -260,38 +233,38 @@ function RunsTab({ agentId }: { agentId: string }) {
   }
 
   if (sessions.length === 0) {
-    return <div style={{ color: '#8a9199', fontSize: 13 }}>No runs yet</div>
+    return <div className="text-text-secondary text-sm">No runs yet</div>
   }
 
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, color: '#c8d0da' }}>
+    <table className="w-full border-collapse text-sm text-gray-300">
       <thead>
-        <tr style={{ color: '#454c54', fontSize: 11, textAlign: 'left' }}>
-          <th style={{ padding: '6px 12px 6px 0', fontWeight: 600 }}>Task</th>
-          <th style={{ padding: '6px 12px', fontWeight: 600 }}>Phase</th>
-          <th style={{ padding: '6px 12px', fontWeight: 600 }}>Status</th>
-          <th style={{ padding: '6px 12px', fontWeight: 600 }}>Started</th>
-          <th style={{ padding: '6px 12px', fontWeight: 600 }}>Duration</th>
+        <tr className="text-text-faint text-xs text-left">
+          <th className="pb-1.5 pr-0 font-semibold">Task</th>
+          <th className="pb-1.5 px-3 font-semibold">Phase</th>
+          <th className="pb-1.5 px-3 font-semibold">Status</th>
+          <th className="pb-1.5 px-3 font-semibold">Started</th>
+          <th className="pb-1.5 px-3 font-semibold">Duration</th>
         </tr>
       </thead>
       <tbody>
         {sessions.map(s => (
-          <tr key={s.id} style={{ borderTop: '1px solid #1c1f22' }}>
-            <td style={{ padding: '8px 12px 8px 0', color: '#8a9199' }}>{s.task_id ?? '—'}</td>
-            <td style={{ padding: '8px 12px' }}>{s.phase}</td>
-            <td style={{ padding: '8px 12px' }}>
-              <span style={{
-                color: statusColors[s.status] ?? '#8a9199',
-                background: '#1e2124',
-                borderRadius: 4,
-                padding: '2px 7px',
-                fontSize: 11,
-              }}>
+          <tr key={s.id} className="border-t border-border-default">
+            <td className="py-2 pr-0 text-text-secondary">{s.task_id ?? '—'}</td>
+            <td className="py-2 px-3">{s.phase}</td>
+            <td className="py-2 px-3">
+              <span
+                className="rounded px-1.75 py-0.5 text-xs"
+                style={{
+                  color: statusColors[s.status] ?? '#8a9199',
+                  background: '#1e2124',
+                }}
+              >
                 {s.status}
               </span>
             </td>
-            <td style={{ padding: '8px 12px', color: '#8a9199' }}>{formatDate(s.created_at)}</td>
-            <td style={{ padding: '8px 12px', color: '#8a9199' }}>{formatDuration(s.created_at, s.ended_at)}</td>
+            <td className="py-2 px-3 text-text-secondary">{formatDate(s.created_at)}</td>
+            <td className="py-2 px-3 text-text-secondary">{formatDuration(s.created_at, s.ended_at)}</td>
           </tr>
         ))}
       </tbody>
