@@ -1,6 +1,7 @@
 import type { AdapterModule, TranscriptEvent, BuildArgsOpts } from './types'
 
-function buildArgs(opts: BuildArgsOpts): string[] {
+function buildArgs(_opts: BuildArgsOpts): string[] {
+  // Ollama: prompt is written to stdin after spawn, not via args
   return ['run', 'llama3']
 }
 

@@ -37,6 +37,7 @@ export function deleteSessionEvents(db: Database, sessionId: string): void {
 
 export function flushSessionEvents(db: Database, sessionId: string, filePath: string): void {
   const events = getSessionEvents(db, sessionId)
+  if (events.length === 0) return
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
   const ndjson = events.map(e => JSON.stringify({
     type: e.type,

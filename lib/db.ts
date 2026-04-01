@@ -271,6 +271,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     )
   `) } catch {}
   try { db.exec('ALTER TABLE tasks ADD COLUMN session_log TEXT') } catch {}
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id)') } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

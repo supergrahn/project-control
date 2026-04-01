@@ -85,7 +85,6 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'attach', sessionId: session.id }))
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
       }
 
       ws.onerror = () => setTermStatus('ended')
@@ -102,8 +101,8 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
         if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'input', data }))
       })
 
-      term.onResize(({ cols, rows }: { cols: number; rows: number }) => {
-        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'resize', cols, rows }))
+      term.onResize(() => {
+        // Pipe-based sessions do not support resize — no-op
       })
 
       const observer = new ResizeObserver(() => fit.fit())

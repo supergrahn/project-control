@@ -258,14 +258,16 @@ export function spawnSession(opts: SpawnOptions): string {
           updateTask(getDb(), opts.taskId, { [field]: opts.outputPath })
         }
       }
-      // Flush session events to log file
-      const logDir = path.join(process.cwd(), 'data', 'sessions')
-      const logPath = path.join(logDir, `${sessionId}.jsonl`)
-      try {
-        flushSessionEvents(getDb(), sessionId, logPath)
-        updateTask(getDb(), opts.taskId, { session_log: logPath })
-      } catch {}
     }
+    // Flush session events to log file
+    const logDir = path.join(process.cwd(), 'data', 'sessions')
+    const logPath = path.join(logDir, `${sessionId}.jsonl`)
+    try {
+      flushSessionEvents(getDb(), sessionId, logPath)
+      if (opts.taskId) {
+        updateTask(getDb(), opts.taskId, { session_log: logPath })
+      }
+    } catch {}
     logEvent(getDb(), {
       projectId: opts.projectId,
       type: 'session_ended',
@@ -307,12 +309,17 @@ function broadcast(sessionId: string, msg: Record<string, unknown>): void {
   }
 }
 
+// --- WebSocket protocol types ---
+type WsClientMessage =
+  | { type: 'attach'; sessionId: string }
+  | { type: 'input'; data: string }
+
 // --- WebSocket handler ---
 export function handleWebSocket(ws: WebSocket): void {
   let attachedSessionId: string | null = null
 
   ws.on('message', (raw) => {
-    let msg: any
+    let msg: WsClientMessage
     try {
       msg = JSON.parse(raw.toString())
     } catch {
@@ -348,7 +355,7 @@ export function handleWebSocket(ws: WebSocket): void {
       ws.send(JSON.stringify({ type: 'status', state: alive ? 'active' : 'ended' }))
     }
 
-    if (msg.type === 'input' && attachedSessionId) {
+    if (msg.type === 'input' && attachedSessionId && typeof msg.data === 'string') {
       const proc = procMap.get(attachedSessionId)
       if (proc?.stdin?.writable) {
         proc.stdin.write(msg.data + '\n')
@@ -470,6 +477,10 @@ export function spawnOrchestratorSession(opts: {
 
   proc.on('close', () => {
     endSession(db, sessionId)
+    // Flush session events to log file
+    const logDir = path.join(process.cwd(), 'data', 'sessions')
+    const logPath = path.join(logDir, `${sessionId}.jsonl`)
+    try { flushSessionEvents(db, sessionId, logPath) } catch {}
     procMap.delete(sessionId)
     broadcast(sessionId, { type: 'status', state: 'ended' })
     wsMap.delete(sessionId)
