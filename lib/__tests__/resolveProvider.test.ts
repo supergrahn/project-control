@@ -99,10 +99,10 @@ describe('resolveProvider', () => {
     const ap = createProvider(db, { id: 'ap-1', name: 'Agent Provider', type: 'gemini', command: 'gemini', config: null })
     createProvider(db, { id: 'gp-1', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
     insertProject(db, 'proj-agent')
-    // manually create agents table and insert an agent
-    db.exec(`CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, project_id TEXT, provider_id TEXT, name TEXT, created_at TEXT)`)
-    db.prepare('INSERT INTO agents (id, project_id, provider_id, name, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run('agent-1', 'proj-agent', ap.id, 'Test Agent', new Date().toISOString())
+    // agents table is already created by initDb; insert an agent with all required columns
+    const now = new Date().toISOString()
+    db.prepare('INSERT INTO agents (id, project_id, provider_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('agent-1', 'proj-agent', ap.id, 'Test Agent', now, now)
     expect(resolveProvider(db, { projectId: 'proj-agent', agentId: 'agent-1' }).id).toBe(ap.id)
   })
 })
