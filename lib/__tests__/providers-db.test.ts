@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { initDb } from '@/lib/db'
 import type { Database } from 'better-sqlite3'
 
-let db: Database.Database
+let db: Database
 
 beforeEach(() => { db = initDb(':memory:') })
 afterEach(() => { db.close() })
