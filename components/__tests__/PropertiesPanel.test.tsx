@@ -61,7 +61,7 @@ describe('PropertiesPanel', () => {
     const input = screen.getByPlaceholderText(/add label/i)
     fireEvent.change(input, { target: { value: 'backend' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('task-1', { labels: '["backend"]' }))
+    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('task-1', { labels: ['backend'] }))
   })
 
   it('removes a label on × click and calls patchTask', async () => {
@@ -69,7 +69,7 @@ describe('PropertiesPanel', () => {
     render(<PropertiesPanel task={{ ...baseTask, labels: '["backend","auth"]' }} />)
     const removeButtons = screen.getAllByRole('button', { name: '×' })
     fireEvent.click(removeButtons[0])
-    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('task-1', { labels: '["auth"]' }))
+    await waitFor(() => expect(patchTask).toHaveBeenCalledWith('task-1', { labels: ['auth'] }))
   })
 
   it('shows "No agents configured yet" when agents fetch returns error', async () => {

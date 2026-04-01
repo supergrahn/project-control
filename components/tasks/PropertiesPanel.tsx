@@ -44,34 +44,41 @@ export function PropertiesPanel({ task }: { task: Task }) {
       .catch(() => {})
   }, [task.project_id])
 
-  const handleStatusChange = (value: string) => {
-    patchTask(task.id, { status: value as Task['status'] })
+  const handleStatusChange = async (value: string) => {
+    try { await patchTask(task.id, { status: value as Task['status'] }) } catch { /* ignore */ }
   }
 
-  const handlePriorityClick = (p: string) => {
-    patchTask(task.id, { priority: p as Task['priority'] })
+  const handlePriorityClick = async (p: string) => {
+    try { await patchTask(task.id, { priority: p as Task['priority'] }) } catch { /* ignore */ }
   }
 
-  const handleLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      const input = e.currentTarget
-      const value = input.value.trim()
-      if (!value) return
-      const updated = [...labels, value]
-      setLabels(updated)
-      patchTask(task.id, { labels: JSON.stringify(updated) })
-      input.value = ''
+  const handleLabelKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return
+    const input = e.currentTarget
+    const value = input.value.trim()
+    if (!value) return
+    const updated = [...labels, value]
+    setLabels(updated)
+    input.value = ''
+    try {
+      await patchTask(task.id, { labels: updated })
+    } catch {
+      setLabels(labels)
     }
   }
 
-  const handleLabelRemove = (index: number) => {
+  const handleLabelRemove = async (index: number) => {
     const updated = labels.filter((_, i) => i !== index)
     setLabels(updated)
-    patchTask(task.id, { labels: JSON.stringify(updated) })
+    try {
+      await patchTask(task.id, { labels: updated })
+    } catch {
+      setLabels(labels)
+    }
   }
 
-  const handleAssigneeChange = (value: string) => {
-    patchTask(task.id, { assignee_agent_id: value || null })
+  const handleAssigneeChange = async (value: string) => {
+    try { await patchTask(task.id, { assignee_agent_id: value || null }) } catch { /* ignore */ }
   }
 
   const formatDate = (iso: string) =>
