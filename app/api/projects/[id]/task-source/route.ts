@@ -4,11 +4,11 @@ import { getTaskSourceConfig, upsertTaskSourceConfig, deleteTaskSourceConfig, to
 import { getTaskSourceAdapter, listTaskSourceAdapters } from '@/lib/taskSources/adapters'
 import { startPolling, stopPolling } from '@/lib/taskSources/pollManager'
 
-type RouteParams = { params: Promise<{ projectId: string }> }
+type RouteParams = { params: Promise<{ id: string }> }
 
 // GET: Returns project's task source config (redacting passwords)
 export async function GET(req: Request, { params }: RouteParams) {
-  const { projectId } = await params
+  const { id: projectId } = await params
   const db = getDb()
   const config = getTaskSourceConfig(db, projectId)
   if (!config) return NextResponse.json({ error: 'No task source configured' }, { status: 404 })
@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
 // PUT: Create or update task source config
 export async function PUT(req: Request, { params }: RouteParams) {
-  const { projectId } = await params
+  const { id: projectId } = await params
   const { adapterKey, config } = await req.json()
 
   if (!adapterKey || !config) {
@@ -45,7 +45,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
       if (existingConfig) {
         config[field.key] = existingConfig.config[field.key]
       } else {
-        // Can't restore — no existing config. Treat as empty so validation catches it.
         config[field.key] = ''
       }
     }
@@ -66,7 +65,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
 // DELETE: Remove task source config
 export async function DELETE(req: Request, { params }: RouteParams) {
-  const { projectId } = await params
+  const { id: projectId } = await params
   const { searchParams } = new URL(req.url)
   const deleteTasks = searchParams.get('deleteTasks') === 'true'
 
@@ -83,7 +82,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
 // PATCH: Toggle active/inactive
 export async function PATCH(req: Request, { params }: RouteParams) {
-  const { projectId } = await params
+  const { id: projectId } = await params
   const { is_active } = await req.json()
 
   const db = getDb()
