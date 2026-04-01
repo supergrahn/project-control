@@ -147,7 +147,7 @@ function NavItem({ href, active, badge, badgeColor, children }: {
       <div className={`flex items-center justify-between px-2 py-1.5 rounded border-l-2 mb-0.5 ${
         active ? 'bg-bg-secondary border-l-accent-blue' : 'bg-transparent border-l-transparent'
       }`}>
-        <span className={`text-[14px] ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{children}</span>
+        <span className={`text-[14px] font-medium ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{children}</span>
         {badge !== undefined && (
           <span style={{ background: badgeColor ?? '#1c1f22', color: '#fff' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
             {badge}
@@ -172,7 +172,7 @@ function PipelineNavItem({ projectId, item, active, activeSessions }: {
       <div className={`flex items-center justify-between px-2 py-1.25 rounded mb-0.5 ${
         active ? 'bg-bg-secondary' : 'bg-transparent'
       }`}>
-        <span className={`text-[13px] ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
+        <span className={`text-[13px] font-medium ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
         <span className="flex items-center gap-1">
           {hasLive && <span className="w-1.25 h-1.25 rounded-full bg-accent-green inline-block" />}
           <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
