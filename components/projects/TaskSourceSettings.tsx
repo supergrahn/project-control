@@ -172,75 +172,61 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <span style={{ color: '#8a9199', fontSize: 13, fontWeight: 600 }}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-text-secondary text-[13px] font-semibold">
           {adapter?.name || config.adapter_key}
         </span>
-        <span style={{
-          fontSize: 11,
-          padding: '2px 8px',
-          borderRadius: 4,
-          background: config.is_active ? '#0d2918' : '#2a2000',
-          color: config.is_active ? '#3a8c5c' : '#c9a227',
-        }}>
+        <span className={`text-[11px] px-2 py-0.5 rounded-[4px] ${
+          config.is_active
+            ? 'bg-accent-green/15 text-status-success'
+            : 'bg-accent-orange/15 text-status-warning'
+        }`}>
           {config.is_active ? 'Active' : 'Paused'}
         </span>
         {config.last_error && (
-          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#2a1010', color: '#d94747' }}>
+          <span className="text-[11px] px-2 py-0.5 rounded-[4px] bg-accent-red/15 text-status-error">
             Error
           </span>
         )}
       </div>
 
       {config.last_synced_at && (
-        <div style={{ color: '#5a6370', fontSize: 12, marginBottom: 8 }}>
+        <div className="text-text-muted text-[12px] mb-2">
           Last synced: {new Date(config.last_synced_at).toLocaleString()}
         </div>
       )}
 
       {config.last_error && (
-        <div style={{ color: '#c9a227', fontSize: 12, marginBottom: 12, padding: '8px 12px', background: '#1c1f22', borderRadius: 6 }}>
+        <div className="text-status-warning text-[12px] mb-3 px-3 py-2 bg-border-default rounded-[6px]">
           {config.last_error}
         </div>
       )}
 
       {syncResult && (
-        <div style={{ color: '#3a8c5c', fontSize: 12, marginBottom: 12 }}>
+        <div className="text-status-success text-[12px] mb-3">
           Synced: {syncResult.created} created, {syncResult.updated} updated, {syncResult.deleted} deleted
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-        <button onClick={handleSync} disabled={syncing} style={{
-          background: '#0d1a2d', color: '#5b9bd5', border: '1px solid #5b9bd522',
-          borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: syncing ? 'not-allowed' : 'pointer',
-        }}>
+      <div className="flex gap-2 flex-wrap mb-3">
+        <button onClick={handleSync} disabled={syncing} className="bg-accent-blue/15 text-accent-blue border border-accent-blue/15 rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer disabled:cursor-not-allowed">
           {syncing ? 'Syncing...' : 'Sync Now'}
         </button>
-        <button onClick={handleToggle} style={{
-          background: '#141618', color: '#8a9199', border: '1px solid #1c1f22',
-          borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-        }}>
+        <button onClick={handleToggle} className="bg-bg-secondary text-text-secondary border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer">
           {config.is_active ? 'Pause' : 'Resume'}
         </button>
-        <button onClick={() => setEditing(true)} style={{
-          background: '#141618', color: '#8a9199', border: '1px solid #1c1f22',
-          borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-        }}>
+        <button onClick={() => setEditing(true)} className="bg-bg-secondary text-text-secondary border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer">
           Edit Configuration
         </button>
-        <button onClick={() => setShowRemoveConfirm(true)} style={{
-          background: '#141618', color: '#d94747', border: '1px solid #1c1f22',
-          borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-        }}>
+        <button onClick={() => setShowRemoveConfirm(true)} className="bg-bg-secondary text-status-error border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer">
           Remove
         </button>
       </div>
 
       {showRemoveConfirm && (
-        <div style={{ padding: 16, background: '#1c1f22', borderRadius: 6, marginTop: 8 }}>
-          <div style={{ color: '#e2e6ea', fontSize: 13, marginBottom: 12 }}>Remove this task source?</div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#8a9199', fontSize: 12, marginBottom: 12, cursor: 'pointer' }}>
+        <div className="p-4 bg-border-default rounded-[6px] mt-2">
+          <div className="text-text-primary text-[13px] mb-3">Remove this task source?</div>
+          <label className="flex items-center gap-2 text-text-secondary text-[12px] mb-3 cursor-pointer">
             <input
               type="checkbox"
               checked={deleteTasksOnRemove}
@@ -248,17 +234,11 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
             />
             Also delete synced tasks
           </label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={handleRemove} style={{
-              background: '#2a1010', color: '#d94747', border: '1px solid #d9474722',
-              borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-            }}>
+          <div className="flex gap-2">
+            <button onClick={handleRemove} className="bg-accent-red/15 text-status-error border border-accent-red/15 rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer">
               Confirm Remove
             </button>
-            <button onClick={() => setShowRemoveConfirm(false)} style={{
-              background: '#141618', color: '#8a9199', border: '1px solid #1c1f22',
-              borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-            }}>
+            <button onClick={() => setShowRemoveConfirm(false)} className="bg-bg-secondary text-text-secondary border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer">
               Cancel
             </button>
           </div>

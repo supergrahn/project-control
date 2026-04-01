@@ -159,55 +159,26 @@ export function NewProjectWizard({ onClose }: Props) {
     }
   }
 
-  const overlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-  }
-  const modal: React.CSSProperties = {
-    background: '#141618', border: '1px solid #1e2124', borderRadius: 10,
-    padding: 28, width: 480, fontFamily: 'system-ui, sans-serif',
-  }
-  const labelStyle: React.CSSProperties = { color: '#8a9199', fontSize: 11, marginBottom: 6, display: 'block' }
-  const inputStyle: React.CSSProperties = {
-    width: '100%', background: '#0d0e10', border: '1px solid #1e2124', borderRadius: 6,
-    color: '#e2e6ea', fontSize: 13, padding: '8px 10px', boxSizing: 'border-box', outline: 'none',
-  }
-  const btnRow: React.CSSProperties = { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }
-  const cancelBtn: React.CSSProperties = {
-    background: 'none', border: '1px solid #1e2124', color: '#8a9199',
-    borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13,
-  }
-  const primaryBtn: React.CSSProperties = {
-    background: '#5b9bd5', border: 'none', color: '#e2e6ea',
-    borderRadius: 6, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-  }
-  const disabledBtn: React.CSSProperties = {
-    ...primaryBtn, background: '#1c1f22', cursor: 'not-allowed',
-  }
 
   // Step indicator
   const stepIndicator = (
-    <div style={{ display: 'flex', gap: 0, marginBottom: 24, borderBottom: '1px solid #1e2124', paddingBottom: 16 }}>
+    <div className="flex gap-0 mb-6 border-b border-border-default pb-4">
       {STEPS.map((label, idx) => {
         const stepNum = idx + 1
         const isActive = step === stepNum
         const isDone = step > stepNum
         return (
-          <div key={label} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: 11, fontWeight: 700,
-                background: isActive ? '#5b9bd5' : isDone ? '#3a8c5c' : '#1e2124',
-                color: isActive || isDone ? '#fff' : '#454c54',
-              }}>{stepNum}</div>
-              <span style={{
-                fontSize: 10, marginTop: 4,
-                color: isActive ? '#5b9bd5' : isDone ? '#3a8c5c' : '#454c54',
-              }}>{label}</span>
+          <div key={label} className="flex items-center flex-1">
+            <div className="flex flex-col items-center flex-1">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                isActive ? 'bg-accent-blue text-white' : isDone ? 'bg-status-success text-white' : 'bg-border-default text-text-muted'
+              }`}>{stepNum}</div>
+              <span className={`text-[10px] mt-1 ${
+                isActive ? 'text-accent-blue' : isDone ? 'text-status-success' : 'text-text-muted'
+              }`}>{label}</span>
             </div>
             {idx < STEPS.length - 1 && (
-              <div style={{ height: 1, background: '#1e2124', flex: 0.3, marginBottom: 16 }} />
+              <div className="h-px bg-border-default flex-[0.3] mb-4" />
             )}
           </div>
         )
@@ -219,39 +190,43 @@ export function NewProjectWizard({ onClose }: Props) {
   if (step === 1) {
     const canNext = pathValid && !validating && !pathError && name.trim().length > 0
     return (
-      <div style={overlay} onClick={onClose}>
-        <div style={modal} onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={onClose}>
+        <div className="bg-bg-secondary border border-border-default rounded-[10px] p-7 w-[480px] font-system" onClick={e => e.stopPropagation()}>
           {stepIndicator}
-          <div style={{ color: '#e2e6ea', fontWeight: 700, fontSize: 16, marginBottom: 20 }}>New Project</div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Git repo path</label>
+          <div className="text-text-primary font-bold text-base mb-5">New Project</div>
+          <div className="mb-4">
+            <label className="text-text-secondary text-[11px] mb-1.5 block">Git repo path</label>
             <input
-              style={{ ...inputStyle, borderColor: pathError ? '#c04040' : '#1e2124' }}
+              className={`w-full bg-bg-primary border rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none ${pathError ? 'border-red-500' : 'border-border-default'}`}
               placeholder="/absolute/path/to/repo"
               value={path}
               onChange={e => { setPath(e.target.value); setPathError(null); setPathValid(false) }}
               onBlur={e => validatePath(e.target.value)}
               autoFocus
             />
-            {validating && <div style={{ color: '#5a6370', fontSize: 11, marginTop: 4 }}>Checking…</div>}
-            {pathError && <div style={{ color: '#c04040', fontSize: 11, marginTop: 4 }}>{pathError}</div>}
+            {validating && <div className="text-text-muted text-[11px] mt-1">Checking…</div>}
+            {pathError && <div className="text-red-500 text-[11px] mt-1">{pathError}</div>}
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Project name</label>
+          <div className="mb-4">
+            <label className="text-text-secondary text-[11px] mb-1.5 block">Project name</label>
             <input
-              style={inputStyle}
+              className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none"
               placeholder="Project name"
               value={name}
               onChange={e => setName(e.target.value)}
             />
           </div>
-          <div style={btnRow}>
-            <button type="button" onClick={onClose} style={cancelBtn}>Cancel</button>
+          <div className="flex justify-end gap-2 mt-6">
+            <button type="button" onClick={onClose} className="bg-none border border-border-default text-text-secondary rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px]">Cancel</button>
             <button
               type="button"
               onClick={goToAgentStep}
               disabled={!canNext}
-              style={canNext ? primaryBtn : disabledBtn}
+              className={`rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px] font-semibold border-none ${
+                canNext
+                  ? 'bg-accent-blue text-text-primary'
+                  : 'bg-border-default text-text-muted cursor-not-allowed'
+              }`}
             >
               Next
             </button>
@@ -265,29 +240,29 @@ export function NewProjectWizard({ onClose }: Props) {
   if (step === 2) {
     const hasProviders = providers.length > 0
     return (
-      <div style={overlay} onClick={onClose}>
-        <div style={modal} onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={onClose}>
+        <div className="bg-bg-secondary border border-border-default rounded-[10px] p-7 w-[480px] font-system" onClick={e => e.stopPropagation()}>
           {stepIndicator}
-          <div style={{ color: '#e2e6ea', fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Configure Agent</div>
+          <div className="text-text-primary font-bold text-base mb-5">Configure Agent</div>
           {!hasProviders ? (
-            <div style={{ color: '#8a9199', fontSize: 13, marginBottom: 16, padding: '12px', background: '#0d0e10', borderRadius: 6, border: '1px solid #1e2124' }}>
+            <div className="text-text-secondary text-[13px] mb-4 p-3 bg-bg-primary rounded-[6px] border border-border-default">
               No providers configured. Go to Settings to add an AI provider first, or skip this step.
             </div>
           ) : (
             <>
-              <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>Agent name</label>
+              <div className="mb-4">
+                <label className="text-text-secondary text-[11px] mb-1.5 block">Agent name</label>
                 <input
-                  style={inputStyle}
+                  className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none"
                   placeholder="Agent name"
                   value={agentName}
                   onChange={e => setAgentName(e.target.value)}
                 />
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>Provider</label>
+              <div className="mb-4">
+                <label className="text-text-secondary text-[11px] mb-1.5 block">Provider</label>
                 <select
-                  style={{ ...inputStyle, cursor: 'pointer' }}
+                  className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none cursor-pointer"
                   value={providerId}
                   onChange={e => setProviderId(e.target.value)}
                 >
@@ -297,10 +272,10 @@ export function NewProjectWizard({ onClose }: Props) {
                   ))}
                 </select>
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={labelStyle}>Model (optional)</label>
+              <div className="mb-4">
+                <label className="text-text-secondary text-[11px] mb-1.5 block">Model (optional)</label>
                 <input
-                  style={inputStyle}
+                  className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none"
                   placeholder="e.g. claude-opus-4"
                   value={agentModel}
                   onChange={e => setAgentModel(e.target.value)}
@@ -308,14 +283,18 @@ export function NewProjectWizard({ onClose }: Props) {
               </div>
             </>
           )}
-          <div style={btnRow}>
-            <button type="button" onClick={skipAgent} style={cancelBtn}>Set up later</button>
+          <div className="flex justify-end gap-2 mt-6">
+            <button type="button" onClick={skipAgent} className="bg-none border border-border-default text-text-secondary rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px]">Set up later</button>
             {hasProviders && (
               <button
                 type="button"
                 onClick={goToTaskStep}
                 disabled={!agentName.trim()}
-                style={agentName.trim() ? primaryBtn : disabledBtn}
+                className={`rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px] font-semibold border-none ${
+                  agentName.trim()
+                    ? 'bg-accent-blue text-text-primary'
+                    : 'bg-border-default text-text-muted cursor-not-allowed'
+                }`}
               >
                 Next
               </button>
@@ -329,32 +308,32 @@ export function NewProjectWizard({ onClose }: Props) {
   // Step 3: Task
   if (step === 3) {
     return (
-      <div style={overlay} onClick={onClose}>
-        <div style={modal} onClick={e => e.stopPropagation()}>
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={onClose}>
+        <div className="bg-bg-secondary border border-border-default rounded-[10px] p-7 w-[480px] font-system" onClick={e => e.stopPropagation()}>
           {stepIndicator}
-          <div style={{ color: '#e2e6ea', fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Add First Task</div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Task title</label>
+          <div className="text-text-primary font-bold text-base mb-5">Add First Task</div>
+          <div className="mb-4">
+            <label className="text-text-secondary text-[11px] mb-1.5 block">Task title</label>
             <input
-              style={inputStyle}
+              className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none"
               placeholder="Task title"
               value={taskTitle}
               onChange={e => setTaskTitle(e.target.value)}
             />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Description (optional)</label>
+          <div className="mb-4">
+            <label className="text-text-secondary text-[11px] mb-1.5 block">Description (optional)</label>
             <textarea
-              style={{ ...inputStyle, minHeight: 72, resize: 'vertical' }}
+              className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none min-h-[72px] resize-vertical"
               placeholder="Describe the task…"
               value={taskDesc}
               onChange={e => setTaskDesc(e.target.value)}
             />
           </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle}>Priority</label>
+          <div className="mb-4">
+            <label className="text-text-secondary text-[11px] mb-1.5 block">Priority</label>
             <select
-              style={{ ...inputStyle, cursor: 'pointer' }}
+              className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-primary text-[13px] px-2.5 py-2 outline-none cursor-pointer"
               value={taskPriority}
               onChange={e => setTaskPriority(e.target.value)}
             >
@@ -363,13 +342,17 @@ export function NewProjectWizard({ onClose }: Props) {
               <option value="high">High</option>
             </select>
           </div>
-          <div style={btnRow}>
-            <button type="button" onClick={skipTask} style={cancelBtn}>Add tasks later</button>
+          <div className="flex justify-end gap-2 mt-6">
+            <button type="button" onClick={skipTask} className="bg-none border border-border-default text-text-secondary rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px]">Add tasks later</button>
             <button
               type="button"
               onClick={goToLaunch}
               disabled={!taskTitle.trim()}
-              style={taskTitle.trim() ? primaryBtn : disabledBtn}
+              className={`rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px] font-semibold border-none ${
+                taskTitle.trim()
+                  ? 'bg-accent-blue text-text-primary'
+                  : 'bg-border-default text-text-muted cursor-not-allowed'
+              }`}
             >
               Next
             </button>
@@ -382,22 +365,24 @@ export function NewProjectWizard({ onClose }: Props) {
   // Step 4: Launch
   const canStartNow = !agentSkipped && !taskSkipped
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={modal} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000]" onClick={onClose}>
+      <div className="bg-bg-secondary border border-border-default rounded-[10px] p-7 w-[480px] font-system" onClick={e => e.stopPropagation()}>
         {stepIndicator}
-        <div style={{ color: '#e2e6ea', fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Ready to Launch</div>
-        <div style={{ color: '#8a9199', fontSize: 13, marginBottom: 20 }}>
-          Your project <strong style={{ color: '#e2e6ea' }}>{name}</strong> is configured and ready to create.
+        <div className="text-text-primary font-bold text-base mb-3">Ready to Launch</div>
+        <div className="text-text-secondary text-[13px] mb-5">
+          Your project <strong className="text-text-primary">{name}</strong> is configured and ready to create.
         </div>
-        {submitError && <div style={{ color: '#c04040', fontSize: 11, marginBottom: 12 }}>{submitError}</div>}
-        <div style={btnRow}>
-          <button type="button" onClick={onClose} style={cancelBtn}>Cancel</button>
+        {submitError && <div className="text-red-500 text-[11px] mb-3">{submitError}</div>}
+        <div className="flex justify-end gap-2 mt-6">
+          <button type="button" onClick={onClose} className="bg-none border border-border-default text-text-secondary rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px]">Cancel</button>
           {canStartNow && (
             <button
               type="button"
               onClick={() => handleSubmit(true)}
               disabled={submitting}
-              style={submitting ? disabledBtn : { ...primaryBtn, background: '#3a8c5c' }}
+              className={`rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px] font-semibold border-none ${
+                submitting ? 'bg-border-default text-text-muted cursor-not-allowed' : 'bg-status-success text-text-primary'
+              }`}
             >
               {submitting ? 'Creating…' : 'Start now'}
             </button>
@@ -406,7 +391,9 @@ export function NewProjectWizard({ onClose }: Props) {
             type="button"
             onClick={() => handleSubmit(false)}
             disabled={submitting}
-            style={submitting ? disabledBtn : primaryBtn}
+            className={`rounded-[6px] px-3.5 py-1.75 cursor-pointer text-[13px] font-semibold border-none ${
+              submitting ? 'bg-border-default text-text-muted cursor-not-allowed' : 'bg-accent-blue text-text-primary'
+            }`}
           >
             {submitting ? 'Creating…' : 'Create & Open'}
           </button>
