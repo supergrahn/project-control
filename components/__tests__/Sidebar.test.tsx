@@ -9,6 +9,7 @@ import { SessionWindowProvider } from '@/hooks/useSessionWindows'
 vi.mock('@/hooks/useTasks', () => ({
   useTasks: () => ({ tasks: [], error: null, isLoading: false }),
 }))
+vi.mock('@/components/projects/NewProjectWizard', () => ({ NewProjectWizard: () => null }))
 vi.mock('@/hooks/useSessions', () => ({
   useSessions: () => ({ data: [], isLoading: false }),
 }))
@@ -50,12 +51,6 @@ describe('Sidebar', () => {
     // No emoji characters in nav items
     const pipeline = screen.getByText('Pipeline')
     expect(pipeline.closest('div')?.textContent).not.toMatch(/[💡📐📋⚙️]/)
-  })
-
-  it('renders Projects section with project names', () => {
-    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
-    expect(screen.getByText('project-control')).toBeInTheDocument()
-    expect(screen.getByText('other-repo')).toBeInTheDocument()
   })
 
   it('renders Add Project button', () => {

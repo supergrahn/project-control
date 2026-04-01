@@ -1,13 +1,13 @@
 'use client'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
 import { useTasks } from '@/hooks/useTasks'
 import { useSessions } from '@/hooks/useSessions'
-import { useProjects } from '@/hooks/useProjects'
+
 import { STATUS_TO_SESSION_PHASES } from '@/lib/taskPhaseConfig'
-import { NewProjectModal } from '@/components/projects/NewProjectModal'
+import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -24,15 +24,13 @@ const PIPELINE_ITEMS = [
   { label: 'Done',       status: 'done'       as const, route: 'done' },
 ]
 
-const DOT_COLORS = ['#5b9bd5', '#3a8c5c', '#8f77c9', '#c97e2a', '#c04040']
+export const DOT_COLORS = ['#5b9bd5', '#3a8c5c', '#8f77c9', '#c97e2a', '#c04040']
 
 export function Sidebar({ projectId, projectName, projectPath }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
   const [showAddProject, setShowAddProject] = useState(false)
   const { data: git } = useSWR<GitInfo>(`/api/projects/${projectId}/git-info`, fetcher, { refreshInterval: 10000 })
   const [me, setMe] = useState<Me | null>(null)
-  const { data: allProjects = [] } = useProjects()
   const { data: allSessions = [] } = useSessions({ status: 'active' })
 
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
@@ -109,32 +107,6 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           <Row label="last commit" value={git?.lastCommit ?? '…'} />
         </div>
 
-        {/* Projects section */}
-        <div style={{ padding: '8px 8px 4px', borderTop: '1px solid #1c1f22' }}>
-          <SectionLabel>Projects</SectionLabel>
-          {allProjects.slice(0, 6).map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => router.push(`/projects/${p.id}`)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7, width: '100%',
-                background: p.id === projectId ? '#1c1f22' : 'none',
-                border: 'none', borderRadius: 6, padding: '5px 8px', cursor: 'pointer',
-                textAlign: 'left', marginBottom: 1,
-              }}
-            >
-              <span style={{
-                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                background: DOT_COLORS[i % DOT_COLORS.length],
-              }} />
-              <span style={{
-                color: p.id === projectId ? '#e2e6ea' : '#8a9199', fontSize: 13,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>{p.name}</span>
-            </button>
-          ))}
-        </div>
-
         {/* Bottom: Add Project + user avatar */}
         <div style={{ borderTop: '1px solid #1c1f22' }}>
           <button
@@ -164,7 +136,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
         </div>
       </div>
 
-      {showAddProject && <NewProjectModal onClose={() => setShowAddProject(false)} />}
+      {showAddProject && <NewProjectWizard onClose={() => setShowAddProject(false)} />}
     </>
   )
 }
