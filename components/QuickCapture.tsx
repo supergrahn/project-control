@@ -36,8 +36,8 @@ export function QuickCapture({ isOpen, onClose }: Props) {
 
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3">
-        <Lightbulb size={16} className="text-amber-400 shrink-0" />
+      <div className="bg-bg-primary border border-border-strong rounded-xl shadow-2xl px-4 py-3 flex items-center gap-3">
+        <Lightbulb size={16} className="text-accent-orange shrink-0" />
         <input
           ref={inputRef}
           value={text}
@@ -45,15 +45,15 @@ export function QuickCapture({ isOpen, onClose }: Props) {
           onKeyDown={handleKeyDown}
           placeholder={selectedProject ? `Quick idea for ${selectedProject.name}...` : 'Select a project first...'}
           disabled={!selectedProject || saving}
-          className="flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder-zinc-600"
+          className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder-text-faint"
         />
         <button onClick={handleSave} disabled={!text.trim() || !selectedProject || saving}
-          className="text-xs px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded disabled:opacity-50">
+          className="text-xs px-3 py-1 bg-accent-orange hover:bg-accent-orange text-white rounded disabled:opacity-50">
           Save
         </button>
-        <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300"><X size={14} /></button>
+        <button onClick={onClose} className="text-text-muted hover:text-text-secondary"><X size={14} /></button>
       </div>
-      {!selectedProject && <p className="text-center text-[10px] text-zinc-600 mt-1">Open a project tab first to capture ideas</p>}
+      {!selectedProject && <p className="text-center text-[10px] text-text-faint mt-1">Open a project tab first to capture ideas</p>}
     </div>
   )
 }

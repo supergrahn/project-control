@@ -12,11 +12,11 @@ type Props = {
 }
 
 const PHASE_COLOR: Record<string, string> = {
-  brainstorm: 'text-sky-400',
-  spec: 'text-violet-400',
-  plan: 'text-amber-400',
-  develop: 'text-emerald-400',
-  review: 'text-pink-400',
+  brainstorm: 'text-accent-blue',
+  spec: 'text-accent-blue',
+  plan: 'text-accent-orange',
+  develop: 'text-accent-green',
+  review: 'text-accent-red',
 }
 
 function duration(start: string, end: string | null): string {
@@ -47,33 +47,33 @@ export function DevelopingView({ onOpenSession }: Props) {
     <>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-zinc-100">⚡ Developing</h1>
+          <h1 className="text-lg font-semibold text-text-primary">⚡ Developing</h1>
           <div className="flex text-sm">
             <button
               onClick={() => setTab('active')}
-              className={`px-3 py-1 rounded-l border ${tab === 'active' ? 'bg-zinc-700 border-zinc-600 text-zinc-100' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+              className={`px-3 py-1 rounded-l border ${tab === 'active' ? 'bg-bg-tertiary border-border-strong text-text-primary' : 'border-border-default text-text-muted hover:text-text-secondary'}`}
             >
-              Active {visibleActive.length > 0 && <span className="ml-1 text-xs text-emerald-400">{visibleActive.length}</span>}
+              Active {visibleActive.length > 0 && <span className="ml-1 text-xs text-accent-green">{visibleActive.length}</span>}
             </button>
             <button
               onClick={() => setTab('history')}
-              className={`px-3 py-1 rounded-r border-t border-b border-r ${tab === 'history' ? 'bg-zinc-700 border-zinc-600 text-zinc-100' : 'border-zinc-800 text-zinc-500 hover:text-zinc-300'}`}
+              className={`px-3 py-1 rounded-r border-t border-b border-r ${tab === 'history' ? 'bg-bg-tertiary border-border-strong text-text-primary' : 'border-border-default text-text-muted hover:text-text-secondary'}`}
             >
               History
             </button>
           </div>
-          {selectedProject && <span className="text-xs text-zinc-600">for {selectedProject.name}</span>}
+          {selectedProject && <span className="text-xs text-text-faint">for {selectedProject.name}</span>}
         </div>
         <div className="flex gap-1">
-          <button onClick={() => setView('cards')} className={`p-1.5 rounded ${view === 'cards' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}><LayoutGrid size={16} /></button>
-          <button onClick={() => setView('table')} className={`p-1.5 rounded ${view === 'table' ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}><List size={16} /></button>
+          <button onClick={() => setView('cards')} className={`p-1.5 rounded ${view === 'cards' ? 'bg-bg-tertiary text-text-primary' : 'text-text-muted hover:text-text-secondary'}`}><LayoutGrid size={16} /></button>
+          <button onClick={() => setView('table')} className={`p-1.5 rounded ${view === 'table' ? 'bg-bg-tertiary text-text-primary' : 'text-text-muted hover:text-text-secondary'}`}><List size={16} /></button>
         </div>
       </div>
 
       {isLoading ? (
-        <p className="text-zinc-500 text-sm">Loading...</p>
+        <p className="text-text-muted text-sm">Loading...</p>
       ) : current.length === 0 ? (
-        <p className="text-zinc-500 text-sm">
+        <p className="text-text-muted text-sm">
           {tab === 'active' ? 'No active sessions.' : 'No session history yet.'}
         </p>
       ) : view === 'cards' ? (
@@ -88,7 +88,7 @@ export function DevelopingView({ onOpenSession }: Props) {
       ) : (
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
+            <tr className="text-left text-xs text-text-muted border-b border-border-default">
               <th className="pb-2 pr-4">Name</th>
               <th className="pb-2 pr-4">Phase</th>
               <th className="pb-2 pr-4">{tab === 'active' ? 'Started' : 'Ended'}</th>
@@ -98,17 +98,17 @@ export function DevelopingView({ onOpenSession }: Props) {
           </thead>
           <tbody>
             {current.map((s) => (
-              <tr key={s.id} className="border-b border-zinc-900">
-                <td className="py-2 pr-4 text-zinc-200">{s.label}</td>
-                <td className={`py-2 pr-4 capitalize text-xs ${PHASE_COLOR[s.phase] ?? 'text-zinc-400'}`}>{s.phase}</td>
-                <td className="py-2 pr-4 text-zinc-500 text-xs">
+              <tr key={s.id} className="border-b border-bg-secondary">
+                <td className="py-2 pr-4 text-text-primary">{s.label}</td>
+                <td className={`py-2 pr-4 capitalize text-xs ${PHASE_COLOR[s.phase] ?? 'text-text-secondary'}`}>{s.phase}</td>
+                <td className="py-2 pr-4 text-text-muted text-xs">
                   {formatDistanceToNow(new Date(s.ended_at ?? s.created_at), { addSuffix: true })}
                 </td>
-                <td className="py-2 pr-4 text-zinc-600 text-xs">{duration(s.created_at, s.ended_at)}</td>
+                <td className="py-2 pr-4 text-text-faint text-xs">{duration(s.created_at, s.ended_at)}</td>
                 {tab === 'active' && (
                   <td className="py-2 flex gap-2">
-                    <button onClick={() => onOpenSession(s)} className="text-xs px-2 py-0.5 bg-violet-500/20 text-violet-300 rounded">Open</button>
-                    <button onClick={() => killSession.mutate(s.id)} className="text-xs px-2 py-0.5 bg-red-500/10 text-red-400 rounded">Stop</button>
+                    <button onClick={() => onOpenSession(s)} className="text-xs px-2 py-0.5 bg-accent-blue/20 text-accent-blue rounded">Open</button>
+                    <button onClick={() => killSession.mutate(s.id)} className="text-xs px-2 py-0.5 bg-accent-red/10 text-accent-red rounded">Stop</button>
                   </td>
                 )}
               </tr>
@@ -122,12 +122,12 @@ export function DevelopingView({ onOpenSession }: Props) {
 
 function HistoryCard({ session: s }: { session: Session }) {
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 flex flex-col gap-2">
+    <div className="bg-bg-primary border border-border-default rounded-lg p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-zinc-300 line-clamp-2">{s.label}</p>
-        <span className={`text-[10px] capitalize shrink-0 ${PHASE_COLOR[s.phase] ?? 'text-zinc-500'}`}>{s.phase}</span>
+        <p className="text-sm font-semibold text-text-primary line-clamp-2">{s.label}</p>
+        <span className={`text-[10px] capitalize shrink-0 ${PHASE_COLOR[s.phase] ?? 'text-text-muted'}`}>{s.phase}</span>
       </div>
-      <div className="flex items-center gap-3 text-xs text-zinc-500 mt-auto">
+      <div className="flex items-center gap-3 text-xs text-text-muted mt-auto">
         <span>{formatDistanceToNow(new Date(s.created_at), { addSuffix: true })}</span>
         <span>·</span>
         <span>{duration(s.created_at, s.ended_at)}</span>

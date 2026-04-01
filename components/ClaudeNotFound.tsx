@@ -1,6 +1,6 @@
 export function ClaudeNotFound() {
   return (
-    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+    <div className="rounded-lg border border-accent-orange/30 bg-accent-orange/10 px-4 py-3 text-sm text-accent-orange">
       <strong>Claude Code not found.</strong> Install it from{' '}
       <a href="https://claude.ai/code" className="underline" target="_blank" rel="noreferrer">
         claude.ai/code

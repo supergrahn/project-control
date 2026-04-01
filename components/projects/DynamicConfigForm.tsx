@@ -31,24 +31,12 @@ export default function DynamicConfigForm({ fields, values, onSubmit, submitLabe
     onSubmit(formValues)
   }
 
-  const inputStyle = {
-    width: '100%',
-    background: '#141618',
-    color: '#e2e6ea',
-    border: '1px solid #1c1f22',
-    borderRadius: 6,
-    padding: '8px 12px',
-    fontSize: 13,
-    outline: 'none',
-    boxSizing: 'border-box' as const,
-  }
-
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {fields.map(field => (
         <div key={field.key}>
-          <label style={{ color: '#8a9199', fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-            {field.label}{field.required && <span style={{ color: '#d94747' }}> *</span>}
+          <label className="text-text-secondary text-[12px] font-semibold block mb-1">
+            {field.label}{field.required && <span className="text-status-error"> *</span>}
           </label>
           {field.type === 'textarea' ? (
             <textarea
@@ -57,26 +45,23 @@ export default function DynamicConfigForm({ fields, values, onSubmit, submitLabe
               placeholder={field.placeholder}
               required={field.required}
               rows={3}
-              style={{ ...inputStyle, resize: 'vertical' }}
+              className="w-full bg-bg-secondary text-text-primary border border-border-default rounded-[6px] px-3 py-2 text-[13px] outline-none resize-vertical"
             />
           ) : (
-            <div style={{ position: 'relative' }}>
+            <div className="relative">
               <input
                 type={field.type === 'password' && !showPasswords[field.key] ? 'password' : 'text'}
                 value={formValues[field.key] || ''}
                 onChange={e => handleChange(field.key, e.target.value)}
                 placeholder={field.placeholder}
                 required={field.required}
-                style={inputStyle}
+                className="w-full bg-bg-secondary text-text-primary border border-border-default rounded-[6px] px-3 py-2 text-[13px] outline-none"
               />
               {field.type === 'password' && (
                 <button
                   type="button"
                   onClick={() => setShowPasswords(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
-                  style={{
-                    position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer', fontSize: 11,
-                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-none border-none text-text-muted cursor-pointer text-[11px]"
                 >
                   {showPasswords[field.key] ? 'Hide' : 'Show'}
                 </button>
@@ -84,23 +69,14 @@ export default function DynamicConfigForm({ fields, values, onSubmit, submitLabe
             </div>
           )}
           {field.helpText && (
-            <div style={{ color: '#5a6370', fontSize: 11, marginTop: 4 }}>{field.helpText}</div>
+            <div className="text-text-muted text-[11px] mt-1">{field.helpText}</div>
           )}
         </div>
       ))}
       <button
         type="submit"
         disabled={loading}
-        style={{
-          background: '#0d1a2d',
-          color: '#5b9bd5',
-          border: '1px solid #5b9bd522',
-          borderRadius: 6,
-          padding: '8px 16px',
-          fontSize: 13,
-          cursor: loading ? 'not-allowed' : 'pointer',
-          alignSelf: 'flex-start',
-        }}
+        className="bg-accent-blue/15 text-accent-blue border border-accent-blue/15 rounded-[6px] px-4 py-2 text-[13px] cursor-pointer disabled:cursor-not-allowed self-start"
       >
         {loading ? 'Saving...' : submitLabel}
       </button>

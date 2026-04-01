@@ -110,30 +110,22 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
     setSelectedAdapter(null)
   }
 
-  if (loading) return <div style={{ color: '#5a6370', fontSize: 13 }}>Loading...</div>
+  if (loading) return <div className="text-text-muted text-[13px]">Loading...</div>
 
   // State: No source configured — show service picker
   if (!config && !selectedAdapter) {
     return (
       <div>
-        <div style={{ color: '#8a9199', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>External Task Source</div>
-        <div style={{ color: '#5a6370', fontSize: 12, marginBottom: 16 }}>
+        <div className="text-text-secondary text-[13px] font-semibold mb-3">External Task Source</div>
+        <div className="text-text-muted text-[12px] mb-4">
           Connect an external task tracker to sync tasks automatically.
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="flex gap-2 flex-wrap">
           {adapters.map(a => (
             <button
               key={a.key}
               onClick={() => setSelectedAdapter(a.key)}
-              style={{
-                background: '#141618',
-                color: '#8a9199',
-                border: '1px solid #1c1f22',
-                borderRadius: 6,
-                padding: '8px 16px',
-                fontSize: 13,
-                cursor: 'pointer',
-              }}
+              className="bg-bg-secondary text-text-secondary border border-border-default rounded-[6px] px-4 py-2 text-[13px] cursor-pointer"
             >
               {a.name}
             </button>
@@ -151,11 +143,11 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
 
     return (
       <div>
-        <div style={{ color: '#8a9199', fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+        <div className="text-text-secondary text-[13px] font-semibold mb-3">
           Configure {adapter.name}
         </div>
         {error && (
-          <div style={{ color: '#d94747', fontSize: 12, marginBottom: 12, padding: '8px 12px', background: '#1c1f22', borderRadius: 6 }}>
+          <div className="text-status-error text-[12px] mb-3 px-3 py-2 bg-border-default rounded-[6px]">
             {error}
           </div>
         )}
@@ -167,10 +159,7 @@ export default function TaskSourceSettings({ projectId }: { projectId: string })
         />
         <button
           onClick={() => { setSelectedAdapter(null); setEditing(false) }}
-          style={{
-            background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer',
-            fontSize: 12, marginTop: 12, padding: 0,
-          }}
+          className="bg-none border-none text-text-muted cursor-pointer text-[12px] mt-3 p-0"
         >
           Cancel
         </button>
