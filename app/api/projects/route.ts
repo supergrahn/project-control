@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb, listProjects, createProject, getProjectByPath } from '@/lib/db'
+import { seedDefaultAgent } from '@/lib/agents/seedDefaultAgent'
 
 export function GET() {
   const projects = listProjects(getDb())
@@ -13,5 +14,6 @@ export async function POST(req: Request) {
   const existing = getProjectByPath(db, path)
   if (existing) return NextResponse.json(existing)
   const id = createProject(db, { name, path })
+  seedDefaultAgent(db, id, path)
   return NextResponse.json({ id })
 }
