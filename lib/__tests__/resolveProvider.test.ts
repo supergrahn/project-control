@@ -69,4 +69,31 @@ describe('resolveProvider', () => {
     insertTask(db, 'task-no-prov', 'proj-fb', null)
     expect(resolveProvider(db, { projectId: 'proj-fb', taskId: 'task-no-prov' }).id).toBe(pp.id)
   })
+
+  it('throws PROJECT_NOT_FOUND when projectId does not exist', () => {
+    expect(() => resolveProvider(db, { projectId: 'ghost-project' })).toThrow('PROJECT_NOT_FOUND')
+  })
+
+  it('throws TASK_NOT_FOUND when taskId does not exist', () => {
+    insertProject(db, 'proj-tnf')
+    expect(() => resolveProvider(db, { projectId: 'proj-tnf', taskId: 'ghost-task' })).toThrow('TASK_NOT_FOUND')
+  })
+
+  it('does not throw when agentId is given but agents table does not exist', () => {
+    insertProject(db, 'proj-no-agents')
+    const p = createProvider(db, { id: 'g-na', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
+    // agents table doesn't exist in this DB — should fall through to global
+    expect(resolveProvider(db, { projectId: 'proj-no-agents', agentId: 'any-agent' }).id).toBe(p.id)
+  })
+
+  it('uses agent-level provider_id when agents table exists', () => {
+    const ap = createProvider(db, { id: 'ap-1', name: 'Agent Provider', type: 'gemini', command: 'gemini', config: null })
+    const gp = createProvider(db, { id: 'gp-1', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
+    insertProject(db, 'proj-agent')
+    // manually create agents table and insert an agent
+    db.exec(`CREATE TABLE IF NOT EXISTS agents (id TEXT PRIMARY KEY, project_id TEXT, provider_id TEXT, name TEXT, created_at TEXT)`)
+    db.prepare('INSERT INTO agents (id, project_id, provider_id, name, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run('agent-1', 'proj-agent', ap.id, 'Test Agent', new Date().toISOString())
+    expect(resolveProvider(db, { projectId: 'proj-agent', agentId: 'agent-1' }).id).toBe(ap.id)
+  })
 })

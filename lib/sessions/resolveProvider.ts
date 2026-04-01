@@ -13,7 +13,8 @@ export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provid
   if (opts.taskId) {
     const task = db.prepare('SELECT provider_id FROM tasks WHERE id = ?')
       .get(opts.taskId) as { provider_id: string | null } | undefined
-    if (task?.provider_id) {
+    if (!task) throw new Error('TASK_NOT_FOUND')
+    if (task.provider_id) {
       const p = getProvider(db, task.provider_id)
       if (p && p.is_active === 1) return p
     }
@@ -28,7 +29,13 @@ export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provid
         const p = getProvider(db, agent.provider_id)
         if (p && p.is_active === 1) return p
       }
-    } catch {
+    } catch (err: unknown) {
+      if (
+        !(err instanceof Error) ||
+        !err.message.includes('no such table')
+      ) {
+        throw err
+      }
       // agents table does not exist yet — skip
     }
   }
@@ -36,7 +43,8 @@ export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provid
   // 3. Project-level override
   const project = db.prepare('SELECT provider_id FROM projects WHERE id = ?')
     .get(opts.projectId) as { provider_id: string | null } | undefined
-  if (project?.provider_id) {
+  if (!project) throw new Error('PROJECT_NOT_FOUND')
+  if (project.provider_id) {
     const p = getProvider(db, project.provider_id)
     if (p && p.is_active === 1) return p
   }
