@@ -4,9 +4,9 @@ import { useInsights } from '@/hooks/useInsights'
 
 const CATEGORY_COLORS: Record<string, string> = {
   decision: 'bg-violet-500/20 text-violet-300',
-  pattern: 'bg-blue-500/20 text-blue-300',
+  pattern: 'bg-accent-blue/20 text-accent-blue',
   warning: 'bg-amber-500/20 text-amber-300',
-  learning: 'bg-green-500/20 text-green-300',
+  learning: 'bg-accent-green/20 text-accent-green',
 }
 
 export default function InsightsPage() {

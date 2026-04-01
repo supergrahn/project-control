@@ -75,7 +75,7 @@ export function ActivityPanel({ tasks, feed }: Props) {
               const age = formatAge(entry.timestamp)
               return (
                 <li key={entry.id} className="flex gap-2 items-start mb-2">
-                  <div className="w-5 h-5 rounded-full bg-blue-900 flex-shrink-0 flex items-center justify-center text-accent-blue text-xs font-bold">
+                  <div className="w-5 h-5 rounded-full bg-accent-blue/15 flex-shrink-0 flex items-center justify-center text-accent-blue text-xs font-bold">
                     {initials}
                   </div>
                   <div className="flex-1 min-w-0">

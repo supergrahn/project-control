@@ -49,7 +49,7 @@ export default function TimelinePage() {
                 <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-bg-primary ${
                   evt.type === 'session_started' ? 'bg-accent-green' :
                   evt.type === 'audit_completed' ? 'bg-accent-blue' :
-                  evt.type === 'debrief_generated' ? 'bg-blue-500' :
+                  evt.type === 'debrief_generated' ? 'bg-accent-blue' :
                   'bg-text-muted'
                 }`} />
                 <div className="flex items-center gap-2">

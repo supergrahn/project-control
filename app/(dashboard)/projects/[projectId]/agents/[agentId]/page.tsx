@@ -49,7 +49,7 @@ export default function AgentDetailPage() {
   const { data: agent } = useSWR<Agent>(`/api/agents/${agentId}`, fetcher)
 
   return (
-    <div className="bg-blue-950 min-h-full py-7 px-8">
+    <div className="bg-bg-primary min-h-full py-7 px-8">
       <div className="text-text-faint text-xs mb-3">
         {projectId} / agents / {agentId}
       </div>
@@ -92,7 +92,7 @@ export default function AgentDetailPage() {
 function DashboardTab({ agent }: { agent: Agent }) {
   const statusStyles: Record<string, { bg: string; text: string }> = {
     idle:    { bg: 'bg-border-subtle', text: 'text-text-secondary' },
-    running: { bg: 'bg-green-900', text: 'text-accent-green' },
+    running: { bg: 'bg-accent-green/15', text: 'text-accent-green' },
     paused:  { bg: 'bg-orange-900', text: 'text-accent-orange' },
   }
   const style = statusStyles[agent.status] ?? statusStyles.idle
@@ -151,7 +151,7 @@ function InstructionsTab({ agentId }: { agentId: string }) {
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          className="bg-blue-600 text-white border-0 rounded-md px-3.5 py-1.75 text-xs cursor-pointer hover:bg-blue-700"
+          className="bg-accent-blue/15 text-accent-blue border border-accent-blue/15 rounded-[var(--radius-control)] px-3.5 py-1.5 text-xs cursor-pointer font-medium hover:bg-accent-blue/25"
         >
           Save
         </button>
@@ -210,7 +210,7 @@ function ConfigurationTab({ agent, agentId }: { agent: Agent; agentId: string })
       <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          className="bg-blue-600 text-white border-0 rounded-md px-3.5 py-1.75 text-xs cursor-pointer hover:bg-blue-700"
+          className="bg-accent-blue/15 text-accent-blue border border-accent-blue/15 rounded-[var(--radius-control)] px-3.5 py-1.5 text-xs cursor-pointer font-medium hover:bg-accent-blue/25"
         >
           Save
         </button>

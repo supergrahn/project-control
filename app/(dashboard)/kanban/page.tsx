@@ -59,9 +59,9 @@ export default function KanbanPage() {
       </div>
 
       <div className="flex gap-4 overflow-x-auto pb-4">
-        <Column title="Ideas" cards={columns.ideas} color="bg-blue-400" />
+        <Column title="Ideas" cards={columns.ideas} color="bg-accent-blue" />
         <Column title="Specs" cards={columns.specs} color="bg-violet-400" />
-        <Column title="Plans" cards={columns.plans} color="bg-green-400" />
+        <Column title="Plans" cards={columns.plans} color="bg-accent-green" />
         <Column title="In Progress" cards={columns.inProgress} color="bg-amber-400" />
       </div>
     </>

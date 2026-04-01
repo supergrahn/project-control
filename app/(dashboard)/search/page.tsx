@@ -4,9 +4,9 @@ import { Search as SearchIcon } from 'lucide-react'
 import { useSearch } from '@/hooks/useSearch'
 
 const TYPE_COLORS: Record<string, string> = {
-  idea: 'bg-blue-500/20 text-blue-300',
+  idea: 'bg-accent-blue/20 text-accent-blue',
   spec: 'bg-violet-500/20 text-violet-300',
-  plan: 'bg-green-500/20 text-green-300',
+  plan: 'bg-accent-green/20 text-accent-green',
   memory: 'bg-amber-500/20 text-amber-300',
   debrief: 'bg-zinc-500/20 text-zinc-400',
 }

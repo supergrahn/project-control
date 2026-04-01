@@ -142,7 +142,7 @@ export function CreateAgentModal({ projectId, onCreated, onClose }: Props) {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-blue-600 border-0 rounded-md px-4 py-2 text-white text-xs cursor-pointer hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="bg-accent-blue/15 text-accent-blue border border-accent-blue/15 rounded-[var(--radius-control)] px-4 py-2 text-xs cursor-pointer font-medium hover:bg-accent-blue/25 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Create
           </button>

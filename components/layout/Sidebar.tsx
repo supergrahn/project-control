@@ -79,19 +79,32 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           ))}
 
           {/* Team section */}
-          <SectionLabel>Team</SectionLabel>
-          <NavItem
-            href={`/projects/${projectId}/agents`}
-            active={pathname.startsWith(`/projects/${projectId}/agents`)}
-          >
-            Agents
-          </NavItem>
-          <NavItem
-            href={`/projects/${projectId}/skills`}
-            active={pathname.startsWith(`/projects/${projectId}/skills`)}
-          >
-            Skills
-          </NavItem>
+          <div className="mt-4 pt-3 border-t border-border-default">
+            <SectionLabel>Team</SectionLabel>
+            <NavItem
+              href={`/projects/${projectId}/agents`}
+              active={pathname.startsWith(`/projects/${projectId}/agents`)}
+            >
+              Agents
+            </NavItem>
+            <NavItem
+              href={`/projects/${projectId}/skills`}
+              active={pathname.startsWith(`/projects/${projectId}/skills`)}
+            >
+              Skills
+            </NavItem>
+          </div>
+
+          {/* Project section */}
+          <div className="mt-4 pt-3 border-t border-border-default">
+            <SectionLabel>Project</SectionLabel>
+            <NavItem
+              href={`/projects/${projectId}/settings`}
+              active={pathname.startsWith(`/projects/${projectId}/settings`)}
+            >
+              Settings
+            </NavItem>
+          </div>
         </div>
 
         {/* Git info */}
