@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import type { Agent } from '@/lib/db/agents'
+import { SkillsTab as SkillsTabComponent } from '@/components/agents/SkillsTab'
 
 const fetcher = (url: string) => fetch(url).then(r => r.json())
 
@@ -88,7 +89,7 @@ export default function AgentDetailPage() {
       {tab === 'instructions' && <InstructionsTab agentId={agentId} />}
       {tab === 'configuration' && agent && <ConfigurationTab agent={agent} agentId={agentId} />}
       {tab === 'runs' && <RunsTab agentId={agentId} />}
-      {tab === 'skills' && <SkillsTab />}
+      {tab === 'skills' && <SkillsTabComponent projectId={projectId} />}
     </div>
   )
 }
@@ -330,13 +331,5 @@ function RunsTab({ agentId }: { agentId: string }) {
         ))}
       </tbody>
     </table>
-  )
-}
-
-function SkillsTab() {
-  return (
-    <div style={{ color: '#8a9199', fontSize: 13, lineHeight: 1.6 }}>
-      Skills are project-scoped and injected into all sessions for this project. Manage them under Skills in the sidebar.
-    </div>
   )
 }
