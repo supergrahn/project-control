@@ -94,3 +94,27 @@ describe('SessionAgentCard', () => {
     expect(screen.getByText('Waiting for tool calls…')).toBeInTheDocument()
   })
 })
+
+describe('SessionAgentCard — todo progress pill', () => {
+  const todoEntry = {
+    id: 'e3', sessionId: 'sess-1', label: 'Redesign', phase: 'spec',
+    text: 'TodoWrite · [{"id":"1","content":"Write tests","status":"completed"},{"id":"2","content":"Deploy","status":"in_progress"},{"id":"3","content":"Review","status":"pending"}]',
+    timestamp: '2026-04-01T08:02:00Z',
+  }
+
+  it('shows "1 / 3" when one of three todos is completed', () => {
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={[todoEntry]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.getByText('1 / 3')).toBeInTheDocument()
+  })
+
+  it('hides progress pill when no TodoWrite in feed', () => {
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={mockFeedEntries} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
+  })
+})
