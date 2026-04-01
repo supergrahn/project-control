@@ -457,6 +457,11 @@ export function spawnOrchestratorSession(opts: {
       const isRateLimit = adapter.rateLimitPatterns.some(p => p.test(line))
       if (isRateLimit) {
         db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+        insertSessionEvent(db, sessionId, {
+          type: 'error',
+          content: line,
+          metadata: { code: 'rate_limit', isRateLimit: true },
+        })
         broadcast(sessionId, { type: 'rate_limit', provider: provider.name })
       }
       broadcast(sessionId, { type: 'output', data: line })

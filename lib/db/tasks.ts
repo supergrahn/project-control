@@ -83,6 +83,7 @@ export type UpdateTaskInput = {
   labels?: string[] | null
   assignee_agent_id?: string | null
   provider_id?: string | null
+  session_log?: string | null
 }
 
 export function updateTask(db: Database, id: string, input: UpdateTaskInput): Task {
@@ -99,7 +100,8 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   if ('priority' in input)          { updates.push('priority = ?');          values.push(input.priority) }
   if ('labels' in input)            { updates.push('labels = ?');            values.push(input.labels ? JSON.stringify(input.labels) : null) }
   if ('assignee_agent_id' in input) { updates.push('assignee_agent_id = ?'); values.push(input.assignee_agent_id) }
-  if ('provider_id' in input) { updates.push('provider_id = ?'); values.push(input.provider_id) }
+  if ('provider_id' in input)  { updates.push('provider_id = ?');  values.push(input.provider_id) }
+  if ('session_log' in input)  { updates.push('session_log = ?');  values.push(input.session_log) }
 
   if (updates.length === 0) return getTask(db, id)!
 

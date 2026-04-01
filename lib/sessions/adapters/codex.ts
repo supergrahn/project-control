@@ -1,7 +1,8 @@
 import type { AdapterModule, TranscriptEvent, BuildArgsOpts } from './types'
 
 function buildArgs(opts: BuildArgsOpts): string[] {
-  return ['exec', opts.userContext]
+  const prompt = `${opts.systemPrompt}\n\n---\n\n${opts.userContext}`.trim()
+  return ['exec', prompt]
 }
 
 function resumeArgs(sessionId: string): string[] {

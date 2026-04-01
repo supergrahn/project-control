@@ -12,5 +12,6 @@ export function getAdapter(type: ProviderType): AdapterModule {
     case 'gemini': { const m = require('./gemini'); cache.set(type, m.geminiAdapter); return m.geminiAdapter }
     case 'codex':  { const m = require('./codex');  cache.set(type, m.codexAdapter);  return m.codexAdapter }
     case 'ollama': { const m = require('./ollama'); cache.set(type, m.ollamaAdapter); return m.ollamaAdapter }
+    default: throw new Error(`Unknown provider type: ${type}`)
   }
 }

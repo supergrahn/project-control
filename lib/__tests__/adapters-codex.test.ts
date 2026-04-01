@@ -10,7 +10,7 @@ describe('codexAdapter.buildArgs', () => {
       sessionId: 'sess-123',
     })
     expect(args[0]).toBe('exec')
-    expect(args).toContain('Fix the bug')
+    expect(args[1]).toContain('Fix the bug')
   })
 })
 
