@@ -1,6 +1,7 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Task } from '@/lib/db/tasks'
+import type { Agent } from '@/lib/db/agents'
 import { patchTask } from '@/hooks/useTasks'
 import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
 import { PropertiesPanel } from '@/components/tasks/PropertiesPanel'
@@ -19,9 +20,34 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.notes ?? '')
   const [todos, setTodos] = useState<Todo[]>([])
+  const [showAgentPicker, setShowAgentPicker] = useState(false)
+  const [agents, setAgents] = useState<Agent[]>([])
+
+  useEffect(() => {
+    fetch(`/api/agents?projectId=${task.project_id}`)
+      .then(r => r.json())
+      .then(data => setAgents(data))
+      .catch(() => {})
+  }, [task.project_id])
+
+  async function handleRunWithAgent(agentId: string) {
+    setShowAgentPicker(false)
+    await fetch('/api/sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: task.project_id,
+        phase: task.status === 'done' ? 'develop' : task.status,
+        taskId: task.id,
+        userContext: '',
+        permissionMode: 'default',
+        agentId,
+      }),
+    })
+  }
 
   return (
-    <div style={{ display: 'flex', height: '100%', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ display: 'flex', height: '100%', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
       {/* Left column */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', minWidth: 0 }}>
         {/* Header breadcrumb */}
@@ -76,7 +102,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
         />
 
         {/* Drawer buttons */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 24, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
           {(['artifacts', 'sessions', 'notes'] as DrawerSection[]).map(s => (
             <button
               key={s}
@@ -95,6 +121,58 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
               {s}
             </button>
           ))}
+          <button
+            onClick={() => setShowAgentPicker(v => !v)}
+            style={{
+              background: '#0d1a2d',
+              color: '#5b9bd5',
+              border: '1px solid #5b9bd522',
+              borderRadius: 6,
+              padding: '4px 8px',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Run with agent
+          </button>
+          {showAgentPicker && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: 4,
+              background: '#0e1012',
+              border: '1px solid #1c1f22',
+              borderRadius: 8,
+              padding: 8,
+              zIndex: 20,
+              minWidth: 180,
+            }}>
+              {agents.length === 0 && (
+                <div style={{ color: '#5a6370', fontSize: 12, padding: '4px 8px' }}>No agents</div>
+              )}
+              {agents.map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => handleRunWithAgent(a.id)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'none',
+                    border: 'none',
+                    color: '#e2e6ea',
+                    fontSize: 13,
+                    textAlign: 'left',
+                    padding: '6px 10px',
+                    cursor: 'pointer',
+                    borderRadius: 6,
+                  }}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Live runs */}
