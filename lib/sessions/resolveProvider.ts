@@ -11,8 +11,8 @@ export type ResolveProviderOpts = {
 export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provider {
   // 1. Task-level override
   if (opts.taskId) {
-    const task = db.prepare('SELECT provider_id FROM tasks WHERE id = ?')
-      .get(opts.taskId) as { provider_id: string | null } | undefined
+    const task = db.prepare('SELECT provider_id FROM tasks WHERE id = ? AND project_id = ?')
+      .get(opts.taskId, opts.projectId) as { provider_id: string | null } | undefined
     if (!task) throw new Error('TASK_NOT_FOUND')
     if (task.provider_id) {
       const p = getProvider(db, task.provider_id)
