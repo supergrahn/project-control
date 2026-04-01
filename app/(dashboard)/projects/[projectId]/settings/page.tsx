@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
+import TaskSourceSettings from '@/components/projects/TaskSourceSettings'
 
 export default function SettingsPage() {
   const { projectId } = useParams() as { projectId: string }
@@ -26,6 +27,10 @@ export default function SettingsPage() {
       <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, marginBottom: 24, margin: '0 0 24px' }}>
         ⚙️ Settings
       </h1>
+
+      <div style={{ borderBottom: '1px solid #1c1f22', paddingBottom: 20, marginBottom: 20 }}>
+        <TaskSourceSettings projectId={projectId} />
+      </div>
 
       <div style={{ borderTop: '1px solid #1c1f22', paddingTop: 20, marginTop: 20 }}>
         <div style={{ color: '#8a9199', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Task Migration</div>
