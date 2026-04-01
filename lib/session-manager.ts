@@ -201,6 +201,19 @@ export function spawnSession(opts: SpawnOptions): string {
   procMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
 
+  // Handle spawn failures (e.g. command not found)
+  proc.on('error', (err) => {
+    insertSessionEvent(db, sessionId, {
+      type: 'error',
+      content: `Spawn error: ${err.message}`,
+      metadata: { code: 'spawn_error' },
+    })
+    endSession(getDb(), sessionId)
+    procMap.delete(sessionId)
+    broadcast(sessionId, { type: 'status', state: 'ended' })
+    wsMap.delete(sessionId)
+  })
+
   // Read stdout line-by-line
   if (proc.stdout) {
     const rl = createInterface({ input: proc.stdout })
@@ -287,11 +300,15 @@ export function spawnSession(opts: SpawnOptions): string {
 export function killSession(sessionId: string): void {
   const proc = procMap.get(sessionId)
   if (proc) {
+    // proc.kill() triggers the 'close' event which handles cleanup,
+    // broadcasting 'ended', flushing events, and map deletion.
     try { proc.kill() } catch {}
-    procMap.delete(sessionId)
+  } else {
+    // Process already gone — clean up DB and maps directly
+    endSession(getDb(), sessionId)
+    broadcast(sessionId, { type: 'status', state: 'ended' })
+    wsMap.delete(sessionId)
   }
-  endSession(getDb(), sessionId)
-  wsMap.delete(sessionId)
 }
 
 export function isAlive(sessionId: string): boolean {
@@ -445,6 +462,19 @@ export function spawnOrchestratorSession(opts: {
 
   procMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
+
+  // Handle spawn failures (e.g. command not found)
+  proc.on('error', (err) => {
+    insertSessionEvent(db, sessionId, {
+      type: 'error',
+      content: `Spawn error: ${err.message}`,
+      metadata: { code: 'spawn_error' },
+    })
+    endSession(db, sessionId)
+    procMap.delete(sessionId)
+    broadcast(sessionId, { type: 'status', state: 'ended' })
+    wsMap.delete(sessionId)
+  })
 
   if (proc.stdout) {
     const rl = createInterface({ input: proc.stdout })

@@ -92,7 +92,7 @@ export function FloatingSessionWindow({ state, onClose, onMinimize, onBringToFro
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data)
-          if (msg.type === 'output') term.write(msg.data)
+          if (msg.type === 'output') term.write(msg.data + '\r\n')
           if (msg.type === 'status') setTermStatus(msg.state)
         } catch {}
       }

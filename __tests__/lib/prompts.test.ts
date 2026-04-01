@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('@/lib/sessions/adapters', () => ({
   getAdapter: vi.fn(() => ({
-    buildArgs: (opts: any) => ['--system-prompt', opts.systemPrompt, '--session-id', opts.sessionId, '--permission-mode', opts.permissionMode, ...(opts.userContext.trim() ? [opts.userContext.trim()] : [])],
+    buildArgs: (opts: { systemPrompt: string; userContext: string; permissionMode: string; sessionId: string }) => ['--system-prompt', opts.systemPrompt, '--session-id', opts.sessionId, '--permission-mode', opts.permissionMode, ...(opts.userContext.trim() ? [opts.userContext.trim()] : [])],
     parseLine: vi.fn(),
     rateLimitPatterns: [],
   })),

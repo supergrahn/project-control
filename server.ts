@@ -33,7 +33,7 @@ app.prepare().then(() => {
   })
 
   const shutdown = () => {
-    for (const proc of (procMap as Map<string, any>).values()) {
+    for (const proc of procMap.values()) {
       try { proc.kill() } catch {}
     }
     process.exit(0)
