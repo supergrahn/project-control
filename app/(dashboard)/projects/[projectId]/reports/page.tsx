@@ -54,10 +54,10 @@ export default function ReportsPage() {
     <div className="flex gap-4 h-full">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-4 mb-6">
-          <h1 className="text-lg font-semibold text-zinc-100">Reports</h1>
-          <span className="text-xs text-zinc-500">{activeCount} active</span>
+          <h1 className="text-lg font-semibold text-text-primary">Reports</h1>
+          <span className="text-xs text-text-muted">{activeCount} active</span>
           {orch && orch.status === 'active' && (
-            <span className="text-[10px] bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full">🤖 orchestrator</span>
+            <span className="text-[10px] bg-accent-blue/20 text-accent-blue px-2 py-0.5 rounded-full">🤖 orchestrator</span>
           )}
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2" style={{ alignItems: 'stretch' }}>
@@ -69,7 +69,7 @@ export default function ReportsPage() {
           })}
         </div>
         {sessions.length === 0 && (
-          <div className="text-zinc-600 text-sm text-center py-10">
+          <div className="text-text-muted text-sm text-center py-10">
             No sessions yet. Start a session from the Plans page.
           </div>
         )}

@@ -19,45 +19,45 @@ export default function SearchPage() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-zinc-100 flex items-center gap-2 mb-4">
-          <SearchIcon size={18} className="text-violet-400" /> Knowledge Search
+        <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2 mb-4">
+          <SearchIcon size={18} className="text-accent-blue" /> Knowledge Search
         </h1>
-        <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5">
-          <SearchIcon size={14} className="text-zinc-500" />
+        <div className="flex items-center gap-2 bg-bg-primary border border-border-default rounded-lg px-4 py-2.5">
+          <SearchIcon size={14} className="text-text-muted" />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search across all projects — ideas, specs, plans, memory..."
-            className="flex-1 bg-transparent text-sm text-zinc-100 outline-none placeholder-zinc-600"
+            className="flex-1 bg-transparent text-sm text-text-primary outline-none placeholder-text-faint"
             autoFocus
           />
-          {query && <button onClick={() => setQuery('')} className="text-zinc-600 hover:text-zinc-400 text-xs">Clear</button>}
+          {query && <button onClick={() => setQuery('')} className="text-text-muted hover:text-text-secondary text-xs">Clear</button>}
         </div>
       </div>
 
-      {isLoading && query.length >= 2 && <p className="text-zinc-500 text-sm">Searching...</p>}
+      {isLoading && query.length >= 2 && <p className="text-text-muted text-sm">Searching...</p>}
 
       {results.length > 0 && (
         <div className="flex flex-col gap-2">
           {results.map((r, i) => (
-            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 hover:border-zinc-700 transition-colors">
+            <div key={i} className="bg-bg-primary border border-border-default rounded-lg px-4 py-3 hover:border-border-strong transition-colors">
               <div className="flex items-center gap-2 mb-1">
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${TYPE_COLORS[r.fileType] ?? TYPE_COLORS.memory}`}>{r.fileType}</span>
-                <span className="text-xs text-zinc-500">{r.projectName}</span>
+                <span className="text-xs text-text-muted">{r.projectName}</span>
               </div>
-              <h3 className="text-sm font-semibold text-zinc-200">{r.title}</h3>
-              <p className="text-xs text-zinc-400 mt-1" dangerouslySetInnerHTML={{ __html: r.snippet }} />
+              <h3 className="text-sm font-semibold text-text-primary">{r.title}</h3>
+              <p className="text-xs text-text-secondary mt-1" dangerouslySetInnerHTML={{ __html: r.snippet }} />
             </div>
           ))}
         </div>
       )}
 
       {query.length >= 2 && !isLoading && results.length === 0 && (
-        <p className="text-zinc-600 text-sm text-center py-8">No results found for &quot;{query}&quot;</p>
+        <p className="text-text-muted text-sm text-center py-8">No results found for &quot;{query}&quot;</p>
       )}
 
       {query.length < 2 && (
-        <p className="text-zinc-600 text-sm text-center py-8">Type at least 2 characters to search across all projects</p>
+        <p className="text-text-muted text-sm text-center py-8">Type at least 2 characters to search across all projects</p>
       )}
     </>
   )

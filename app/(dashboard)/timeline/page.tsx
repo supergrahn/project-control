@@ -21,46 +21,46 @@ export default function TimelinePage() {
   const { data, isLoading } = useTimeline()
   const entries = data?.timeline ?? []
 
-  if (isLoading) return <p className="text-zinc-500 text-sm">Loading timeline...</p>
+  if (isLoading) return <p className="text-text-muted text-sm">Loading timeline...</p>
 
   return (
     <>
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-zinc-100 flex items-center gap-2">
-          <Clock size={18} className="text-violet-400" /> Activity Timeline
+        <h1 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+          <Clock size={18} className="text-accent-blue" /> Activity Timeline
         </h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Recent activity across all projects</p>
+        <p className="text-xs text-text-muted mt-0.5">Recent activity across all projects</p>
       </div>
 
       {entries.length === 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-6 py-10 text-center">
-          <Clock size={28} className="text-zinc-700 mx-auto mb-3" />
-          <p className="text-zinc-400 text-sm font-medium">No activity yet</p>
-          <p className="text-zinc-600 text-xs mt-1">Events will appear here as you work across projects.</p>
+        <div className="rounded-lg border border-border-default bg-bg-primary/50 px-6 py-10 text-center">
+          <Clock size={28} className="text-text-faint mx-auto mb-3" />
+          <p className="text-text-secondary text-sm font-medium">No activity yet</p>
+          <p className="text-text-muted text-xs mt-1">Events will appear here as you work across projects.</p>
         </div>
       )}
 
       {entries.map(entry => (
         <div key={`${entry.projectId}-${entry.featureName}`} className="mb-6">
-          <h2 className="text-sm font-semibold text-zinc-200 mb-3">{entry.projectName}</h2>
-          <div className="relative pl-6 border-l border-zinc-800">
+          <h2 className="text-sm font-semibold text-text-primary mb-3">{entry.projectName}</h2>
+          <div className="relative pl-6 border-l border-border-default">
             {entry.events.map((evt, i) => (
               <div key={i} className="mb-3 relative">
-                <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-zinc-900 ${
-                  evt.type === 'session_started' ? 'bg-green-500' :
-                  evt.type === 'audit_completed' ? 'bg-violet-500' :
+                <div className={`absolute -left-[25px] w-3 h-3 rounded-full border-2 border-bg-primary ${
+                  evt.type === 'session_started' ? 'bg-accent-green' :
+                  evt.type === 'audit_completed' ? 'bg-accent-blue' :
                   evt.type === 'debrief_generated' ? 'bg-blue-500' :
-                  'bg-zinc-600'
+                  'bg-text-muted'
                 }`} />
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs ${EVENT_COLORS[evt.type] ?? 'text-zinc-500'}`}>
+                  <span className={`text-xs ${EVENT_COLORS[evt.type] ?? 'text-text-muted'}`}>
                     {EVENT_ICONS[evt.type] ?? '●'} {evt.type.replace(/_/g, ' ')}
                   </span>
-                  <span className="text-[10px] text-zinc-600">
+                  <span className="text-[10px] text-text-muted">
                     {formatDistanceToNow(new Date(evt.timestamp), { addSuffix: true })}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-0.5">{evt.summary}</p>
+                <p className="text-xs text-text-secondary mt-0.5">{evt.summary}</p>
               </div>
             ))}
           </div>

@@ -65,33 +65,33 @@ export default function BookmarksPage() {
 
       <div className="flex flex-col gap-2">
         {bookmarks.map(b => (
-          <div key={b.id} className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-zinc-800/50" onClick={() => setExpandedId(expandedId === b.id ? null : b.id)}>
+          <div key={b.id} className="bg-bg-primary border border-border-default rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-bg-secondary" onClick={() => setExpandedId(expandedId === b.id ? null : b.id)}>
               <div>
-                <h3 className="text-sm font-semibold text-zinc-200">{b.title}</h3>
+                <h3 className="text-sm font-semibold text-text-primary">{b.title}</h3>
                 <div className="flex items-center gap-3 mt-0.5">
-                  {b.tags && b.tags.split(',').map(t => <span key={t} className="text-[10px] text-violet-400">#{t.trim()}</span>)}
+                  {b.tags && b.tags.split(',').map(t => <span key={t} className="text-[10px] text-accent-blue">#{t.trim()}</span>)}
                   {b.source_url && <span className="text-[10px] text-blue-400 truncate max-w-[200px]">{b.source_url}</span>}
-                  <span className="text-[10px] text-zinc-600">{formatDistanceToNow(new Date(b.created_at), { addSuffix: true })}</span>
+                  <span className="text-[10px] text-text-muted">{formatDistanceToNow(new Date(b.created_at), { addSuffix: true })}</span>
                 </div>
               </div>
-              <button onClick={e => { e.stopPropagation(); remove.mutate(b.id) }} className="text-zinc-600 hover:text-red-400 p-1"><Trash2 size={14} /></button>
+              <button onClick={e => { e.stopPropagation(); remove.mutate(b.id) }} className="text-text-muted hover:text-accent-red p-1"><Trash2 size={14} /></button>
             </div>
             {expandedId === b.id && (
-              <div className="px-4 py-3 border-t border-zinc-800 bg-zinc-950/50">
-                <pre className="text-xs text-zinc-400 whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">{b.content}</pre>
+              <div className="px-4 py-3 border-t border-border-default bg-bg-base/50">
+                <pre className="text-xs text-text-secondary whitespace-pre-wrap font-mono max-h-60 overflow-y-auto">{b.content}</pre>
               </div>
             )}
           </div>
         ))}
       </div>
 
-      <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <h3 className="text-sm font-semibold text-zinc-200 mb-2">Web Clipper Bookmarklet</h3>
-        <p className="text-xs text-zinc-500 mb-3">Drag this to your bookmarks bar to clip web pages:</p>
+      <div className="mt-6 rounded-lg border border-border-default bg-bg-primary/50 p-4">
+        <h3 className="text-sm font-semibold text-text-primary mb-2">Web Clipper Bookmarklet</h3>
+        <p className="text-xs text-text-muted mb-3">Drag this to your bookmarks bar to clip web pages:</p>
         <a
           href={`javascript:void(fetch('http://localhost:3001/api/clip',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:location.href,title:document.title,content:window.getSelection().toString()||document.body.innerText.slice(0,5000)})}).then(()=>alert('Clipped!')).catch(()=>alert('Clip failed')))`}
-          className="inline-block px-3 py-1.5 bg-violet-600 text-white text-xs rounded cursor-grab"
+          className="inline-block px-3 py-1.5 bg-accent-blue/70 text-white text-xs rounded cursor-grab"
           onClick={e => e.preventDefault()}
         >
           📎 Clip to Dashboard
