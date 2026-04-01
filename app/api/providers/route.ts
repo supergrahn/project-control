@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
-import { getProviders, createProvider } from '@/lib/db/providers'
-import type { ProviderType } from '@/lib/db/providers'
-
-const VALID_TYPES: ProviderType[] = ['claude', 'codex', 'gemini', 'ollama']
+import { getProviders, createProvider, VALID_TYPES } from '@/lib/db/providers'
 
 export async function GET(_req: NextRequest) {
   return NextResponse.json(getProviders(getDb()))

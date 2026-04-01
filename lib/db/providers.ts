@@ -2,6 +2,8 @@ import type { Database } from 'better-sqlite3'
 
 export type ProviderType = 'claude' | 'codex' | 'gemini' | 'ollama'
 
+export const VALID_TYPES = ['claude', 'codex', 'gemini', 'ollama'] as const
+
 export type Provider = {
   id: string
   name: string
