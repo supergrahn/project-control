@@ -1,6 +1,5 @@
 import * as pty from 'node-pty'
 import { WebSocket } from 'ws'
-import { execSync } from 'child_process'
 import fs from 'fs'
 import { EventEmitter } from 'events'
 import { getDb, createSession, endSession, getActiveSessionForFile, getProject, listContextPacks } from './db'
@@ -13,6 +12,9 @@ import path from 'path'
 import { randomUUID } from 'crypto'
 import { generateDebrief } from './debrief'
 import { writeFrontmatter } from './frontmatter'
+import { resolveProvider } from './sessions/resolveProvider'
+import { RateLimitDetector } from './sessions/rateLimitDetector'
+import { getActiveProviders } from './db/providers'
 
 // --- PTY maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -49,29 +51,6 @@ export const ptyMap = globalThis.ptyMap
 export const wsMap = globalThis.wsMap
 export const outputBuffer = globalThis.outputBuffer
 
-// --- Claude binary resolution ---
-function resolveClaude(): string {
-  const candidates = [
-    `${process.env.HOME}/.local/bin/claude`,
-    '/opt/homebrew/bin/claude',
-    '/usr/local/bin/claude',
-    '/usr/bin/claude',
-  ]
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p
-  }
-  try {
-    return execSync('which claude', { encoding: 'utf8' }).trim()
-  } catch {
-    throw new Error('Claude binary not found. Install Claude Code: https://claude.ai/code')
-  }
-}
-
-let CLAUDE_BIN: string | null = null
-try { CLAUDE_BIN = resolveClaude() } catch {}
-
-export function isClaudeAvailable(): boolean { return CLAUDE_BIN !== null }
-
 // --- Session spawning ---
 export type SpawnOptions = {
   projectId: string
@@ -84,11 +63,21 @@ export type SpawnOptions = {
   correctionNote?: string
   taskId?: string
   outputPath?: string
+  agentId?: string
+  providerId?: string
+}
+
+export function isClaudeAvailable(): boolean {
+  return getActiveProviders(getDb()).length > 0
 }
 
 export function spawnSession(opts: SpawnOptions): string {
-  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
   const db = getDb()
+  const provider = resolveProvider(db, {
+    projectId: opts.projectId,
+    taskId: opts.taskId,
+    agentId: opts.agentId,
+  })
   const sessionId = randomUUID()
 
   // Block concurrent sessions on the same file
@@ -131,7 +120,7 @@ export function spawnSession(opts: SpawnOptions): string {
     sessionId,
   })
 
-  const proc = pty.spawn(CLAUDE_BIN!, args, {
+  const proc = pty.spawn(provider.command, args, {
     name: 'xterm-color',
     cols: 80,
     rows: 24,
@@ -170,6 +159,8 @@ export function spawnSession(opts: SpawnOptions): string {
     } catch {}
   }
 
+  const detector = new RateLimitDetector(provider.type)
+
   ptyMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
   outputBuffer.set(sessionId, [])
@@ -181,6 +172,16 @@ export function spawnSession(opts: SpawnOptions): string {
     buf.push(...lines)
     if (buf.length > 100) buf.splice(0, buf.length - 100)
     outputBuffer.set(sessionId, buf)
+
+    if (detector.check(data)) {
+      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+      const clients = wsMap.get(sessionId) ?? new Set()
+      for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
+        }
+      }
+    }
 
     // Broadcast to connected clients
     const clients = wsMap.get(sessionId) ?? new Set()
@@ -364,9 +365,9 @@ export function spawnOrchestratorSession(opts: {
   projectId: string
   projectPath: string
 }): string {
-  if (!CLAUDE_BIN) throw new Error('Claude binary not found')
   const sessionId = randomUUID()
   const db = getDb()
+  const provider = resolveProvider(db, { projectId: opts.projectId })
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   // Import the actual MCP secret so orchestrator can authenticate
@@ -387,7 +388,7 @@ export function spawnOrchestratorSession(opts: {
     sessionId,
   })
 
-  const proc = pty.spawn(CLAUDE_BIN!, args, {
+  const proc = pty.spawn(provider.command, args, {
     name: 'xterm-color',
     cols: 80,
     rows: 24,
