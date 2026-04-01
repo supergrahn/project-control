@@ -21,14 +21,14 @@ export default function DevelopingPage() {
     { refreshInterval: 3000 }
   )
 
-  if (isLoading) return <div style={{ padding: 24, color: '#454c54' }}>Loading…</div>
+  if (isLoading) return <div className="p-6 text-text-secondary">Loading…</div>
 
   if (selectedTask) {
     return (
-      <div style={{ display: 'flex', height: '100%' }}>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <div style={{ padding: '16px 24px', borderBottom: '1px solid #1c1f22' }}>
-            <button onClick={() => setSelectedTask(null)} style={{ background: 'none', border: 'none', color: '#5a6370', cursor: 'pointer', fontSize: 12 }}>
+      <div className="flex h-full">
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 py-4 border-b border-border-default">
+            <button onClick={() => setSelectedTask(null)} className="bg-transparent border-none text-text-muted cursor-pointer text-xs">
               ← Developing
             </button>
           </div>
@@ -50,14 +50,14 @@ export default function DevelopingPage() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, marginBottom: 20 }}>⚙️ Developing</h1>
+    <div className="p-6">
+      <h1 className="text-text-primary text-base font-bold mb-5">⚙️ Developing</h1>
 
       {tasks.length === 0 && (
-        <div style={{ color: '#2e3338', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>No active development</div>
+        <div className="text-text-disabled text-sm text-center pt-10">No active development</div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
         {tasks.map(task => (
           <TaskCard key={task.id} task={task} onOpen={setSelectedTask} />
         ))}
