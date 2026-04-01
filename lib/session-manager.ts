@@ -64,7 +64,6 @@ export type SpawnOptions = {
   taskId?: string
   outputPath?: string
   agentId?: string
-  providerId?: string
 }
 
 export function isClaudeAvailable(): boolean {
@@ -404,6 +403,8 @@ export function spawnOrchestratorSession(opts: {
     sourceFile: null,
   })
 
+  const detector = new RateLimitDetector(provider.type)
+
   ptyMap.set(sessionId, proc)
   wsMap.set(sessionId, new Set())
   outputBuffer.set(sessionId, [])
@@ -413,9 +414,20 @@ export function spawnOrchestratorSession(opts: {
     buf.push(...data.split('\n'))
     if (buf.length > 100) buf.splice(0, buf.length - 100)
     outputBuffer.set(sessionId, buf)
+
+    if (detector.check(data)) {
+      db.prepare("UPDATE sessions SET status = 'paused' WHERE id = ?").run(sessionId)
+      const clients = wsMap.get(sessionId) ?? new Set()
+      for (const ws of clients) {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'rate_limit', provider: provider.name }))
+        }
+      }
+    }
+
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'output', data }))
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'output', data }))
     }
   })
 
@@ -425,7 +437,7 @@ export function spawnOrchestratorSession(opts: {
     outputBuffer.delete(sessionId)
     const clients = wsMap.get(sessionId) ?? new Set()
     for (const ws of clients) {
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'status', state: 'ended' }))
     }
     wsMap.delete(sessionId)
   })
