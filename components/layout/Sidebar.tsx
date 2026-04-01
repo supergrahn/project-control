@@ -99,6 +99,12 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           >
             Agents
           </NavItem>
+          <NavItem
+            href={`/projects/${projectId}/skills`}
+            active={pathname.startsWith(`/projects/${projectId}/skills`)}
+          >
+            Skills
+          </NavItem>
         </div>
 
         {/* Git info */}

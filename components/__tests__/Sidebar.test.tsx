@@ -1,5 +1,6 @@
 // components/__tests__/Sidebar.test.tsx
 import { render, screen, waitFor } from '@testing-library/react'
+import { vi } from 'vitest'
 import { Sidebar } from '../layout/Sidebar'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SWRConfig } from 'swr'
@@ -63,5 +64,11 @@ describe('Sidebar', () => {
     await waitFor(() => {
       expect(screen.getByText('TU')).toBeInTheDocument()
     })
+  })
+
+  it('renders Skills nav item linking to /projects/p1/skills', () => {
+    render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
+    const link = screen.getByRole('link', { name: /^skills$/i })
+    expect(link).toHaveAttribute('href', '/projects/p1/skills')
   })
 })
