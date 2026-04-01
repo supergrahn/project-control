@@ -117,13 +117,11 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
       aria-label="Start now"
       onClick={handleStartNow}
       disabled={hasProviders === false || loading || !title.trim()}
+      className="rounded-[6px] px-3.5 py-1.5 text-[12px] border"
       style={{
         background: '#0d1a2d',
         color: hasProviders !== false ? '#5b9bd5' : '#3a4550',
-        border: '1px solid #5b9bd522',
-        borderRadius: 6,
-        padding: '6px 14px',
-        fontSize: 12,
+        borderColor: '#5b9bd533',
         cursor: hasProviders !== false && title.trim() && !loading ? 'pointer' : 'not-allowed',
         opacity: hasProviders === false || !title.trim() || loading ? 0.5 : 1,
       }}
@@ -134,20 +132,14 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
 
   return (
     <div
-      style={{
-        position: 'fixed', inset: 0, background: '#00000088', display: 'flex',
-        alignItems: 'center', justifyContent: 'center', zIndex: 50,
-      }}
+      className="fixed inset-0 bg-black bg-opacity-[0.53] flex items-center justify-center z-50"
       onClick={onClose}
     >
       <div
-        style={{
-          background: '#0e1012', border: '1px solid #1c1f22', borderRadius: 10,
-          padding: 28, width: 560, maxWidth: '90vw',
-        }}
+        className="bg-bg-primary border border-border-default rounded-[10px] px-7 py-7 w-[560px] max-w-[90vw]"
         onClick={e => e.stopPropagation()}
       >
-        <div style={{ color: '#e2e6ea', fontSize: 15, fontWeight: 700, marginBottom: 16, fontFamily: 'system-ui' }}>
+        <div className="text-text-primary text-[15px] font-bold mb-4">
           New Task
         </div>
 
@@ -163,11 +155,7 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
             }
           }}
           placeholder="Task title"
-          style={{
-            width: '100%', background: '#141618', border: '1px solid #1c1f22',
-            borderRadius: 6, padding: '8px 10px', color: '#e2e6ea', fontSize: 13,
-            marginBottom: 10, boxSizing: 'border-box', fontFamily: 'system-ui',
-          }}
+          className="w-full bg-bg-secondary border border-border-default rounded-[6px] px-2.5 py-2 text-text-primary text-[13px] mb-2.5 box-border"
         />
 
         {/* Description */}
@@ -176,35 +164,24 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Description (optional)"
-          style={{
-            width: '100%', background: '#141618', border: '1px solid #1c1f22',
-            borderRadius: 6, padding: '8px 10px', color: '#8a9199', fontSize: 12,
-            minHeight: 80, resize: 'vertical', marginBottom: 16,
-            boxSizing: 'border-box', fontFamily: 'system-ui',
-          }}
+          className="w-full bg-bg-secondary border border-border-default rounded-[6px] px-2.5 py-2 text-text-secondary text-[12px] min-h-20 resize-vertical mb-4 box-border"
         />
 
         {/* Priority */}
-        <div style={{ color: '#5a6370', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+        <div className="text-text-muted text-[10px] uppercase tracking-[0.04em] mb-1">
           Priority
         </div>
-        <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+        <div className="flex gap-1 mb-4">
           {PRIORITIES.map(p => {
             const isActive = priority === p
             return (
               <button
                 key={p}
                 onClick={() => setPriority(p)}
+                className="flex-1 rounded-[5px] px-0 py-1 text-[10px] cursor-pointer border-none"
                 style={{
-                  flex: 1,
                   background: isActive ? PRIORITY_COLORS[p] : '#1a1d20',
                   color: isActive ? '#fff' : '#8a9199',
-                  border: 'none',
-                  borderRadius: 5,
-                  padding: '4px 0',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  fontFamily: 'system-ui, sans-serif',
                 }}
               >
                 {p}
@@ -214,27 +191,20 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
         </div>
 
         {/* Labels */}
-        <div style={{ color: '#5a6370', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+        <div className="text-text-muted text-[10px] uppercase tracking-[0.04em] mb-1">
           Labels
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+        <div className="flex flex-wrap gap-1 mb-1.5">
           {labels.map((label, i) => (
             <span
               key={i}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 3,
-                background: '#1a1d20', color: '#8a9199', borderRadius: 4,
-                padding: '2px 6px', fontSize: 11,
-              }}
+              className="inline-flex items-center gap-0.75 bg-bg-tertiary text-text-secondary rounded px-1.5 py-0.5 text-[11px]"
             >
               {label}
               <button
                 aria-label="×"
                 onClick={() => handleLabelRemove(i)}
-                style={{
-                  background: 'none', border: 'none', color: '#5a6370',
-                  cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1,
-                }}
+                className="bg-none border-none text-text-muted cursor-pointer px-0 py-0 text-[12px] leading-none"
               >
                 ×
               </button>
@@ -246,22 +216,15 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
           onChange={e => setLabelInput(e.target.value)}
           onKeyDown={handleLabelKeyDown}
           placeholder="Add label…"
-          style={{
-            width: '100%', background: '#1a1d20', color: '#e2e6ea',
-            border: '1px solid #2e3338', borderRadius: 6, padding: '5px 8px',
-            fontSize: 12, boxSizing: 'border-box', marginBottom: 16,
-          }}
+          className="w-full bg-bg-tertiary text-text-primary border border-text-disabled rounded-[6px] px-2 py-1 text-[12px] box-border mb-4"
         />
 
         {/* Footer */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            style={{
-              background: '#141618', color: '#5a6370', border: '1px solid #1c1f22',
-              borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
-            }}
+            className="bg-bg-secondary text-text-muted border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer"
           >
             Cancel
           </button>
@@ -269,9 +232,12 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
             aria-label="Save"
             onClick={handleSave}
             disabled={!title.trim() || loading}
+            className="rounded-[6px] px-3.5 py-1.5 text-[12px] border"
             style={{
-              background: '#1a2530', color: '#5b9bd5', border: '1px solid #5b9bd522',
-              borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer',
+              background: '#1a2530',
+              color: '#5b9bd5',
+              borderColor: '#5b9bd533',
+              cursor: 'pointer',
               opacity: !title.trim() || loading ? 0.5 : 1,
             }}
           >

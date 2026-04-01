@@ -49,36 +49,31 @@ export default function AgentDetailPage() {
   const { data: agent } = useSWR<Agent>(`/api/agents/${agentId}`, fetcher)
 
   return (
-    <div style={{ background: '#0d0e10', minHeight: '100%', padding: '28px 32px', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ color: '#454c54', fontSize: 11, marginBottom: 12 }}>
+    <div className="bg-blue-950 min-h-full py-7 px-8">
+      <div className="text-text-faint text-xs mb-3">
         {projectId} / agents / {agentId}
       </div>
 
-      <h1 style={{ color: '#e2e6ea', fontSize: 18, fontWeight: 700, margin: '0 0 20px' }}>
+      <h1 className="text-text-primary text-lg font-bold m-0 mb-5">
         {agent?.name ?? '…'}
         {agent?.title && (
-          <span style={{ color: '#8a9199', fontSize: 13, fontWeight: 400, marginLeft: 10 }}>
+          <span className="text-text-secondary text-xs font-normal ml-2.5">
             {agent.title}
           </span>
         )}
       </h1>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 24 }}>
+      <div className="flex gap-1 mb-6">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            style={{
-              background: tab === t.key ? '#1e2124' : 'none',
-              color: tab === t.key ? '#e2e6ea' : '#8a9199',
-              border: 'none',
-              borderRadius: 6,
-              padding: '6px 14px',
-              fontSize: 13,
-              cursor: 'pointer',
-              fontWeight: tab === t.key ? 600 : 400,
-            }}
+            className={`rounded-md px-3.5 py-1.5 text-xs cursor-pointer border-0 ${
+              tab === t.key
+                ? 'bg-border-subtle text-text-primary font-semibold'
+                : 'bg-transparent text-text-secondary font-normal hover:text-text-primary'
+            }`}
           >
             {t.label}
           </button>
@@ -95,31 +90,23 @@ export default function AgentDetailPage() {
 }
 
 function DashboardTab({ agent }: { agent: Agent }) {
-  const statusStyles: Record<string, React.CSSProperties> = {
-    idle:    { background: '#1e2124', color: '#8a9199' },
-    running: { background: '#0d1f13', color: '#3a8c5c' },
-    paused:  { background: '#1f1608', color: '#c97e2a' },
+  const statusStyles: Record<string, { bg: string; text: string }> = {
+    idle:    { bg: 'bg-border-subtle', text: 'text-text-secondary' },
+    running: { bg: 'bg-green-900', text: 'text-accent-green' },
+    paused:  { bg: 'bg-orange-900', text: 'text-accent-orange' },
   }
   const style = statusStyles[agent.status] ?? statusStyles.idle
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <span style={{ ...style, borderRadius: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600 }}>
+      <div className="flex items-center gap-3 mb-5">
+        <span className={`${style.bg} ${style.text} rounded-md px-2.5 py-1 text-xs font-semibold`}>
           {agent.status}
         </span>
       </div>
       <button
         disabled
-        style={{
-          background: '#1e2124',
-          color: '#454c54',
-          border: 'none',
-          borderRadius: 6,
-          padding: '7px 14px',
-          fontSize: 13,
-          cursor: 'not-allowed',
-        }}
+        className="bg-border-subtle text-text-faint border-0 rounded-md px-3.5 py-1.75 text-xs cursor-not-allowed"
       >
         Run heartbeat — Coming soon
       </button>
@@ -152,45 +139,23 @@ function InstructionsTab({ agentId }: { agentId: string }) {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  if (!loaded) return <div style={{ color: '#454c54', fontSize: 13 }}>Loading…</div>
+  if (!loaded) return <div className="text-text-faint text-sm">Loading…</div>
 
   return (
     <div>
       <textarea
         value={content}
         onChange={e => setContent(e.target.value)}
-        style={{
-          fontFamily: 'monospace',
-          fontSize: 13,
-          background: '#0a0c0e',
-          color: '#c8d0da',
-          width: '100%',
-          minHeight: 400,
-          resize: 'vertical',
-          border: '1px solid #1c1f22',
-          borderRadius: 6,
-          padding: '10px 12px',
-          outline: 'none',
-          boxSizing: 'border-box',
-          marginBottom: 12,
-        }}
+        className="font-mono text-sm bg-black text-gray-300 w-full min-h-96 resize-vertical border border-border-default rounded-md p-3 outline-none box-border mb-3"
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="flex items-center gap-3">
         <button
           onClick={handleSave}
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '7px 14px',
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
+          className="bg-blue-600 text-white border-0 rounded-md px-3.5 py-1.75 text-xs cursor-pointer hover:bg-blue-700"
         >
           Save
         </button>
-        {saved && <span style={{ color: '#3a8c5c', fontSize: 13 }}>Saved</span>}
+        {saved && <span className="text-accent-green text-sm">Saved</span>}
       </div>
     </div>
   )

@@ -59,81 +59,49 @@ export function CreateAgentModal({ projectId, onCreated, onClose }: Props) {
   return (
     <div
       onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: '#00000088',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 50,
-      }}
+      className="fixed inset-0 bg-black bg-opacity-53 flex items-center justify-center z-50"
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{
-          background: '#0e1012',
-          border: '1px solid #1c1f22',
-          borderRadius: 10,
-          padding: 28,
-          width: 480,
-        }}
+        className="bg-bg-primary border border-border-default rounded-card p-7 w-96"
       >
-        <h2 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 600, color: '#e8eaed' }}>
+        <h2 className="m-0 mb-5 text-base font-semibold text-gray-100">
           New Agent
         </h2>
 
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="agent-name" style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#8a9199' }}>
+        <div className="mb-4">
+          <label htmlFor="agent-name" className="block mb-1.5 text-xs font-normal text-text-secondary">
             Name
           </label>
           <input
             id="agent-name"
             value={name}
             onChange={e => setName(e.target.value)}
-            style={{
-              width: '100%',
-              background: '#161a1d',
-              border: '1px solid #1c1f22',
-              borderRadius: 6,
-              padding: '8px 10px',
-              color: '#e8eaed',
-              fontSize: 14,
-              boxSizing: 'border-box',
-            }}
+            className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none"
           />
           {error && (
-            <p style={{ margin: '6px 0 0', fontSize: 12, color: '#e05252' }}>{error}</p>
+            <p className="m-0 mt-1.5 text-xs text-red-400">{error}</p>
           )}
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="agent-title" style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#8a9199' }}>
+        <div className="mb-4">
+          <label htmlFor="agent-title" className="block mb-1.5 text-xs font-normal text-text-secondary">
             Title
           </label>
           <input
             id="agent-title"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            style={{
-              width: '100%',
-              background: '#161a1d',
-              border: '1px solid #1c1f22',
-              borderRadius: 6,
-              padding: '8px 10px',
-              color: '#e8eaed',
-              fontSize: 14,
-              boxSizing: 'border-box',
-            }}
+            className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none"
           />
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label htmlFor="agent-provider" style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#8a9199' }}>
+        <div className="mb-4">
+          <label htmlFor="agent-provider" className="block mb-1.5 text-xs font-normal text-text-secondary">
             Provider
           </label>
           {providers.length === 0 ? (
-            <p style={{ margin: 0, fontSize: 13, color: '#8a9199' }}>
+            <p className="m-0 text-xs text-text-secondary">
               No providers configured
             </p>
           ) : (
@@ -141,16 +109,7 @@ export function CreateAgentModal({ projectId, onCreated, onClose }: Props) {
               id="agent-provider"
               value={providerId}
               onChange={e => setProviderId(e.target.value)}
-              style={{
-                width: '100%',
-                background: '#161a1d',
-                border: '1px solid #1c1f22',
-                borderRadius: 6,
-                padding: '8px 10px',
-                color: '#e8eaed',
-                fontSize: 14,
-                boxSizing: 'border-box',
-              }}
+              className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none"
             >
               <option value="">— None —</option>
               {providers.map(p => (
@@ -160,8 +119,8 @@ export function CreateAgentModal({ projectId, onCreated, onClose }: Props) {
           )}
         </div>
 
-        <div style={{ marginBottom: 24 }}>
-          <label htmlFor="agent-model" style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#8a9199' }}>
+        <div className="mb-6">
+          <label htmlFor="agent-model" className="block mb-1.5 text-xs font-normal text-text-secondary">
             Model
           </label>
           <input
@@ -169,47 +128,21 @@ export function CreateAgentModal({ projectId, onCreated, onClose }: Props) {
             value={model}
             onChange={e => setModel(e.target.value)}
             placeholder="Provider default"
-            style={{
-              width: '100%',
-              background: '#161a1d',
-              border: '1px solid #1c1f22',
-              borderRadius: 6,
-              padding: '8px 10px',
-              color: '#e8eaed',
-              fontSize: 14,
-              boxSizing: 'border-box',
-            }}
+            className="w-full bg-gray-700 border border-border-default rounded-md px-2.5 py-2 text-gray-100 text-sm box-border outline-none"
           />
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+        <div className="flex justify-end gap-2.5">
           <button
             onClick={onClose}
-            style={{
-              background: 'transparent',
-              border: '1px solid #1c1f22',
-              borderRadius: 6,
-              padding: '8px 16px',
-              color: '#8a9199',
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
+            className="bg-transparent border border-border-default rounded-md px-4 py-2 text-text-secondary text-xs cursor-pointer hover:border-border-hover"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={loading}
-            style={{
-              background: '#2563eb',
-              border: 'none',
-              borderRadius: 6,
-              padding: '8px 16px',
-              color: '#fff',
-              fontSize: 13,
-              cursor: loading ? 'not-allowed' : 'pointer',
-              opacity: loading ? 0.7 : 1,
-            }}
+            className="bg-blue-600 border-0 rounded-md px-4 py-2 text-white text-xs cursor-pointer hover:bg-blue-700 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             Create
           </button>

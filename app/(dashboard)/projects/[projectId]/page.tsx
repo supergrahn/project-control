@@ -22,33 +22,28 @@ export default function DashboardPage() {
   // Tasks that are not done — shown in Waiting grid
   const waitingTasks = tasks.filter(t => t.status !== 'done')
 
-  const headingStyle: React.CSSProperties = {
-    color: '#8a9199', fontSize: 11, fontWeight: 600,
-    textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14,
-  }
-
   return (
-    <div style={{ display: 'flex', height: '100%', gap: 0, margin: -24 }}>
+    <div className="flex h-full gap-0 -m-6">
       {/* Main content */}
-      <div style={{ flex: 1, padding: 24, overflowY: 'auto' }}>
+      <div className="flex-1 p-6 overflow-y-auto">
 
         {/* Live Sessions */}
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-            <div style={headingStyle}>Live Sessions</div>
+        <div className="mb-8">
+          <div className="flex items-center gap-2.5 mb-3.5">
+            <div className="text-text-secondary text-xs font-semibold uppercase tracking-wide">Live Sessions</div>
             {activeSessions.length > 0 && (
-              <span style={{ background: '#3a8c5c', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600 }}>
+              <span className="bg-accent-green text-white rounded-pill py-0.25 px-1.75 text-xs font-semibold">
                 {activeSessions.length}
               </span>
             )}
           </div>
 
           {activeSessions.length === 0 ? (
-            <div style={{ color: '#5a6370', fontSize: 14, padding: '24px 0' }}>
+            <div className="text-text-muted text-base py-6">
               No active sessions — start one from the pipeline pages.
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+            <div className="grid grid-cols-auto-fill gap-3.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}>
               {activeSessions.map(session => {
                 const sessionFeed = feed.filter(e => e.sessionId === session.id)
                 return (
@@ -68,17 +63,14 @@ export default function DashboardPage() {
         {/* Waiting tasks */}
         {waitingTasks.length > 0 && (
           <div>
-            <div style={headingStyle}>Waiting</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
+            <div className="text-text-secondary text-xs font-semibold uppercase tracking-wide mb-3.5">Waiting</div>
+            <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
               {waitingTasks.map(task => (
-                <div key={task.id} style={{
-                  background: '#141618', border: '1px solid #1e2124', borderRadius: 8,
-                  padding: '12px 14px', fontFamily: 'system-ui, sans-serif',
-                }}>
-                  <div style={{ color: '#c8ced6', fontSize: 13, fontWeight: 600, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div key={task.id} className="bg-bg-secondary border border-border-subtle rounded-lg px-3.5 py-3">
+                  <div className="text-gray-300 text-sm font-semibold mb-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
                     {task.title}
                   </div>
-                  <div style={{ color: '#454c54', fontSize: 11 }}>{task.status}</div>
+                  <div className="text-text-faint text-xs">{task.status}</div>
                 </div>
               ))}
             </div>

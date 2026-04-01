@@ -32,27 +32,27 @@ export function ActivityPanel({ tasks, feed }: Props) {
   const actions = deriveActions(tasks)
   const sortedFeed = [...feed].reverse()
 
-  const panel: React.CSSProperties = {
-    width: 248, flexShrink: 0, background: '#0c0e10',
-    borderLeft: '1px solid #1c1f22', display: 'flex', flexDirection: 'column',
-    height: '100%', overflow: 'hidden', fontFamily: 'system-ui, sans-serif',
-  }
-
   return (
-    <div style={panel}>
+    <div className="w-62 flex-shrink-0 bg-bg-base border-l border-border-default flex flex-col h-full overflow-hidden">
       {/* Actions Required */}
-      <div style={{ padding: '14px 14px 8px', borderBottom: '1px solid #1c1f22', flexShrink: 0 }}>
-        <div style={{ color: '#8a9199', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+      <div className="px-3.5 py-3.5 pb-2 border-b border-border-default flex-shrink-0">
+        <div className="text-text-secondary text-xs font-semibold uppercase tracking-wide mb-2.5">
           Actions Required
         </div>
         {actions.length === 0 ? (
-          <div style={{ color: '#2e3338', fontSize: 12 }}>No actions required</div>
+          <div className="text-text-disabled text-sm">No actions required</div>
         ) : (
           actions.map(a => (
-            <Link key={a.taskId} href={a.href} style={{ textDecoration: 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6, background: '#141618', border: '1px solid #1e2124', marginBottom: 6, cursor: 'pointer' }}>
-                <span style={{ color: '#c8ced6', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{a.title}</span>
-                <span style={{ background: a.tagColor + '22', color: a.tagColor, borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 600, flexShrink: 0, marginLeft: 6 }}>
+            <Link key={a.taskId} href={a.href} className="no-underline">
+              <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-bg-secondary border border-border-subtle mb-1.5 cursor-pointer hover:border-border-hover">
+                <span className="text-gray-300 text-sm overflow-hidden text-ellipsis whitespace-nowrap flex-1">{a.title}</span>
+                <span
+                  className="rounded text-xs font-semibold flex-shrink-0 ml-1.5 px-1.5 py-0.5"
+                  style={{
+                    background: a.tagColor + '22',
+                    color: a.tagColor,
+                  }}
+                >
                   {a.tag}
                 </span>
               </div>
@@ -62,29 +62,25 @@ export function ActivityPanel({ tasks, feed }: Props) {
       </div>
 
       {/* Live Feed */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
-        <div style={{ color: '#8a9199', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>
+      <div className="flex-1 overflow-y-auto p-3.5">
+        <div className="text-text-secondary text-xs font-semibold uppercase tracking-wide mb-2.5">
           Live Feed
         </div>
         {sortedFeed.length === 0 ? (
-          <div style={{ color: '#2e3338', fontSize: 12 }}>No activity yet</div>
+          <div className="text-text-disabled text-sm">No activity yet</div>
         ) : (
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          <ul className="list-none m-0 p-0">
             {sortedFeed.slice(0, 100).map(entry => {
               const initials = PHASE_INITIALS[entry.phase] ?? entry.phase.slice(0, 2).toUpperCase()
               const age = formatAge(entry.timestamp)
               return (
-                <li key={entry.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
-                  <div style={{
-                    width: 20, height: 20, borderRadius: '50%', background: '#1a2530', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#5b9bd5', fontSize: 8, fontWeight: 700,
-                  }}>
+                <li key={entry.id} className="flex gap-2 items-start mb-2">
+                  <div className="w-5 h-5 rounded-full bg-blue-900 flex-shrink-0 flex items-center justify-center text-accent-blue text-xs font-bold">
                     {initials}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#5a6370', fontSize: 10, marginBottom: 2 }}>{age}</div>
-                    <div style={{ color: '#8a9199', fontSize: 11, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-text-muted text-xs mb-0.5">{age}</div>
+                    <div className="text-text-secondary text-xs font-mono overflow-hidden text-ellipsis whitespace-nowrap">
                       {entry.text}
                     </div>
                   </div>

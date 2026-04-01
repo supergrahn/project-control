@@ -49,78 +49,61 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
   return (
     <div
       onClick={() => onOpen(task)}
+      className="bg-bg-primary rounded-[10px] p-[14px] cursor-pointer"
       style={{
-        background: '#0e1012',
         border: `1px solid ${isLive ? config.color + '44' : '#1c1f22'}`,
-        borderRadius: 10,
-        padding: 14,
-        cursor: 'pointer',
-        fontFamily: 'system-ui, sans-serif',
       }}
     >
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 6, background: config.bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
+      <div className="flex justify-between items-center mb-[10px]">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-[6px] flex items-center justify-center text-[14px]" style={{ background: config.bgColor }}>
             {config.icon}
           </div>
-          <span style={{ color: '#8a9199', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <span className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.5px]">
             {config.label}
           </span>
           {isLive && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: config.color + '22', padding: '2px 7px', borderRadius: 20 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: config.color, display: 'inline-block' }} />
-              <span style={{ color: config.color, fontSize: 10 }}>Live</span>
+            <span className="flex items-center gap-1 px-[7px] py-0.5 rounded-full" style={{ background: config.color + '22' }}>
+              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: config.color }} />
+              <span className="text-[10px]" style={{ color: config.color }}>Live</span>
             </span>
           )}
         </div>
-        <span style={{ color: '#454c54', fontSize: 10 }}>{relativeDate}</span>
+        <span className="text-text-faint text-[10px]">{relativeDate}</span>
       </div>
 
       {/* Title */}
-      <div style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600, marginBottom: 8, lineHeight: 1.4 }}>
+      <div className="text-text-primary text-[13px] font-semibold mb-2 leading-[1.4]">
         {task.title.charAt(0).toUpperCase() + task.title.slice(1)}
       </div>
 
       {/* Priority chip */}
-      <span style={{
-        fontSize: 9,
-        fontWeight: 600,
-        textTransform: 'uppercase' as const,
-        letterSpacing: 0.5,
-        color: PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5',
-        background: (PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5') + '18',
-        border: `1px solid ${(PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5')}33`,
-        borderRadius: 3,
-        padding: '1px 4px',
-        display: 'inline-block',
-        marginTop: 3,
-      }}>
+      <span className="text-[9px] font-semibold uppercase tracking-[0.5px] inline-block rounded-[3px] border px-1 py-0.5 mt-0.5"
+        style={{
+          color: PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5',
+          background: (PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5') + '18',
+          borderColor: (PRIORITY_COLORS[task.priority ?? 'medium'] ?? '#5b9bd5') + '33',
+        }}>
         {task.priority ?? 'medium'}
       </span>
 
       {/* Last Action */}
-      <div style={{
+      <div className="mb-3 rounded-r-[4px]" style={{
         background: config.bgColor,
         borderLeft: `2px solid ${config.color}`,
         padding: '6px 8px',
-        borderRadius: '0 4px 4px 0',
-        marginBottom: 12,
-        fontFamily: 'monospace',
       }}>
-        <div style={{ color: '#454c54', fontSize: 10, marginBottom: 3 }}>LAST ACTION</div>
-        <div style={{ color: lastAction ? config.color : '#454c54', fontSize: 11 }}>
+        <div className="text-text-faint text-[10px] mb-0.5">LAST ACTION</div>
+        <div className="text-[11px] font-mono" style={{ color: lastAction ? config.color : '#454c54' }}>
           {lastAction ?? 'No actions yet'}
         </div>
       </div>
 
       {/* Phase bar */}
-      <div style={{ display: 'flex', gap: 3, marginBottom: 12 }}>
+      <div className="flex gap-0.5 mb-3">
         {STATUS_ORDER.map((s, i) => (
-          <div key={s} style={{
-            height: 3,
-            flex: 1,
-            borderRadius: 2,
+          <div key={s} className="flex-1 h-[3px] rounded-[2px]" style={{
             background: i <= currentIndex
               ? (i === currentIndex ? config.color : '#3a8c5c')
               : '#1c1f22',
@@ -130,37 +113,29 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
       </div>
 
       {/* Action button */}
-      <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+      <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
         {nextAction && (
           <button
             onClick={() => onAction?.(task, nextAction)}
+            className="flex-1 border rounded-[6px] px-0 py-1 text-[11px] cursor-pointer"
             style={{
-              flex: 1,
               background: config.bgColor,
               color: config.color,
-              border: `1px solid ${config.color}33`,
-              borderRadius: 6,
-              padding: '5px 0',
-              fontSize: 11,
-              cursor: 'pointer',
+              borderColor: config.color + '33',
             }}
           >
             {nextAction}
           </button>
         )}
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           <button
             onClick={() => setMenuOpen(v => !v)}
-            style={{ background: '#141618', color: '#5a6370', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, cursor: 'pointer' }}
+            className="bg-bg-secondary text-text-muted border-none rounded-[6px] px-2 py-1 text-[11px] cursor-pointer"
           >
             ···
           </button>
           {menuOpen && (
-            <div style={{
-              position: 'absolute', bottom: '100%', right: 0, marginBottom: 4,
-              background: '#1c1f22', border: '1px solid #2e3338', borderRadius: 6,
-              overflow: 'hidden', zIndex: 10, minWidth: 140,
-            }}>
+            <div className="absolute bottom-full right-0 mb-1 bg-border-default border border-text-disabled rounded-[6px] overflow-hidden z-10 min-w-[140px]">
               <button
                 onClick={() => {
                   setMenuOpen(false)
@@ -168,10 +143,7 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
                     deleteTask(task.id, task.project_id)
                   }
                 }}
-                style={{
-                  display: 'block', width: '100%', padding: '8px 12px', background: 'none',
-                  border: 'none', color: '#c04040', fontSize: 12, textAlign: 'left', cursor: 'pointer',
-                }}
+                className="block w-full px-3 py-2 bg-none border-none text-accent-red text-[12px] text-left cursor-pointer"
               >
                 Remove from system
               </button>

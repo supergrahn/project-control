@@ -12,14 +12,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 const PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
 
-const sectionLabel: React.CSSProperties = {
-  color: '#5a6370',
-  fontSize: 10,
-  textTransform: 'uppercase' as const,
-  letterSpacing: 1,
-  marginBottom: 4,
-  marginTop: 16,
-}
+const sectionLabelClass = 'text-text-muted text-[10px] uppercase tracking-[0.04em] mb-1 mt-4'
 
 export function PropertiesPanel({ task }: { task: Task }) {
   const [labels, setLabels] = useState<string[]>(() => {
@@ -85,30 +78,13 @@ export function PropertiesPanel({ task }: { task: Task }) {
     new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
 
   return (
-    <div style={{
-      width: 260,
-      flexShrink: 0,
-      borderLeft: '1px solid #1e2124',
-      padding: '20px 16px',
-      overflowY: 'auto' as const,
-      fontFamily: 'system-ui, sans-serif',
-      background: '#0d0e10',
-    }}>
+    <div className="w-64 flex-shrink-0 border-l border-border-subtle px-4 py-5 overflow-y-auto bg-bg-base">
       {/* Status */}
-      <div style={sectionLabel}>Status</div>
+      <div className={sectionLabelClass}>Status</div>
       <select
         value={task.status}
         onChange={e => handleStatusChange(e.target.value)}
-        style={{
-          width: '100%',
-          background: '#1a1d20',
-          color: '#e2e6ea',
-          border: '1px solid #2e3338',
-          borderRadius: 6,
-          padding: '5px 8px',
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
+        className="w-full bg-bg-tertiary text-text-primary border border-text-disabled rounded-[6px] px-2 py-1 text-[12px] cursor-pointer"
       >
         <option value="idea">idea</option>
         <option value="speccing">speccing</option>
@@ -118,24 +94,18 @@ export function PropertiesPanel({ task }: { task: Task }) {
       </select>
 
       {/* Priority */}
-      <div style={sectionLabel}>Priority</div>
-      <div style={{ display: 'flex', gap: 4 }}>
+      <div className={sectionLabelClass}>Priority</div>
+      <div className="flex gap-1">
         {PRIORITIES.map(p => {
           const isActive = task.priority === p
           return (
             <button
               key={p}
               onClick={() => handlePriorityClick(p)}
+              className="flex-1 rounded-[5px] px-0 py-1 text-[10px] cursor-pointer border-none"
               style={{
-                flex: 1,
                 background: isActive ? PRIORITY_COLORS[p] : '#1a1d20',
                 color: isActive ? '#fff' : '#8a9199',
-                border: 'none',
-                borderRadius: 5,
-                padding: '4px 0',
-                fontSize: 10,
-                cursor: 'pointer',
-                fontFamily: 'system-ui, sans-serif',
               }}
             >
               {p}
@@ -145,35 +115,18 @@ export function PropertiesPanel({ task }: { task: Task }) {
       </div>
 
       {/* Labels */}
-      <div style={sectionLabel}>Labels</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+      <div className={sectionLabelClass}>Labels</div>
+      <div className="flex flex-wrap gap-1 mb-1.5">
         {labels.map((label, i) => (
           <span
             key={i}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 3,
-              background: '#1a1d20',
-              color: '#8a9199',
-              borderRadius: 4,
-              padding: '2px 6px',
-              fontSize: 11,
-            }}
+            className="inline-flex items-center gap-0.75 bg-bg-tertiary text-text-secondary rounded px-1.5 py-0.5 text-[11px]"
           >
             {label}
             <button
               aria-label="×"
               onClick={() => handleLabelRemove(i)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#5a6370',
-                cursor: 'pointer',
-                padding: 0,
-                fontSize: 12,
-                lineHeight: 1,
-              }}
+              className="bg-none border-none text-text-muted cursor-pointer px-0 py-0 text-[12px] leading-none"
             >
               ×
             </button>
@@ -184,33 +137,15 @@ export function PropertiesPanel({ task }: { task: Task }) {
         ref={labelInputRef}
         placeholder="Add label…"
         onKeyDown={handleLabelKeyDown}
-        style={{
-          width: '100%',
-          background: '#1a1d20',
-          color: '#e2e6ea',
-          border: '1px solid #2e3338',
-          borderRadius: 6,
-          padding: '5px 8px',
-          fontSize: 12,
-          boxSizing: 'border-box',
-        }}
+        className="w-full bg-bg-tertiary text-text-primary border border-text-disabled rounded-[6px] px-2 py-1 text-[12px] box-border"
       />
 
       {/* Assignee */}
-      <div style={sectionLabel}>Assignee</div>
+      <div className={sectionLabelClass}>Assignee</div>
       <select
         value={task.assignee_agent_id ?? ''}
         onChange={e => handleAssigneeChange(e.target.value)}
-        style={{
-          width: '100%',
-          background: '#1a1d20',
-          color: '#e2e6ea',
-          border: '1px solid #2e3338',
-          borderRadius: 6,
-          padding: '5px 8px',
-          fontSize: 12,
-          cursor: 'pointer',
-        }}
+        className="w-full bg-bg-tertiary text-text-primary border border-text-disabled rounded-[6px] px-2 py-1 text-[12px] cursor-pointer"
       >
         {agents.length === 0 ? (
           <option disabled value="">No agents configured yet</option>
@@ -225,11 +160,11 @@ export function PropertiesPanel({ task }: { task: Task }) {
       </select>
 
       {/* Dates */}
-      <div style={sectionLabel}>Created</div>
-      <div style={{ color: '#8a9199', fontSize: 12 }}>{formatDate(task.created_at)}</div>
+      <div className={sectionLabelClass}>Created</div>
+      <div className="text-text-secondary text-[12px]">{formatDate(task.created_at)}</div>
 
-      <div style={sectionLabel}>Updated</div>
-      <div style={{ color: '#8a9199', fontSize: 12 }}>{formatDate(task.updated_at)}</div>
+      <div className={sectionLabelClass}>Updated</div>
+      <div className="text-text-secondary text-[12px]">{formatDate(task.updated_at)}</div>
     </div>
   )
 }

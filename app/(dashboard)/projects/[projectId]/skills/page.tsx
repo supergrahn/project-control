@@ -7,12 +7,6 @@ function generateKey(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
-const S = {
-  bg: '#0d0e10', surface: '#141618', border: '#1e2124',
-  muted: '#8a9199', primary: '#5b9bd5', danger: '#c04040',
-  text: '#e2e6ea', dim: '#5a6370',
-}
-
 export default function SkillsPage() {
   const { projectId } = useParams() as { projectId: string }
   const [skills, setSkills] = useState<Skill[]>([])
@@ -97,24 +91,24 @@ export default function SkillsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100%', background: S.bg, fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex h-full bg-bg-primary font-sans">
       {/* Left panel */}
-      <div style={{ width: 240, flexShrink: 0, borderRight: `1px solid ${S.border}`, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 8px', borderBottom: `1px solid ${S.border}` }}>
+      <div className="w-60 flex-shrink-0 border-r border-border-subtle flex flex-col">
+        <div className="flex items-center gap-1.5 p-2 border-b border-border-subtle">
           <input
             value={filter}
             onChange={e => setFilter(e.target.value)}
             placeholder="Filter skills…"
-            style={{ flex: 1, background: S.surface, border: `1px solid ${S.border}`, color: S.text, fontSize: 12, borderRadius: 4, padding: '4px 8px', outline: 'none' }}
+            className="flex-1 bg-bg-secondary border border-border-subtle text-text-primary text-xs rounded px-2 py-1 outline-none"
           />
           <button
             onClick={() => setCreating(true)}
-            style={{ background: 'none', border: 'none', color: S.primary, fontSize: 18, cursor: 'pointer', lineHeight: 1, padding: '0 2px' }}
+            className="bg-none border-none text-accent-blue text-lg cursor-pointer leading-none p-0.5"
           >+</button>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="flex-1 overflow-y-auto">
           {creating && (
-            <div style={{ padding: 8, borderBottom: `1px solid ${S.border}` }}>
+            <div className="p-2 border-b border-border-subtle">
               <input
                 ref={nameInputRef}
                 value={newName}
@@ -124,12 +118,12 @@ export default function SkillsPage() {
                   if (e.key === 'Escape') handleCreateCancel()
                 }}
                 placeholder="Skill name"
-                style={{ width: '100%', background: S.surface, border: `1px solid ${S.primary}`, color: S.text, fontSize: 12, borderRadius: 4, padding: '4px 8px', boxSizing: 'border-box', outline: 'none' }}
+                className="w-full bg-bg-secondary border border-accent-blue text-text-primary text-xs rounded px-2 py-1 box-border outline-none"
               />
               <input
                 value={newKey}
                 onChange={e => { setNewKey(e.target.value); setKeyEdited(true) }}
-                style={{ width: '100%', marginTop: 4, background: S.surface, border: `1px solid ${S.border}`, color: S.muted, fontFamily: 'monospace', fontSize: 11, borderRadius: 4, padding: '4px 8px', boxSizing: 'border-box', outline: 'none' }}
+                className="w-full mt-1 bg-bg-secondary border border-border-subtle text-text-secondary font-mono text-xs rounded px-2 py-1 box-border outline-none"
               />
             </div>
           )}
@@ -137,34 +131,34 @@ export default function SkillsPage() {
             <div
               key={s.id}
               onClick={() => setSelectedId(s.id)}
-              style={{ padding: '8px 10px', cursor: 'pointer', borderBottom: `1px solid ${S.border}`, background: s.id === selectedId ? '#1a2530' : 'none' }}
+              className={`p-2 cursor-pointer border-b border-border-subtle ${s.id === selectedId ? 'bg-bg-tertiary' : ''}`}
             >
-              <div style={{ color: S.text, fontSize: 13 }}>{s.name}</div>
-              <div style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{s.key}</div>
+              <div className="text-text-primary text-sm">{s.name}</div>
+              <div className="text-text-secondary text-xs font-mono">{s.key}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Right panel */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: 24, display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col">
         {!selectedSkill ? (
-          <div style={{ color: S.muted, fontSize: 13, margin: 'auto' }}>Select a skill to view or edit it.</div>
+          <div className="text-text-secondary text-sm m-auto">Select a skill to view or edit it.</div>
         ) : (
           <>
-            <h2 style={{ color: S.text, fontSize: 16, fontWeight: 600, margin: '0 0 4px' }}>{selectedSkill.name}</h2>
-            <span style={{ color: S.muted, fontSize: 12, fontFamily: 'monospace', display: 'block', marginBottom: 16 }}>{selectedSkill.key}</span>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            <h2 className="text-text-primary text-base font-semibold m-0 mb-1">{selectedSkill.name}</h2>
+            <span className="text-text-secondary text-xs font-mono block mb-4">{selectedSkill.key}</span>
+            <div className="flex gap-1.5 mb-4">
               {(['view', 'code'] as const).map(m => (
-                <button key={m} onClick={() => setViewMode(m)} style={{
-                  background: 'none', borderRadius: 5, padding: '4px 12px', fontSize: 12, cursor: 'pointer', textTransform: 'capitalize',
-                  border: viewMode === m ? `1px solid ${S.primary}` : `1px solid ${S.border}`,
-                  color: viewMode === m ? S.primary : S.muted,
-                }}>{m}</button>
+                <button key={m} onClick={() => setViewMode(m)} className={`bg-none rounded px-3 py-1 text-xs cursor-pointer capitalize border transition-colors ${
+                  viewMode === m
+                    ? 'border-accent-blue text-accent-blue'
+                    : 'border-border-subtle text-text-secondary hover:bg-bg-tertiary'
+                }`}>{m}</button>
               ))}
             </div>
             {viewMode === 'view' ? (
-              <pre style={{ whiteSpace: 'pre-wrap', color: '#c9d1d9', fontFamily: 'inherit', fontSize: 13, lineHeight: 1.6, margin: 0, flex: 1 }}>
+              <pre className="whitespace-pre-wrap text-text-primary font-inherit text-sm leading-relaxed m-0 flex-1">
                 {selectedContent ?? ''}
               </pre>
             ) : (
@@ -172,17 +166,17 @@ export default function SkillsPage() {
                 <textarea
                   value={editContent}
                   onChange={e => setEditContent(e.target.value)}
-                  style={{ width: '100%', minHeight: 300, background: S.surface, border: `1px solid ${S.border}`, color: S.text, fontFamily: 'monospace', fontSize: 13, padding: 12, borderRadius: 6, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+                  className="w-full min-h-80 bg-bg-secondary border border-border-subtle text-text-primary font-mono text-sm p-3 rounded resize-vertical box-border outline-none"
                 />
                 <button onClick={handleSave} disabled={saving}
-                  style={{ alignSelf: 'flex-start', marginTop: 10, background: '#0d1a2d', color: S.primary, border: `1px solid ${S.primary}33`, borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+                  className="self-start mt-2.5 bg-transparent text-accent-blue border border-accent-blue border-opacity-20 rounded px-3.5 py-1.5 text-xs cursor-pointer hover:border-opacity-40 disabled:opacity-60">
                   {saving ? 'Saving…' : 'Save'}
                 </button>
               </>
             )}
-            <div style={{ marginTop: 32 }}>
+            <div className="mt-8">
               <button onClick={handleDelete}
-                style={{ background: 'none', color: S.danger, border: `1px solid ${S.danger}33`, borderRadius: 6, padding: '6px 14px', fontSize: 12, cursor: 'pointer' }}>
+                className="bg-none text-status-error border border-status-error border-opacity-20 rounded px-3.5 py-1.5 text-xs cursor-pointer hover:border-opacity-40">
                 Delete skill
               </button>
             </div>

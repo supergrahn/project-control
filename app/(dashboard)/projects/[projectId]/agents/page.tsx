@@ -28,33 +28,24 @@ export default function AgentsPage() {
   }
 
   return (
-    <div style={{ background: '#0d0e10', minHeight: '100%', padding: '28px 32px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, margin: 0 }}>Agents</h1>
+    <div className="bg-blue-950 min-h-full py-7 px-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-text-primary text-base font-bold m-0">Agents</h1>
         <button
           onClick={() => setShowCreateModal(true)}
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '7px 14px',
-            fontSize: 13,
-            cursor: 'pointer',
-            fontWeight: 500,
-          }}
+          className="bg-blue-600 text-white border-0 rounded-md px-3.5 py-1.75 text-xs cursor-pointer font-medium hover:bg-blue-700"
         >
           Create agent
         </button>
       </div>
 
       {agents.length === 0 && (
-        <div style={{ color: '#8a9199', fontSize: 13, textAlign: 'center', paddingTop: 40 }}>
+        <div className="text-text-secondary text-sm text-center pt-10">
           No agents yet. Create one to get started.
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
         {agents.map(agent => (
           <AgentCard
             key={agent.id}

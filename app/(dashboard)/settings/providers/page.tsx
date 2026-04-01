@@ -15,17 +15,6 @@ const TYPE_COLOR: Record<ProviderType, string> = {
   claude: '#6b4f9e', codex: '#2e6fa3', gemini: '#3a7d44', ollama: '#7d5a2e',
 }
 
-const S = {
-  bg: '#0d0e10', surface: '#141618', border: '#1e2124',
-  muted: '#8a9199', primary: '#5b9bd5', danger: '#c04040',
-  text: '#d4d9de', dim: '#5a6370',
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', background: S.bg, border: `1px solid ${S.border}`, borderRadius: 4,
-  padding: '6px 10px', color: S.text, fontSize: 13, boxSizing: 'border-box',
-}
-
 function ConfigFields({ type, config, onChange }: {
   type: ProviderType
   config: Record<string, unknown>
@@ -33,37 +22,37 @@ function ConfigFields({ type, config, onChange }: {
 }) {
   if (type === 'ollama') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="flex flex-col gap-2.5">
         <div>
-          <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Host</label>
+          <label className="block text-text-secondary text-xs mb-1">Host</label>
           <input value={(config.host as string) ?? ''} onChange={e => onChange({ ...config, host: e.target.value })}
-            placeholder="http://localhost:11434" style={inputStyle} />
+            placeholder="http://localhost:11434" className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none" />
         </div>
         <div>
-          <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Model</label>
+          <label className="block text-text-secondary text-xs mb-1">Model</label>
           <input value={(config.model as string) ?? ''} onChange={e => onChange({ ...config, model: e.target.value })}
-            placeholder="qwen2.5-coder" style={inputStyle} />
+            placeholder="qwen2.5-coder" className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none" />
         </div>
       </div>
     )
   }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div className="flex flex-col gap-2.5">
       <div>
-        <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Model</label>
+        <label className="block text-text-secondary text-xs mb-1">Model</label>
         <input value={(config.model as string) ?? ''} onChange={e => onChange({ ...config, model: e.target.value })}
           placeholder={type === 'claude' ? 'claude-sonnet-4-6' : type === 'gemini' ? 'gemini-2.5-pro' : 'codex-mini'}
-          style={inputStyle} />
+          className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none" />
       </div>
       <div>
-        <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>
-          Extra flags <span style={{ color: S.dim }}>(space-separated)</span>
+        <label className="block text-text-secondary text-xs mb-1">
+          Extra flags <span className="text-text-muted">(space-separated)</span>
         </label>
         <input
           value={((config.flags as string[]) ?? []).join(' ')}
           onChange={e => onChange({ ...config, flags: e.target.value.trim() ? e.target.value.trim().split(/\s+/) : [] })}
           placeholder="--permission-mode bypassPermissions"
-          style={inputStyle}
+          className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none"
         />
       </div>
     </div>
@@ -128,47 +117,47 @@ export default function ProvidersPage() {
   }
 
   return (
-    <div style={{ maxWidth: 700, fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+    <div className="max-w-2xl font-sans">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 style={{ color: S.text, fontSize: 16, fontWeight: 600, margin: 0 }}>Providers</h2>
-          <p style={{ color: S.muted, fontSize: 13, margin: '4px 0 0' }}>Configure AI provider binaries for session spawning.</p>
+          <h2 className="text-text-primary text-base font-semibold m-0">Providers</h2>
+          <p className="text-text-secondary text-sm mt-1">Configure AI provider binaries for session spawning.</p>
         </div>
         <button onClick={() => setShowForm(v => !v)}
-          style={{ background: S.primary, color: '#fff', border: 'none', borderRadius: 5, padding: '7px 14px', fontSize: 13, cursor: 'pointer', fontWeight: 500 }}>
+          className="bg-accent-blue text-white border-none rounded px-3.5 py-1.5 text-sm cursor-pointer font-medium hover:opacity-80">
           {showForm ? 'Cancel' : '+ Add Provider'}
         </button>
       </div>
 
       {showForm && (
-        <div style={{ background: S.surface, border: `1px solid ${S.border}`, borderRadius: 8, padding: 20, marginBottom: 24 }}>
-          <h3 style={{ color: S.text, fontSize: 14, fontWeight: 600, margin: '0 0 16px' }}>New Provider</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="bg-bg-secondary border border-border-subtle rounded-lg p-5 mb-6">
+          <h3 className="text-text-primary text-sm font-semibold m-0 mb-4">New Provider</h3>
+          <div className="flex flex-col gap-3.5">
             <div>
-              <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Name</label>
-              <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="My Claude" style={inputStyle} />
+              <label className="block text-text-secondary text-xs mb-1">Name</label>
+              <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="My Claude" className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none" />
             </div>
             <div>
-              <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Type</label>
+              <label className="block text-text-secondary text-xs mb-1">Type</label>
               <select value={formType} onChange={e => { setFormType(e.target.value as ProviderType); setFormConfig({}) }}
-                style={{ ...inputStyle }}>
+                className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none">
                 {(Object.keys(TYPE_LABELS) as ProviderType[]).map(t => (
                   <option key={t} value={t}>{TYPE_LABELS[t]}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 4 }}>Command</label>
+              <label className="block text-text-secondary text-xs mb-1">Command</label>
               <input value={formCommand} onChange={e => setFormCommand(e.target.value)}
-                placeholder={TYPE_PLACEHOLDER[formType]} style={inputStyle} />
+                placeholder={TYPE_PLACEHOLDER[formType]} className="w-full bg-bg-primary border border-border-subtle rounded px-2.5 py-1.5 text-sm text-text-primary outline-none" />
             </div>
             <div>
-              <label style={{ display: 'block', color: S.muted, fontSize: 12, marginBottom: 8 }}>Config</label>
+              <label className="block text-text-secondary text-xs mb-2">Config</label>
               <ConfigFields type={formType} config={formConfig} onChange={setFormConfig} />
             </div>
-            {formError && <div style={{ color: S.danger, fontSize: 12 }}>{formError}</div>}
+            {formError && <div className="text-status-error text-xs">{formError}</div>}
             <button onClick={handleSubmit} disabled={createMutation.isPending}
-              style={{ background: S.primary, color: '#fff', border: 'none', borderRadius: 5, padding: '7px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 500, alignSelf: 'flex-start', opacity: createMutation.isPending ? 0.6 : 1 }}>
+              className="bg-accent-blue text-white border-none rounded px-4 py-1.5 text-sm cursor-pointer font-medium self-start hover:opacity-80 disabled:opacity-60">
               {createMutation.isPending ? 'Saving…' : 'Save Provider'}
             </button>
           </div>
@@ -176,43 +165,43 @@ export default function ProvidersPage() {
       )}
 
       {isError ? (
-        <div style={{ color: S.danger, fontSize: 13 }}>Failed to load providers.</div>
+        <div className="text-status-error text-sm">Failed to load providers.</div>
       ) : isLoading ? (
-        <div style={{ color: S.muted, fontSize: 13 }}>Loading…</div>
+        <div className="text-text-secondary text-sm">Loading…</div>
       ) : providers.length === 0 ? (
-        <div style={{ color: S.dim, fontSize: 14, padding: '32px 0', textAlign: 'center' }}>No providers configured. Add one above.</div>
+        <div className="text-text-muted text-sm py-8 text-center">No providers configured. Add one above.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="flex flex-col gap-2.5">
           {providers.map(p => {
             const testResult = testResults[p.id]
             return (
-              <div key={p.id} style={{ background: S.surface, border: `1px solid ${S.border}`, borderRadius: 8, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, opacity: p.is_active === 0 ? 0.55 : 1 }}>
-                <span style={{ background: TYPE_COLOR[p.type], color: '#fff', borderRadius: 4, padding: '2px 7px', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+              <div key={p.id} className={`bg-bg-secondary border border-border-subtle rounded-lg p-3.5 flex items-center gap-3 ${p.is_active === 0 ? 'opacity-55' : ''}`}>
+                <span className="rounded px-1.75 py-0.5 text-xs font-semibold text-white flex-shrink-0" style={{ background: TYPE_COLOR[p.type] }}>
                   {TYPE_LABELS[p.type]}
                 </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ color: S.text, fontSize: 13, fontWeight: 500, marginBottom: 2 }}>{p.name}</div>
-                  <div style={{ color: S.muted, fontSize: 12, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.command}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-text-primary text-sm font-medium mb-0.5">{p.name}</div>
+                  <div className="text-text-secondary text-xs font-mono overflow-hidden text-ellipsis whitespace-nowrap">{p.command}</div>
                 </div>
                 {testResult && (
-                  <span style={{ fontSize: 12, flexShrink: 0, color: testResult === 'pass' ? '#3a8c5c' : testResult === 'fail' ? S.danger : S.muted }}>
+                  <span className={`text-xs flex-shrink-0 ${testResult === 'pass' ? 'text-status-success' : testResult === 'fail' ? 'text-status-error' : 'text-text-secondary'}`}>
                     {testResult === 'pending' ? 'Testing…' : testResult === 'pass' ? 'OK' : 'Failed'}
                   </span>
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={() => handleTest(p)} disabled={testResult === 'pending'}
-                    style={{ background: 'transparent', border: `1px solid ${S.border}`, borderRadius: 4, padding: '4px 10px', color: S.muted, fontSize: 12, cursor: 'pointer' }}>
+                    className="bg-transparent border border-border-subtle rounded px-2.5 py-1 text-text-secondary text-xs cursor-pointer hover:bg-bg-tertiary disabled:opacity-50">
                     Test
                   </button>
                   <button onClick={() => toggleMutation.mutate(p.id)}
                     title={p.is_active === 1 ? 'Disable' : 'Enable'}
                     aria-label={p.is_active === 1 ? 'Disable provider' : 'Enable provider'}
                     aria-pressed={p.is_active === 1}
-                    style={{ width: 36, height: 20, borderRadius: 10, background: p.is_active === 1 ? S.primary : S.border, border: 'none', cursor: 'pointer', position: 'relative', flexShrink: 0 }}>
-                    <span style={{ position: 'absolute', top: 2, left: p.is_active === 1 ? 18 : 2, width: 16, height: 16, background: '#fff', borderRadius: '50%', transition: 'left 0.15s' }} />
+                    className={`w-9 h-5 rounded-full border-none cursor-pointer relative flex-shrink-0 transition-colors ${p.is_active === 1 ? 'bg-accent-blue' : 'bg-border-subtle'}`}>
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${p.is_active === 1 ? 'left-4.5' : 'left-0.5'}`} />
                   </button>
                   <button onClick={() => { if (confirm(`Delete "${p.name}"?`)) deleteMutation.mutate(p.id) }}
-                    style={{ background: 'transparent', border: `1px solid ${S.border}`, borderRadius: 4, padding: '4px 10px', color: S.danger, fontSize: 12, cursor: 'pointer' }}>
+                    className="bg-transparent border border-border-subtle rounded px-2.5 py-1 text-status-error text-xs cursor-pointer hover:bg-bg-tertiary">
                     Delete
                   </button>
                 </div>

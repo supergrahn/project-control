@@ -38,28 +38,28 @@ export function SkillsTab({ projectId }: { projectId: string }) {
   }, [projectId])
 
   if (loading) {
-    return <div style={{ padding: 16, color: '#8a9199', fontSize: 13 }}>Loading…</div>
+    return <div className="p-4 text-text-secondary text-sm">Loading…</div>
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <p style={{ color: '#8a9199', fontSize: 12, marginBottom: 16 }}>
+    <div className="p-4">
+      <p className="text-text-secondary text-xs mb-4">
         All project skills are automatically injected into this agent's sessions.
       </p>
       {skills.length === 0 ? (
-        <div style={{ color: '#8a9199', fontSize: 13 }}>
+        <div className="text-text-secondary text-sm">
           No skills configured yet. Add skills under <strong>Skills</strong> in the sidebar.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="flex flex-col gap-2">
           {skills.map(s => (
-            <div key={s.id} style={{ background: '#141618', border: '1px solid #1e2124', borderRadius: 6, padding: '10px 14px' }}>
-              <div style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600, marginBottom: 2 }}>{s.name}</div>
-              <div style={{ color: '#8a9199', fontSize: 11, fontFamily: 'monospace', marginBottom: s.preview ? 6 : 0 }}>
+            <div key={s.id} className="bg-bg-secondary border border-border-subtle rounded-md p-3.5">
+              <div className="text-text-primary text-sm font-semibold mb-0.5">{s.name}</div>
+              <div className="text-text-secondary text-xs font-mono" style={{ marginBottom: s.preview ? 1.5 : 0 }}>
                 {s.key}
               </div>
               {s.preview && (
-                <div style={{ color: '#8a9199', fontSize: 12 }}>{s.preview}</div>
+                <div className="text-text-secondary text-xs">{s.preview}</div>
               )}
             </div>
           ))}

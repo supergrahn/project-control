@@ -52,46 +52,41 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
     .map(e => parsePill(e.text))
     .filter((p): p is Pill => p !== null)
 
-  const card: React.CSSProperties = {
-    background: '#141618', border: '1px solid #1e2124', borderRadius: 8,
-    overflow: 'hidden', fontFamily: 'system-ui, sans-serif',
-  }
-
   return (
-    <div style={card}>
+    <div className="bg-bg-secondary border border-border-subtle rounded-lg overflow-hidden">
       {/* Header */}
-      <div style={{ padding: '12px 14px 10px', borderBottom: '1px solid #1e2124' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-            background: phaseStyle.bgColor, border: `1px solid ${phaseStyle.color}33`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: phaseStyle.color, fontSize: 10, fontWeight: 700,
-          }}>
+      <div className="px-3.5 py-3 pb-2.5 border-b border-border-subtle">
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-7.5 h-7.5 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+            style={{
+              background: phaseStyle.bgColor,
+              color: phaseStyle.color,
+              border: `1px solid ${phaseStyle.color}33`,
+            }}
+          >
             {initials}
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="flex-1 min-w-0">
+            <div className="text-text-primary text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
               {session.label}
             </div>
-            <div style={{ color: '#5a6370', fontSize: 10, marginTop: 2 }}>{session.phase}</div>
+            <div className="text-text-muted text-xs mt-0.5">{session.phase}</div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-            {isLive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3a8c5c', display: 'inline-block' }} />}
-            <span style={{ color: isLive ? '#3a8c5c' : '#454c54', fontSize: 11, fontWeight: 600 }}>
+          <div className="flex items-center gap-1.25 flex-shrink-0">
+            {isLive && <span className="w-1.5 h-1.5 rounded-full bg-accent-green inline-block" />}
+            <span className={`text-xs font-semibold ${isLive ? 'text-accent-green' : 'text-text-faint'}`}>
               {isLive ? 'Live' : 'Finished'}
             </span>
             {isLive && todos.length > 0 && (
-              <span style={{
-                color: phaseStyle.color,
-                background: phaseStyle.bgColor,
-                border: `1px solid ${phaseStyle.color}33`,
-                borderRadius: 10,
-                padding: '1px 6px',
-                fontSize: 10,
-                fontWeight: 600,
-                marginLeft: 4,
-              }}>
+              <span
+                className="rounded-full text-xs font-semibold ml-1 px-1.5 py-0.25"
+                style={{
+                  color: phaseStyle.color,
+                  background: phaseStyle.bgColor,
+                  border: `1px solid ${phaseStyle.color}33`,
+                }}
+              >
                 {completedCount} / {todos.length}
               </span>
             )}
@@ -100,21 +95,22 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
       </div>
 
       {/* Action feed */}
-      <div style={{ padding: '10px 14px', minHeight: 60, borderBottom: '1px solid #1e2124', fontFamily: 'monospace' }}>
+      <div className="p-2.5 min-h-15 border-b border-border-subtle font-mono">
         {pills.length === 0 ? (
-          <div style={{ color: '#2e3338', fontSize: 11 }}>Waiting for tool calls…</div>
+          <div className="text-text-disabled text-xs">Waiting for tool calls…</div>
         ) : (
           pills.map((pill, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <span style={{
-                background: (PILL_COLORS[pill.type] ?? '#5a6370') + '22',
-                color: PILL_COLORS[pill.type] ?? '#5a6370',
-                borderRadius: 4, padding: '2px 6px', fontSize: 10, fontWeight: 700,
-                flexShrink: 0,
-              }}>
+            <div key={i} className="flex items-center gap-2 mb-1">
+              <span
+                className="rounded text-xs font-bold flex-shrink-0 px-1.5 py-0.5"
+                style={{
+                  background: (PILL_COLORS[pill.type] ?? '#5a6370') + '22',
+                  color: PILL_COLORS[pill.type] ?? '#5a6370',
+                }}
+              >
                 {pill.type.toUpperCase()}
               </span>
-              <span style={{ color: '#8a9199', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="text-text-secondary text-xs overflow-hidden text-ellipsis whitespace-nowrap">
                 {pill.detail}
               </span>
             </div>
@@ -123,18 +119,19 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
       </div>
 
       {/* Buttons */}
-      <div style={{ display: 'flex', gap: 8, padding: '10px 14px' }}>
-        <button onClick={onOpenTerminal} style={{
-          flex: 1, background: '#1c1f22', border: '1px solid #2e3338', color: '#8a9199',
-          borderRadius: 6, padding: '6px 0', fontSize: 12, cursor: 'pointer',
-        }}>
+      <div className="flex gap-2 p-2.5">
+        <button
+          onClick={onOpenTerminal}
+          className="flex-1 bg-border-default border border-text-disabled text-text-secondary rounded-md px-0 py-1.5 text-xs cursor-pointer hover:border-border-hover"
+        >
           Open Terminal
         </button>
         {isLive && (
-          <button onClick={onStop} style={{
-            background: 'none', border: '1px solid #c0404044', color: '#c04040',
-            borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer',
-          }}>
+          <button
+            onClick={onStop}
+            className="bg-transparent border border-accent-red text-accent-red rounded-md px-3 py-1.5 text-xs cursor-pointer hover:border-opacity-100"
+            style={{ borderColor: '#c0404044' }}
+          >
             Stop
           </button>
         )}

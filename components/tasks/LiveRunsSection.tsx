@@ -156,33 +156,24 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
 
   if (!activeSession) {
     return (
-      <div style={{ color: '#5a6370', fontSize: 12, padding: '10px 0' }}>No active run</div>
+      <div className="text-text-muted text-[12px] py-2.5">No active run</div>
     )
   }
 
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ color: '#e2e6ea', fontSize: 13, fontWeight: 600 }}>{activeSession.label}</span>
-        <span style={{ color: '#5a6370', fontSize: 11, background: '#141618', border: '1px solid #1c1f22', borderRadius: 4, padding: '1px 6px' }}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-text-primary text-[13px] font-semibold">{activeSession.label}</span>
+        <span className="text-text-muted text-[11px] bg-bg-secondary border border-border-default rounded px-1.5 py-0.5">
           {activeSession.phase}
         </span>
       </div>
 
       {/* Terminal panel */}
-      <div style={{
-        background: '#080909',
-        borderRadius: 6,
-        padding: '8px 10px',
-        maxHeight: 240,
-        overflowY: 'auto',
-        fontFamily: 'monospace',
-        fontSize: 11,
-        marginBottom: 8,
-      }}>
+      <div className="bg-black rounded-[6px] px-2.5 py-2.5 max-h-60 overflow-y-auto font-mono text-[11px] mb-2">
         {logLines.length === 0 && (
-          <div style={{ color: '#454c54' }}>Waiting for output…</div>
+          <div className="text-text-faint">Waiting for output…</div>
         )}
         {logLines.map((line) => (
           <div key={line.id} style={{ color: getLineColor(line.text) }}>{line.text}</div>
@@ -191,17 +182,18 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
       </div>
 
       {/* Action buttons */}
-      <div style={{ display: 'flex', gap: 6 }}>
+      <div className="flex gap-1.5">
         <button
           onClick={handleOpenTerminal}
-          style={{ flex: 1, background: '#0e1012', color: '#5b9bd5', border: '1px solid #1c1f2244', borderRadius: 6, padding: '5px 0', fontSize: 11, cursor: 'pointer' }}
+          className="flex-1 bg-bg-primary text-accent-blue border border-border-default border-opacity-[0.27] rounded-[6px] px-0 py-1 text-[11px] cursor-pointer"
         >
           Open Terminal
         </button>
         <button
           onClick={handleStop}
           disabled={stopping}
-          style={{ background: '#1c1f22', color: stopping ? '#5a6370' : '#c97e2a', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: stopping ? 'not-allowed' : 'pointer' }}
+          className="bg-border-default border-none rounded-[6px] px-2.5 py-1 text-[11px]"
+          style={{ color: stopping ? '#5a6370' : '#c97e2a', cursor: stopping ? 'not-allowed' : 'pointer' }}
         >
           Stop
         </button>

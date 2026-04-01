@@ -24,7 +24,7 @@ export function SessionInput({ onSend, disabled }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+    <div className="flex gap-1.5 mt-2">
       <input
         type="text"
         value={value}
@@ -32,16 +32,9 @@ export function SessionInput({ onSend, disabled }: Props) {
         onKeyDown={handleKeyDown}
         disabled={disabled}
         placeholder={disabled ? 'No active session' : 'Send input to session...'}
+        className="flex-1 bg-black border border-border-default rounded-[6px] px-2.5 py-1.5 text-[12px] font-mono outline-none"
         style={{
-          flex: 1,
-          background: '#0a0c0e',
-          border: '1px solid #1c1f22',
-          borderRadius: 6,
-          padding: '6px 10px',
           color: '#c8d0da',
-          fontSize: 12,
-          fontFamily: 'monospace',
-          outline: 'none',
           opacity: disabled ? 0.5 : 1,
         }}
       />
@@ -49,13 +42,10 @@ export function SessionInput({ onSend, disabled }: Props) {
         onClick={handleSubmit}
         disabled={disabled}
         aria-label="Send"
+        className="border-none rounded-[6px] px-3.5 py-1.5 text-[12px]"
         style={{
           background: disabled ? '#1c1f22' : '#2563eb',
           color: disabled ? '#454c54' : '#fff',
-          border: 'none',
-          borderRadius: 6,
-          padding: '6px 14px',
-          fontSize: 12,
           cursor: disabled ? 'not-allowed' : 'pointer',
         }}
       >

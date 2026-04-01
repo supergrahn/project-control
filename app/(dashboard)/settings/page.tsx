@@ -44,19 +44,19 @@ export default function SettingsPage() {
     <div className="max-w-lg space-y-10">
       {/* Global settings — always visible */}
       <section>
-        <h2 className="text-base font-semibold text-zinc-100 mb-1">Global</h2>
-        <p className="text-xs text-zinc-500 mb-4">Applies to all projects</p>
+        <h2 className="text-base font-semibold text-text-primary mb-1">Global</h2>
+        <p className="text-xs text-text-secondary mb-4">Applies to all projects</p>
         <div className="space-y-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">
+            <label className="block text-xs text-text-secondary mb-1.5">
               Git projects folder{' '}
-              <span className="text-zinc-600">(folder to scan for projects)</span>
+              <span className="text-text-muted">(folder to scan for projects)</span>
             </label>
             <input
               value={globalForm.git_root}
               onChange={(e) => setGlobalForm({ git_root: e.target.value })}
               placeholder="~/git"
-              className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500"
+              className="w-full bg-bg-primary border border-border-default rounded px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-blue"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -75,25 +75,25 @@ export default function SettingsPage() {
                 }
               }}
               disabled={updateGlobal.isPending}
-              className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded disabled:opacity-50"
+              className="px-4 py-2 bg-accent-blue hover:opacity-80 text-white text-sm rounded disabled:opacity-50"
             >
               {updateGlobal.isPending ? 'Saving...' : 'Save'}
             </button>
-            {globalSaved && <span className="text-xs text-emerald-400">Saved</span>}
-            {globalSaveError && <span className="text-xs text-red-400">{globalSaveError}</span>}
+            {globalSaved && <span className="text-xs text-status-success">Saved</span>}
+            {globalSaveError && <span className="text-xs text-status-error">{globalSaveError}</span>}
           </div>
         </div>
       </section>
 
       {/* Divider */}
-      <div className="border-t border-zinc-800" />
+      <div className="border-t border-border-default" />
 
       {/* Project settings */}
       <section>
-        <h2 className="text-base font-semibold text-zinc-100 mb-1">
+        <h2 className="text-base font-semibold text-text-primary mb-1">
           {selectedProject ? `Project — ${selectedProject.name}` : 'Project'}
         </h2>
-        <p className="text-xs text-zinc-500 mb-4">
+        <p className="text-xs text-text-secondary mb-4">
           {selectedProject
             ? 'Configure folder paths for this project'
             : 'Select a project from the top bar to configure project settings'}
@@ -104,21 +104,21 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={() => setProjectForm({ ideas_dir: 'docs/ideas', specs_dir: 'docs/specs', plans_dir: 'docs/plans' })}
-              className="text-xs text-zinc-500 hover:text-zinc-300 underline"
+              className="text-xs text-text-secondary hover:text-text-primary underline"
             >
               Use defaults (docs/ideas, docs/specs, docs/plans)
             </button>
             {(['ideas_dir', 'specs_dir', 'plans_dir'] as const).map((field) => (
               <div key={field}>
-                <label className="block text-xs text-zinc-400 mb-1.5 capitalize">
+                <label className="block text-xs text-text-secondary mb-1.5 capitalize">
                   {field.replace('_dir', '')} folder{' '}
-                  <span className="text-zinc-600">(relative to project root)</span>
+                  <span className="text-text-muted">(relative to project root)</span>
                 </label>
                 <input
                   value={projectForm[field]}
                   onChange={(e) => { setProjectForm((f) => ({ ...f, [field]: e.target.value })); setProjectSaved(false) }}
                   placeholder={`e.g. docs/${field.replace('_dir', '')}`}
-                  className="w-full bg-zinc-950 border border-zinc-700 rounded px-3 py-2 text-sm text-zinc-200 outline-none focus:border-violet-500"
+                  className="w-full bg-bg-primary border border-border-default rounded px-3 py-2 text-sm text-text-primary outline-none focus:border-accent-blue"
                 />
               </div>
             ))}
@@ -140,14 +140,14 @@ export default function SettingsPage() {
                   }
                 }}
                 disabled={updateSettings.isPending}
-                className="px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white text-sm rounded disabled:opacity-50"
+                className="px-4 py-2 bg-accent-blue hover:opacity-80 text-white text-sm rounded disabled:opacity-50"
               >
                 {updateSettings.isPending ? 'Saving...' : 'Save Settings'}
               </button>
-              {projectSaved && <span className="text-xs text-emerald-400">Saved</span>}
-              {projectSaveError && <span className="text-xs text-red-400">{projectSaveError}</span>}
+              {projectSaved && <span className="text-xs text-status-success">Saved</span>}
+              {projectSaveError && <span className="text-xs text-status-error">{projectSaveError}</span>}
             </div>
-            <p className="text-xs text-zinc-600">Project path: {selectedProject.path}</p>
+            <p className="text-xs text-text-muted">Project path: {selectedProject.path}</p>
           </div>
         ) : null}
       </section>

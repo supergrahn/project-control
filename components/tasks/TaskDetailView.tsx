@@ -47,11 +47,11 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100%', fontFamily: 'system-ui, sans-serif', position: 'relative' }}>
+    <div className="flex h-full relative">
       {/* Left column */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px', minWidth: 0 }}>
+      <div className="flex-1 overflow-y-auto px-7 py-6 min-w-0">
         {/* Header breadcrumb */}
-        <div style={{ color: '#454c54', fontSize: 11, marginBottom: 8 }}>
+        <div className="text-text-faint text-[11px] mb-2">
           {task.project_id} / {task.id}
         </div>
 
@@ -62,19 +62,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
           onBlur={() => {
             if (title !== task.title) patchTask(task.id, { title }).catch(console.error)
           }}
-          style={{
-            width: '100%',
-            background: 'transparent',
-            border: 'none',
-            borderBottom: '1px solid #1c1f22',
-            color: '#e2e6ea',
-            fontSize: 18,
-            fontWeight: 700,
-            fontFamily: 'system-ui, sans-serif',
-            marginBottom: 16,
-            padding: '4px 0',
-            outline: 'none',
-          }}
+          className="w-full bg-transparent border-none border-b border-border-default text-text-primary text-[18px] font-bold mb-4 px-0 py-1 outline-none"
         />
 
         {/* Editable description */}
@@ -85,88 +73,37 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
             if (description !== (task.notes ?? '')) patchTask(task.id, { notes: description }).catch(console.error)
           }}
           rows={4}
-          style={{
-            width: '100%',
-            background: '#0e1012',
-            border: '1px solid #1c1f22',
-            borderRadius: 6,
-            color: '#8a9199',
-            fontSize: 13,
-            fontFamily: 'system-ui, sans-serif',
-            padding: '8px 10px',
-            resize: 'vertical',
-            outline: 'none',
-            marginBottom: 20,
-            boxSizing: 'border-box',
-          }}
+          className="w-full bg-bg-primary border border-border-default rounded-[6px] text-text-secondary text-[13px] px-2.5 py-2 resize-vertical outline-none mb-5 box-border"
         />
 
         {/* Drawer buttons */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 24, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
+        <div className="flex gap-1.5 mb-6 items-center flex-wrap relative">
           {(['artifacts', 'sessions', 'notes'] as DrawerSection[]).map(s => (
             <button
               key={s}
               onClick={() => onOpenDrawer(s)}
-              style={{
-                background: '#141618',
-                color: '#5a6370',
-                border: '1px solid #1c1f22',
-                borderRadius: 6,
-                padding: '4px 8px',
-                fontSize: 11,
-                cursor: 'pointer',
-                textTransform: 'capitalize',
-              }}
+              className="bg-bg-secondary text-text-muted border border-border-default rounded-[6px] px-2 py-1 text-[11px] cursor-pointer capitalize"
             >
               {s}
             </button>
           ))}
           <button
             onClick={() => setShowAgentPicker(v => !v)}
-            style={{
-              background: '#0d1a2d',
-              color: '#5b9bd5',
-              border: '1px solid #5b9bd522',
-              borderRadius: 6,
-              padding: '4px 8px',
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
+            className="border border-accent-blue border-opacity-[0.13] rounded-[6px] px-2 py-1 text-[11px] cursor-pointer"
+            style={{ background: '#0d1a2d', color: '#5b9bd5' }}
           >
             Run with agent
           </button>
           {showAgentPicker && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              marginTop: 4,
-              background: '#0e1012',
-              border: '1px solid #1c1f22',
-              borderRadius: 8,
-              padding: 8,
-              zIndex: 20,
-              minWidth: 180,
-            }}>
+            <div className="absolute top-full left-0 mt-1 bg-bg-primary border border-border-default rounded-lg p-2 z-20 min-w-[180px]">
               {agents.length === 0 && (
-                <div style={{ color: '#5a6370', fontSize: 12, padding: '4px 8px' }}>No agents</div>
+                <div className="text-text-muted text-[12px] px-2 py-1">No agents</div>
               )}
               {agents.map(a => (
                 <button
                   key={a.id}
                   onClick={() => handleRunWithAgent(a.id)}
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'none',
-                    border: 'none',
-                    color: '#e2e6ea',
-                    fontSize: 13,
-                    textAlign: 'left',
-                    padding: '6px 10px',
-                    cursor: 'pointer',
-                    borderRadius: 6,
-                  }}
+                  className="block w-full bg-none border-none text-text-primary text-[13px] text-left px-2.5 py-1.5 cursor-pointer rounded-[6px]"
                 >
                   {a.name}
                 </button>
@@ -180,19 +117,18 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
 
         {/* Agent Tasks checklist */}
         {todos.length > 0 && (
-          <div style={{ marginTop: 20 }}>
-            <div style={{ color: '#8a9199', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>
+          <div className="mt-5">
+            <div className="text-text-secondary text-[11px] font-semibold uppercase tracking-[0.04em] mb-2">
               Agent Tasks
             </div>
             {todos.map(todo => (
               <div
                 key={todo.id}
+                className="text-[13px] py-0.5"
                 style={{
                   color: todo.status === 'completed' ? '#5a6370' : todo.status === 'in_progress' ? '#e2e6ea' : '#5a6370',
                   fontWeight: todo.status === 'in_progress' ? 700 : 400,
                   textDecoration: todo.status === 'completed' ? 'line-through' : 'none',
-                  fontSize: 13,
-                  padding: '3px 0',
                 }}
               >
                 {todo.content}
@@ -202,7 +138,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
         )}
 
         {/* Comments placeholder */}
-        <div style={{ color: '#2e3338', fontSize: 12, borderTop: '1px solid #1e2124', paddingTop: 16, marginTop: 24 }}>
+        <div className="text-text-disabled text-[12px] border-t border-border-subtle pt-4 mt-6">
           Comments (coming soon)
         </div>
       </div>

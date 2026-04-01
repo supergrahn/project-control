@@ -23,37 +23,29 @@ export default function SettingsPage() {
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 600 }}>
-      <h1 style={{ color: '#e2e6ea', fontSize: 16, fontWeight: 700, marginBottom: 24, margin: '0 0 24px' }}>
+    <div className="p-6 max-w-2xl">
+      <h1 className="text-text-primary text-base font-bold mb-6 m-0">
         ⚙️ Settings
       </h1>
 
-      <div style={{ borderBottom: '1px solid #1c1f22', paddingBottom: 20, marginBottom: 20 }}>
+      <div className="border-b border-border-default pb-5 mb-5">
         <TaskSourceSettings projectId={projectId} />
       </div>
 
-      <div style={{ borderTop: '1px solid #1c1f22', paddingTop: 20, marginTop: 20 }}>
-        <div style={{ color: '#8a9199', fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Task Migration</div>
-        <div style={{ color: '#5a6370', fontSize: 12, marginBottom: 12 }}>
+      <div className="border-t border-border-default pt-5 mt-5">
+        <div className="text-text-secondary text-sm font-semibold mb-2">Task Migration</div>
+        <div className="text-text-muted text-xs mb-3">
           Import existing ideas, specs, and plans files into the task system. Safe to run multiple times.
         </div>
         <button
           onClick={handleMigrate}
           disabled={migrating}
-          style={{
-            background: '#141618',
-            color: '#8a9199',
-            border: '1px solid #1c1f22',
-            borderRadius: 6,
-            padding: '6px 14px',
-            fontSize: 12,
-            cursor: 'pointer',
-          }}
+          className="bg-bg-secondary text-text-secondary border border-border-default rounded px-3.5 py-1.5 text-xs cursor-pointer hover:bg-bg-tertiary disabled:opacity-50"
         >
           {migrating ? 'Migrating…' : 'Run Migration'}
         </button>
         {migrateResult && (
-          <div style={{ color: '#3a8c5c', fontSize: 12, marginTop: 8 }}>
+          <div className="text-status-success text-xs mt-2">
             ✓ Created {migrateResult.created} tasks, skipped {migrateResult.skipped} existing
           </div>
         )}
