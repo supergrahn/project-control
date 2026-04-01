@@ -75,7 +75,7 @@
   --color-status-info: var(--color-status-info);
 
   /* Typography */
-  --font-sans: Arial, Helvetica, sans-serif;
+  --font-sans: 'Inter', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
   /* Spacing aliases */
