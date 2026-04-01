@@ -272,6 +272,29 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   `) } catch {}
   try { db.exec('ALTER TABLE tasks ADD COLUMN session_log TEXT') } catch {}
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id)') } catch {}
+  // ── External Task Sources ──────────────────────────────────────────────────
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS task_source_config (
+      project_id   TEXT PRIMARY KEY REFERENCES projects(id),
+      adapter_key  TEXT NOT NULL,
+      config       TEXT NOT NULL DEFAULT '{}',
+      is_active    INTEGER NOT NULL DEFAULT 1,
+      last_synced_at TEXT,
+      last_error     TEXT,
+      created_at   TEXT NOT NULL
+    )
+  `) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN source TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_id TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_url TEXT`) } catch {}
+  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_meta TEXT`) } catch {}
+  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source ON tasks(project_id, source, source_id) WHERE source IS NOT NULL`) } catch {}
+  // Migrate existing file paths to file:// prefix
+  try {
+    for (const col of ['idea_file', 'spec_file', 'plan_file']) {
+      db.exec(`UPDATE tasks SET ${col} = 'file://' || ${col} WHERE ${col} IS NOT NULL AND ${col} NOT LIKE 'file://%'`)
+    }
+  } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

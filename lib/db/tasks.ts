@@ -21,6 +21,10 @@ export type Task = {
   assignee_agent_id: string | null
   provider_id: string | null
   session_log: string | null
+  source: string | null
+  source_id: string | null
+  source_url: string | null
+  source_meta: string | null
   created_at: string
   updated_at: string
 }
@@ -84,6 +88,12 @@ export type UpdateTaskInput = {
   assignee_agent_id?: string | null
   provider_id?: string | null
   session_log?: string | null
+  title?: string
+  status?: TaskStatus
+  source?: string | null
+  source_id?: string | null
+  source_url?: string | null
+  source_meta?: string | null
 }
 
 export function updateTask(db: Database, id: string, input: UpdateTaskInput): Task {
@@ -102,6 +112,12 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
   if ('assignee_agent_id' in input) { updates.push('assignee_agent_id = ?'); values.push(input.assignee_agent_id) }
   if ('provider_id' in input)  { updates.push('provider_id = ?');  values.push(input.provider_id) }
   if ('session_log' in input)  { updates.push('session_log = ?');  values.push(input.session_log) }
+  if ('title' in input)       { updates.push('title = ?');       values.push(input.title) }
+  if ('status' in input)      { updates.push('status = ?');      values.push(input.status) }
+  if ('source' in input)      { updates.push('source = ?');      values.push(input.source) }
+  if ('source_id' in input)   { updates.push('source_id = ?');   values.push(input.source_id) }
+  if ('source_url' in input)  { updates.push('source_url = ?');  values.push(input.source_url) }
+  if ('source_meta' in input) { updates.push('source_meta = ?'); values.push(input.source_meta) }
 
   if (updates.length === 0) return getTask(db, id)!
 
@@ -129,5 +145,13 @@ export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatu
 
   const now = new Date().toISOString()
   db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(newStatus, now, id)
+  return getTask(db, id)!
+}
+
+export function setTaskStatus(db: Database, id: string, status: TaskStatus): Task {
+  const task = getTask(db, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+  const now = new Date().toISOString()
+  db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id)
   return getTask(db, id)!
 }

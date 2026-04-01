@@ -126,27 +126,30 @@ export function buildArgs(opts: {
   })
 }
 
+function readFieldContent(value: string | null): string | null {
+  if (!value) return null
+  if (value.startsWith('file://')) {
+    try {
+      return readFileSync(value.slice(7), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  return value // inline text
+}
+
 export function buildTaskContext(task: Pick<Task, 'idea_file' | 'spec_file' | 'plan_file' | 'notes'>): string {
   const sections: string[] = []
 
-  if (task.idea_file) {
-    try {
-      const content = readFileSync(task.idea_file, 'utf8')
-      sections.push(`## Idea\n${content}`)
-    } catch {}
-  }
-  if (task.spec_file) {
-    try {
-      const content = readFileSync(task.spec_file, 'utf8')
-      sections.push(`## Spec\n${content}`)
-    } catch {}
-  }
-  if (task.plan_file) {
-    try {
-      const content = readFileSync(task.plan_file, 'utf8')
-      sections.push(`## Plan\n${content}`)
-    } catch {}
-  }
+  const idea = readFieldContent(task.idea_file)
+  if (idea) sections.push(`## Idea\n${idea}`)
+
+  const spec = readFieldContent(task.spec_file)
+  if (spec) sections.push(`## Spec\n${spec}`)
+
+  const plan = readFieldContent(task.plan_file)
+  if (plan) sections.push(`## Plan\n${plan}`)
+
   if (task.notes) {
     sections.push(`## Correction Notes\n${task.notes}`)
   }
