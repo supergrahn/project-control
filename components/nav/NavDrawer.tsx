@@ -53,7 +53,7 @@ export function NavDrawer({ isOpen, onClose }: NavDrawerProps) {
         </div>
         <nav className="flex-1 overflow-y-auto py-2">
           <div className="px-3 py-1.5">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Project Health</p>
+            <p className="text-[10px] font-semibold text-text-faint uppercase tracking-wider mb-1">Project Health</p>
             {PROJECT_HEALTH.map((item) => (
               <Link
                 key={item.href}
@@ -61,8 +61,8 @@ export function NavDrawer({ isOpen, onClose }: NavDrawerProps) {
                 onClick={onClose}
                 className={`block px-2 py-1.5 rounded text-sm transition-colors ${
                   (item.href === '/' ? pathname === '/' : pathname.startsWith(item.href))
-                    ? 'bg-violet-500/20 text-violet-300'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    ? 'bg-accent-blue/20 text-accent-blue'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary'
                 }`}
               >
                 {item.label}
@@ -70,7 +70,7 @@ export function NavDrawer({ isOpen, onClose }: NavDrawerProps) {
             ))}
           </div>
           <div className="px-3 py-1.5 mt-2">
-            <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-wider mb-1">Tools</p>
+            <p className="text-[10px] font-semibold text-text-faint uppercase tracking-wider mb-1">Tools</p>
             {TOOLS.map((item) => (
               <Link
                 key={item.href}
@@ -78,8 +78,8 @@ export function NavDrawer({ isOpen, onClose }: NavDrawerProps) {
                 onClick={onClose}
                 className={`block px-2 py-1.5 rounded text-sm transition-colors ${
                   pathname.startsWith(item.href)
-                    ? 'bg-violet-500/20 text-violet-300'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+                    ? 'bg-accent-blue/20 text-accent-blue'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-bg-secondary'
                 }`}
               >
                 {item.label}

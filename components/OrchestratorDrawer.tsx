@@ -19,11 +19,11 @@ type PhaseColors = {
 
 function phaseColors(phase: string): PhaseColors {
   const p = (phase ?? '').toLowerCase()
-  if (p === 'idea' || p === 'ideate') return { badge: 'bg-purple-600', border: 'border-l-purple-500', dot: 'bg-purple-400', text: 'text-purple-400' }
-  if (p === 'spec') return { badge: 'bg-blue-600', border: 'border-l-blue-500', dot: 'bg-blue-400', text: 'text-blue-400' }
-  if (p === 'plan') return { badge: 'bg-amber-500', border: 'border-l-amber-400', dot: 'bg-amber-400', text: 'text-amber-400' }
-  if (p === 'develop' || p === 'developing') return { badge: 'bg-green-600', border: 'border-l-green-500', dot: 'bg-green-400', text: 'text-green-400' }
-  return { badge: 'bg-violet-600', border: 'border-l-violet-500', dot: 'bg-violet-400', text: 'text-violet-400' }
+  if (p === 'idea' || p === 'ideate') return { badge: 'bg-accent-blue', border: 'border-l-accent-blue', dot: 'bg-accent-blue', text: 'text-accent-blue' }
+  if (p === 'spec') return { badge: 'bg-accent-blue', border: 'border-l-accent-blue', dot: 'bg-accent-blue', text: 'text-accent-blue' }
+  if (p === 'plan') return { badge: 'bg-accent-orange', border: 'border-l-accent-orange', dot: 'bg-accent-orange', text: 'text-accent-orange' }
+  if (p === 'develop' || p === 'developing') return { badge: 'bg-accent-green', border: 'border-l-accent-green', dot: 'bg-accent-green', text: 'text-accent-green' }
+  return { badge: 'bg-accent-blue', border: 'border-l-accent-blue', dot: 'bg-accent-blue', text: 'text-accent-blue' }
 }
 
 function relativeTime(iso: string) {
