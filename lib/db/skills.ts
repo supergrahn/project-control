@@ -35,13 +35,13 @@ export function getSkillsByProject(db: Database, projectId: string): Skill[] {
   ).all(projectId) as Skill[]
 }
 
-export function updateSkill(db: Database, id: string, input: { name?: string }): Skill | undefined {
+export function updateSkill(db: Database, id: string, input: { name?: string }): Skill {
   const skill = getSkill(db, id)
-  if (!skill) return undefined
+  if (!skill) throw new Error(`Skill not found: ${id}`)
   if (input.name !== undefined) {
     db.prepare('UPDATE skills SET name = ? WHERE id = ?').run(input.name, id)
   }
-  return getSkill(db, id)
+  return getSkill(db, id)!
 }
 
 export function deleteSkill(db: Database, id: string): void {

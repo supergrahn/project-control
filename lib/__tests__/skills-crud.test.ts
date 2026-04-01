@@ -63,11 +63,11 @@ describe('updateSkill', () => {
   it('updates name in DB', () => {
     insertProject('p6')
     createSkill(db, { id: 'sk7', projectId: 'p6', name: 'Old Name', key: 'old', file_path: '.skills/old.md' })
-    expect(updateSkill(db, 'sk7', { name: 'New Name' })?.name).toBe('New Name')
+    expect(updateSkill(db, 'sk7', { name: 'New Name' }).name).toBe('New Name')
   })
 
-  it('returns undefined for unknown id', () => {
-    expect(updateSkill(db, 'no-such', { name: 'X' })).toBeUndefined()
+  it('throws for unknown id', () => {
+    expect(() => updateSkill(db, 'no-such', { name: 'X' })).toThrow('Skill not found: no-such')
   })
 })
 
