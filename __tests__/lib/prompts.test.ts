@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+vi.mock('@/lib/sessions/adapters', () => ({
+  getAdapter: vi.fn(() => ({
+    buildArgs: (opts: any) => ['--system-prompt', opts.systemPrompt, '--session-id', opts.sessionId, '--permission-mode', opts.permissionMode, ...(opts.userContext.trim() ? [opts.userContext.trim()] : [])],
+    parseLine: vi.fn(),
+    rateLimitPatterns: [],
+  })),
+}))
+
 import { getSystemPrompt, buildArgs } from '@/lib/prompts'
 
 describe('getSystemPrompt', () => {
@@ -14,7 +23,7 @@ describe('getSystemPrompt', () => {
 
 describe('buildArgs', () => {
   it('includes system prompt and user context', () => {
-    const args = buildArgs({ systemPrompt: 'sys', userContext: 'ctx', permissionMode: 'default', sessionId: 'abc' })
+    const args = buildArgs({ systemPrompt: 'sys', userContext: 'ctx', permissionMode: 'default', sessionId: 'abc', providerType: 'claude' })
     expect(args).toContain('--system-prompt')
     expect(args).toContain('sys')
     expect(args).toContain('ctx')
@@ -23,13 +32,13 @@ describe('buildArgs', () => {
   })
 
   it('omits user context when empty', () => {
-    const args = buildArgs({ systemPrompt: 'sys', userContext: '', permissionMode: 'default', sessionId: 'abc' })
+    const args = buildArgs({ systemPrompt: 'sys', userContext: '', permissionMode: 'default', sessionId: 'abc', providerType: 'claude' })
     expect(args[args.length - 1]).not.toBe('')
     expect(args).not.toContain('')
   })
 
   it('sets correct permission-mode flag', () => {
-    const args = buildArgs({ systemPrompt: 'sys', userContext: '', permissionMode: 'bypassPermissions', sessionId: 'abc' })
+    const args = buildArgs({ systemPrompt: 'sys', userContext: '', permissionMode: 'bypassPermissions', sessionId: 'abc', providerType: 'claude' })
     expect(args).toContain('bypassPermissions')
   })
 })
