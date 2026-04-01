@@ -10,8 +10,7 @@ export function GET(req: Request) {
   const taskId = url.searchParams.get('taskId')
   const db = getDb()
   if (taskId) {
-    const statusFilter = url.searchParams.get('status')
-    const sessions = statusFilter === 'active'
+    const sessions = status === 'active'
       ? db.prepare('SELECT * FROM sessions WHERE task_id = ? AND status = ? ORDER BY created_at DESC').all(taskId, 'active')
       : db.prepare('SELECT * FROM sessions WHERE task_id = ? ORDER BY created_at DESC').all(taskId)
     return NextResponse.json(sessions)

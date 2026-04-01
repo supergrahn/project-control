@@ -27,6 +27,20 @@ describe('POST /api/tasks — new fields', () => {
     expect(body.priority).toBe('high')
   })
 
+  it('accepts assignee_agent_id and stores it', async () => {
+    db.prepare("INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)").run('p6', 'T', '/tmp/p6', new Date().toISOString())
+    const { POST } = await import('@/app/api/tasks/route')
+    const req = new NextRequest('http://localhost/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({ projectId: 'p6', title: 'T', assignee_agent_id: 'agent-xyz' }),
+      headers: { 'content-type': 'application/json' },
+    })
+    const res = await POST(req)
+    const body = await res.json()
+    expect(res.status).toBe(201)
+    expect(body.assignee_agent_id).toBe('agent-xyz')
+  })
+
   it('accepts labels array and stores as JSON string', async () => {
     db.prepare("INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)").run('p2', 'T', '/tmp/p2', new Date().toISOString())
     const { POST } = await import('@/app/api/tasks/route')
