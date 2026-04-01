@@ -19,6 +19,7 @@ import { useParams } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { ProjectRail } from '@/components/layout/ProjectRail'
+import { ErrorBoundary } from '@/components/ui/feedback/ErrorBoundary'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [claudeAvailable, setClaudeAvailable] = useState<boolean | null>(null)
@@ -99,7 +100,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
             <TopBarWrapper />
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-              <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}>{children}</main>
+              <main style={{ flex: 1, padding: 24, overflowY: 'auto' }}><ErrorBoundary>{children}</ErrorBoundary></main>
               <AssistantPanel isOpen={assistant.isOpen} onClose={assistant.close} currentPage={pathname} />
             </div>
           </div>

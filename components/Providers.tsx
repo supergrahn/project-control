@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ProjectProvider } from '@/hooks/useProjects'
+import { ToastProvider } from '@/components/ui/feedback/Toast'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -10,7 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ProjectProvider>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </ProjectProvider>
     </QueryClientProvider>
   )
