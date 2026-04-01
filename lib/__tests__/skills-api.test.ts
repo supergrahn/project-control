@@ -58,6 +58,14 @@ describe('POST /api/skills', () => {
     expect(res.status).toBe(400)
   })
 
+  it('returns 400 when name missing', async () => {
+    const { POST } = await import('@/app/api/skills/route')
+    const res = await POST(new NextRequest('http://localhost/api/skills', {
+      method: 'POST', body: JSON.stringify({ projectId: 'p3' }),
+    }))
+    expect(res.status).toBe(400)
+  })
+
   it('auto-generates key from name when not provided', async () => {
     db.prepare('INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)')
       .run('p3', 'P', '/tmp/p3', new Date().toISOString())
