@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { initDb } from '@/lib/db'
 import type { Database } from 'better-sqlite3'
+import { createTask, updateTask } from '@/lib/db/tasks'
+import { createProvider } from '@/lib/db/providers'
 
 let db: Database
 
@@ -42,9 +44,6 @@ describe('tasks.provider_id migration', () => {
     expect(cols.map(c => c.name)).toContain('provider_id')
   })
 })
-
-import { createTask, updateTask } from '@/lib/db/tasks'
-import { createProvider } from '@/lib/db/providers'
 
 describe('tasks.provider_id field', () => {
   it('createTask returns provider_id as null by default', () => {

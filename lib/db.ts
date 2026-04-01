@@ -25,6 +25,7 @@ export type Project = {
   created_at: string
   last_used_at: string | null
   automation_level: AutomationLevel
+  provider_id: string | null
 }
 
 export type Session = {
