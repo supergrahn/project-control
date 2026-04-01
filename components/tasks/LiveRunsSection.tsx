@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
 
 type Todo = { id: string; content: string; status: 'completed' | 'in_progress' | 'pending' }
@@ -41,8 +41,11 @@ type Props = {
 export function LiveRunsSection({ taskId, onTodos }: Props) {
   const [activeSession, setActiveSession] = useState<SessionShape | null>(null)
   const [logLines, setLogLines] = useState<LogLine[]>([])
+  const [stopping, setStopping] = useState(false)
   const logEndRef = useRef<HTMLDivElement>(null)
   const lineCounter = useRef(0)
+  const onTodosRef = useRef(onTodos)
+  useEffect(() => { onTodosRef.current = onTodos })
   const { openWindow } = useSessionWindows()
 
   // Fetch active session on mount
@@ -68,7 +71,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
         const parsed = JSON.parse(text)
         if (parsed?.type === 'status' && parsed?.state === 'ended') {
           setActiveSession(null)
-          onTodos([])
+          onTodosRef.current([])
           return
         }
       } catch {
@@ -80,7 +83,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
       if (todoMatch) {
         try {
           const todos: Todo[] = JSON.parse(todoMatch[1])
-          onTodos(todos)
+          onTodosRef.current(todos)
         } catch {
           // ignore parse error
         }
@@ -96,7 +99,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
     }
 
     return () => ws.close()
-  }, [activeSession?.id, onTodos])
+  }, [activeSession?.id])
 
   // Scroll to bottom when log lines change
   useEffect(() => {
@@ -105,11 +108,18 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
     }
   }, [logLines])
 
-  async function handleStop() {
-    if (!activeSession) return
-    await fetch(`/api/sessions/${activeSession.id}`, { method: 'DELETE' })
-    setActiveSession(null)
-  }
+  const handleStop = useCallback(async () => {
+    if (!activeSession || stopping) return
+    setStopping(true)
+    try {
+      await fetch(`/api/sessions/${activeSession.id}`, { method: 'DELETE' })
+      setActiveSession(null)
+    } catch {
+      // ignore — session may already be gone
+    } finally {
+      setStopping(false)
+    }
+  }, [activeSession, stopping])
 
   function handleOpenTerminal() {
     if (!activeSession) return
@@ -171,7 +181,8 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
         </button>
         <button
           onClick={handleStop}
-          style={{ background: '#1c1f22', color: '#c97e2a', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: 'pointer' }}
+          disabled={stopping}
+          style={{ background: '#1c1f22', color: stopping ? '#5a6370' : '#c97e2a', border: 'none', borderRadius: 6, padding: '5px 10px', fontSize: 11, cursor: stopping ? 'not-allowed' : 'pointer' }}
         >
           Stop
         </button>
