@@ -9,6 +9,11 @@ export function GET(req: Request) {
   const projectId = url.searchParams.get('projectId') ?? undefined
   const taskId = url.searchParams.get('taskId')
   const db = getDb()
+  const agentId = url.searchParams.get('agentId')
+  if (agentId) {
+    const sessions = db.prepare('SELECT * FROM sessions WHERE agent_id = ? ORDER BY created_at DESC').all(agentId)
+    return NextResponse.json(sessions)
+  }
   if (taskId) {
     const sessions = status === 'active'
       ? db.prepare('SELECT * FROM sessions WHERE task_id = ? AND status = ? ORDER BY created_at DESC').all(taskId, 'active')
