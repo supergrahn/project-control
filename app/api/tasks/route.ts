@@ -20,14 +20,21 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { projectId, title, notes } = body
+  const { projectId, title, notes, priority, labels, assignee_agent_id } = body
 
   if (!projectId || !title?.trim()) {
     return NextResponse.json({ error: 'projectId and title required' }, { status: 400 })
   }
 
   const db = getDb()
-  let task = createTask(db, { id: randomUUID(), projectId, title: title.trim() })
+  let task = createTask(db, {
+    id: randomUUID(),
+    projectId,
+    title: title.trim(),
+    priority: priority ?? undefined,
+    labels: Array.isArray(labels) ? labels : undefined,
+    assignee_agent_id: assignee_agent_id ?? undefined,
+  })
   if (notes?.trim()) {
     task = updateTask(db, task.id, { notes: notes.trim() })
   }
