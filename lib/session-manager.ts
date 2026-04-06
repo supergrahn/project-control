@@ -15,9 +15,10 @@ import { buildTaskContext } from './prompts'
 import { getGitHistory } from './git'
 import path from 'path'
 import { randomUUID } from 'crypto'
+import { execFileSync } from 'child_process'
 import { writeFrontmatter } from './frontmatter'
 import { resolveProvider } from './sessions/resolveProvider'
-import { getActiveProviders } from './db/providers'
+import { getActiveProviders, getProviders, createProvider, type ProviderType } from './db/providers'
 import { getAdapter } from './sessions/adapters'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 
@@ -97,8 +98,35 @@ export type SpawnOptions = {
   agentId?: string
 }
 
+const KNOWN_PROVIDERS: { type: ProviderType; command: string; name: string }[] = [
+  { type: 'claude', command: 'claude', name: 'Claude Code' },
+  { type: 'gemini', command: 'gemini', name: 'Gemini CLI' },
+  { type: 'codex', command: 'codex', name: 'Codex CLI' },
+]
+
+function binaryExists(cmd: string): boolean {
+  try {
+    execFileSync('which', [cmd], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Auto-seed providers from installed CLI binaries when none are configured. */
+export function autoDetectProviders(db: ReturnType<typeof getDb>): void {
+  if (getProviders(db).length > 0) return
+  for (const p of KNOWN_PROVIDERS) {
+    if (binaryExists(p.command)) {
+      createProvider(db, { id: randomUUID(), name: p.name, type: p.type, command: p.command, config: null })
+    }
+  }
+}
+
 export function isClaudeAvailable(): boolean {
-  return getActiveProviders(getDb()).length > 0
+  const db = getDb()
+  autoDetectProviders(db)
+  return getActiveProviders(db).length > 0
 }
 
 export function spawnSession(opts: SpawnOptions): string {
