@@ -67,6 +67,12 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           <NavItem href="/inbox" active={pathname === '/inbox'}>
             Inbox
           </NavItem>
+          <NavItem
+            href={`/projects/${projectId}/tasks`}
+            active={pathname.startsWith(`/projects/${projectId}/tasks`)}
+          >
+            Tasks
+          </NavItem>
         </div>
 
         {/* Pipeline section */}
