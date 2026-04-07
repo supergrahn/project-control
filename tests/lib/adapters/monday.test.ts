@@ -44,6 +44,22 @@ describe('mondayAdapter', () => {
     vi.unstubAllGlobals()
   })
 
+  it('fetchAvailableResources throws on GraphQL-level errors', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        errors: [{ message: 'Unauthorized' }],
+      }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    await expect(
+      mondayAdapter.fetchAvailableResources({ api_token: 'bad-token' })
+    ).rejects.toThrow('Monday.com API error: Unauthorized')
+
+    vi.unstubAllGlobals()
+  })
+
   it('mapStatus maps correctly', () => {
     expect(mondayAdapter.mapStatus('done')).toBe('done')
     expect(mondayAdapter.mapStatus('active')).toBe('developing')

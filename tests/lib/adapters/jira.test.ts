@@ -43,6 +43,32 @@ describe('jiraAdapter', () => {
     vi.unstubAllGlobals()
   })
 
+  it('fetchAvailableResources handles paginated response with values array', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        values: [
+          { key: 'PROJ', name: 'My Project' },
+          { key: 'INFRA', name: 'Infrastructure' },
+        ],
+        maxResults: 50,
+        total: 2,
+      }),
+    })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const resources = await jiraAdapter.fetchAvailableResources({
+      base_url: 'https://co.atlassian.net',
+      email: 'a@b.com',
+      api_token: 'tok',
+    })
+    expect(resources).toEqual([
+      { id: 'PROJ', name: 'My Project' },
+      { id: 'INFRA', name: 'Infrastructure' },
+    ])
+    vi.unstubAllGlobals()
+  })
+
   it('fetchTasks uses default JQL when no resourceIds', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,

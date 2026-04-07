@@ -101,7 +101,10 @@ async function fetchAvailableResources(
 
   if (!response.ok) throw new Error(`Monday.com API error: ${response.status}`)
 
-  const data = (await response.json()) as { data?: { boards?: { id: string; name: string }[] } }
+  const data = (await response.json()) as { data?: { boards?: { id: string; name: string }[] }; errors?: { message: string }[] }
+  if (data.errors?.length) {
+    throw new Error(`Monday.com API error: ${data.errors.map(e => e.message).join(', ')}`)
+  }
   return (data.data?.boards ?? []).map(b => ({ id: b.id, name: b.name }))
 }
 

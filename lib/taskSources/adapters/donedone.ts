@@ -159,8 +159,8 @@ export const donedoneAdapter: TaskSourceAdapter = {
       headers,
     })
 
-    // Fallback to secondary endpoint if primary returns error/404
-    if (!response.ok) {
+    // Fallback to secondary endpoint only if primary returns 404 or 405
+    if (response.status === 404 || response.status === 405) {
       response = await fetch(`${baseUrl}/issues/all_active.json`, {
         method: 'GET',
         headers,

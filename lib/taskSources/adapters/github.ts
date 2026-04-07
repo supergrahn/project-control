@@ -1,4 +1,5 @@
 import type { TaskSourceAdapter, ConfigField, ExternalTask } from './types'
+import type { TaskStatus, TaskPriority } from '@/lib/db/tasks'
 
 const configFields: ConfigField[] = [
   {
@@ -16,16 +17,29 @@ async function fetchAvailableResources(
   const { token } = config
   if (!token) return []
 
-  const response = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-  })
+  const repos: { full_name: string }[] = []
+  let page = 1
+  let hasMore = true
 
-  if (!response.ok) throw new Error(`GitHub API error: ${response.status}`)
+  while (hasMore) {
+    const response = await fetch(
+      `https://api.github.com/user/repos?per_page=100&sort=updated&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      },
+    )
 
-  const repos = (await response.json()) as { full_name: string }[]
+    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`)
+
+    const batch = (await response.json()) as { full_name: string }[]
+    repos.push(...batch)
+    hasMore = batch.length === 100
+    page++
+  }
+
   return repos.map(r => ({ id: r.full_name, name: r.full_name }))
 }
 
@@ -82,7 +96,7 @@ async function fetchTasks(
       const repoPath = item.repository_url.split('/').slice(-2).join('/')
       if (!resourceIds.includes(repoPath)) continue
 
-      const priorityLabel = item.labels.find((l: any) =>
+      const priorityLabel = item.labels.find(l =>
         /^priority[:\s-]/i.test(l.name) ||
         ['critical', 'urgent', 'high', 'medium', 'low', 'normal'].includes(l.name.toLowerCase())
       )
@@ -90,7 +104,7 @@ async function fetchTasks(
         ? priorityLabel.name.toLowerCase().replace(/^priority[:\s-]*/i, '')
         : null
 
-      const labelNames = item.labels.map((l: any) => l.name.toLowerCase())
+      const labelNames = item.labels.map(l => l.name.toLowerCase())
       const isInProgress = labelNames.some((l: string) => ['in-progress', 'wip', 'in progress'].includes(l))
       const status = item.state === 'closed' ? 'closed' : isInProgress ? 'in-progress' : 'open'
 
@@ -103,8 +117,8 @@ async function fetchTasks(
         status,
         priority,
         url: item.html_url,
-        labels: item.labels.map((l: any) => l.name),
-        assignees: item.assignees.map((a: any) => a.login),
+        labels: item.labels.map(l => l.name),
+        assignees: item.assignees.map(a => a.login),
         meta: item,
       })
     }
@@ -116,7 +130,7 @@ async function fetchTasks(
   return tasks
 }
 
-function mapStatus(raw: string): 'idea' | 'speccing' | 'planning' | 'developing' | 'done' {
+function mapStatus(raw: string): TaskStatus {
   switch (raw) {
     case 'closed':
       return 'done'
@@ -128,9 +142,7 @@ function mapStatus(raw: string): 'idea' | 'speccing' | 'planning' | 'developing'
   }
 }
 
-function mapPriority(
-  raw: string | null
-): 'low' | 'medium' | 'high' | 'urgent' {
+function mapPriority(raw: string | null): TaskPriority {
   if (!raw) return 'medium'
 
   const normalized = raw.toLowerCase()

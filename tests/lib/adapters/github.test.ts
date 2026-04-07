@@ -61,6 +61,24 @@ describe('githubAdapter', () => {
     vi.unstubAllGlobals()
   })
 
+  it('fetchAvailableResources paginates through all repos', async () => {
+    const page1 = Array.from({ length: 100 }, (_, i) => ({ full_name: `owner/repo${i + 1}` }))
+    const page2 = [{ full_name: 'owner/repo101' }, { full_name: 'owner/repo102' }]
+
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => page1 })
+      .mockResolvedValueOnce({ ok: true, json: async () => page2 })
+    vi.stubGlobal('fetch', mockFetch)
+
+    const resources = await githubAdapter.fetchAvailableResources({ token: 'tok' })
+    expect(resources).toHaveLength(102)
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+    expect(mockFetch.mock.calls[0][0]).toContain('page=1')
+    expect(mockFetch.mock.calls[1][0]).toContain('page=2')
+
+    vi.unstubAllGlobals()
+  })
+
   it('fetchTasks filters issues by resourceIds', async () => {
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,

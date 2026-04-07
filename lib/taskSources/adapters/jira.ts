@@ -110,8 +110,9 @@ async function fetchAvailableResources(
 
   if (!response.ok) throw new Error(`Jira API error: ${response.status}`)
 
-  const projects = (await response.json()) as { key: string; name: string }[]
-  return projects.map(p => ({ id: p.key, name: p.name }))
+  const raw = await response.json()
+  const projects = Array.isArray(raw) ? raw : ((raw as { values?: { key: string; name: string }[] }).values ?? [])
+  return (projects as { key: string; name: string }[]).map(p => ({ id: p.key, name: p.name }))
 }
 
 /**
