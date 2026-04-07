@@ -46,18 +46,18 @@ describe('donedoneAdapter', () => {
   describe('fetchTasks', () => {
     it('should throw error if required config is missing', async () => {
       await expect(
-        donedoneAdapter.fetchTasks({ username: 'testuser' }),
+        donedoneAdapter.fetchTasks({ username: 'testuser' }, []),
       ).rejects.toThrow('Missing required DoneDone configuration')
 
       await expect(
-        donedoneAdapter.fetchTasks({ subdomain: 'mycompany' }),
+        donedoneAdapter.fetchTasks({ subdomain: 'mycompany' }, []),
       ).rejects.toThrow('Missing required DoneDone configuration')
 
       await expect(
         donedoneAdapter.fetchTasks({
           subdomain: 'mycompany',
           username: 'testuser',
-        }),
+        }, []),
       ).rejects.toThrow('Missing required DoneDone configuration')
     })
 
@@ -86,7 +86,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].sourceId).toBe('123')
@@ -129,7 +129,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].sourceId).toBe('456')
@@ -169,7 +169,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks[0]).toEqual({
         sourceId: '789',
@@ -198,7 +198,7 @@ describe('donedoneAdapter', () => {
         api_key: 'myapikey',
       }
 
-      await donedoneAdapter.fetchTasks(config)
+      await donedoneAdapter.fetchTasks(config, [])
 
       const call = vi.mocked(global.fetch).mock.calls[0]
       const headers = call[1]?.headers as Record<string, string>
@@ -241,7 +241,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toHaveLength(2)
       expect(tasks[0].status).toBe('Active')
@@ -270,7 +270,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks[0].description).toBeNull()
       expect(tasks[0].status).toBe('')
@@ -298,7 +298,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks[0].sourceId).toBe('42')
       expect(tasks[0].url).toContain('/issues/42')
@@ -325,7 +325,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      await expect(donedoneAdapter.fetchTasks(config)).rejects.toThrow(
+      await expect(donedoneAdapter.fetchTasks(config, [])).rejects.toThrow(
         'DoneDone API error',
       )
     })
@@ -342,7 +342,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      await expect(donedoneAdapter.fetchTasks(config)).rejects.toThrow(
+      await expect(donedoneAdapter.fetchTasks(config, [])).rejects.toThrow(
         'Invalid DoneDone API response',
       )
     })
@@ -359,7 +359,7 @@ describe('donedoneAdapter', () => {
         api_key: 'secret123',
       }
 
-      const tasks = await donedoneAdapter.fetchTasks(config)
+      const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toEqual([])
     })

@@ -73,12 +73,42 @@ function mapPriority(raw: string | null): TaskPriority {
 }
 
 /**
+ * Fetch available DoneDone projects for resource selection.
+ */
+async function fetchAvailableResources(
+  config: Record<string, string>,
+): Promise<{ id: string; name: string }[]> {
+  const { subdomain, username, api_key } = config
+  if (!subdomain || !username || !api_key) return []
+
+  const baseUrl = `https://${subdomain}.mydonedone.com/issuetracker/api/v2`
+  const credentials = Buffer.from(`${username}:${api_key}`).toString('base64')
+
+  const response = await fetch(`${baseUrl}/projects.json`, {
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) throw new Error(`DoneDone API error: ${response.status}`)
+
+  const data = (await response.json()) as any
+  const projects = Array.isArray(data) ? data : (data.projects ?? [])
+  return projects.map((p: any) => ({
+    id: String(p.id),
+    name: p.name || p.title || String(p.id),
+  }))
+}
+
+/**
  * DoneDone REST API v2 adapter for fetching tasks.
  * Uses Basic auth with username and API key.
  */
 export const donedoneAdapter: TaskSourceAdapter = {
   key: 'donedone',
   name: 'DoneDone',
+  resourceSelectionLabel: 'Select projects',
 
   configFields: [
     {
@@ -103,7 +133,9 @@ export const donedoneAdapter: TaskSourceAdapter = {
     },
   ],
 
-  async fetchTasks(config: Record<string, string>): Promise<ExternalTask[]> {
+  fetchAvailableResources,
+
+  async fetchTasks(config: Record<string, string>, resourceIds: string[]): Promise<ExternalTask[]> {
     const { subdomain, username, api_key } = config
 
     if (!subdomain || !username || !api_key) {
@@ -148,7 +180,7 @@ export const donedoneAdapter: TaskSourceAdapter = {
       throw new Error('Invalid DoneDone API response: expected array')
     }
 
-    return data.map((issue: any) => {
+    const tasks = data.map((issue: any) => {
       const sourceId = String(issue.id || issue.order_number)
       const issueUrl = `https://${subdomain}.mydonedone.com/issuetracker/issues/${issue.id || issue.order_number}`
 
@@ -194,6 +226,16 @@ export const donedoneAdapter: TaskSourceAdapter = {
         meta: issue,
       } as ExternalTask
     })
+
+    // Filter by selected projects if any are selected
+    if (resourceIds.length > 0) {
+      return tasks.filter(t => {
+        const meta = t.meta as any
+        const projectId = String(meta.project_id ?? meta.projectId ?? '')
+        return resourceIds.includes(projectId)
+      })
+    }
+    return tasks
   },
 
   mapStatus,
