@@ -1,8 +1,8 @@
 import type { Database } from 'better-sqlite3'
 import { randomUUID } from 'crypto'
-import { getTaskSourceConfig } from '@/lib/db/taskSourceConfig'
+import { getTaskSourceConfig, listTaskSourceConfigs } from '@/lib/db/taskSourceConfig'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
-import { createTask, updateTask, deleteTask, getTask } from '@/lib/db/tasks'
+import { createTask, updateTask, deleteTask } from '@/lib/db/tasks'
 import type { Task } from '@/lib/db/tasks'
 
 export type SyncResult = {
@@ -12,26 +12,26 @@ export type SyncResult = {
   error?: string
 }
 
-export async function syncProject(db: Database, projectId: string): Promise<SyncResult> {
-  const config = getTaskSourceConfig(db, projectId)
-  if (!config) throw new Error(`No task source configured for project ${projectId}`)
+export async function syncProjectSource(
+  db: Database,
+  projectId: string,
+  adapterKey: string,
+): Promise<SyncResult> {
+  const config = getTaskSourceConfig(db, projectId, adapterKey)
+  if (!config) throw new Error(`No config for ${adapterKey} on project ${projectId}`)
 
-  const adapter = getTaskSourceAdapter(config.adapter_key)
+  const adapter = getTaskSourceAdapter(adapterKey)
 
   try {
-    const externalTasks = await adapter.fetchTasks(config.config)
+    const externalTasks = await adapter.fetchTasks(config.config, config.resource_ids)
 
-    // Get existing synced tasks for this project+source
     const existingTasks = db.prepare(
       'SELECT * FROM tasks WHERE project_id = ? AND source = ?'
-    ).all(projectId, adapter.key) as Task[]
+    ).all(projectId, adapterKey) as Task[]
 
-    const existingBySourceId = new Map(
-      existingTasks.map(t => [t.source_id, t])
-    )
+    const existingBySourceId = new Map(existingTasks.map(t => [t.source_id, t]))
 
-    let created = 0
-    let updated = 0
+    let created = 0, updated = 0
     const seenSourceIds = new Set<string>()
 
     for (const ext of externalTasks) {
@@ -41,7 +41,6 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
       const mappedPriority = adapter.mapPriority(ext.priority)
 
       if (existing) {
-        // Update source-managed fields only
         updateTask(db, existing.id, {
           title: ext.title,
           priority: mappedPriority,
@@ -53,7 +52,6 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
         })
         updated++
       } else {
-        // Create new task
         const task = createTask(db, {
           id: randomUUID(),
           projectId,
@@ -61,9 +59,8 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
           priority: mappedPriority,
           labels: ext.labels.length > 0 ? ext.labels : undefined,
         })
-        // Set source fields, status, and description in one update
         updateTask(db, task.id, {
-          source: adapter.key,
+          source: adapterKey,
           source_id: ext.sourceId,
           source_url: ext.url,
           source_meta: JSON.stringify(ext.meta),
@@ -74,7 +71,6 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
       }
     }
 
-    // Delete tasks no longer in the external source
     let deleted = 0
     for (const existing of existingTasks) {
       if (existing.source_id && !seenSourceIds.has(existing.source_id)) {
@@ -83,17 +79,28 @@ export async function syncProject(db: Database, projectId: string): Promise<Sync
       }
     }
 
-    // Update sync metadata
     db.prepare(
-      'UPDATE task_source_config SET last_synced_at = ?, last_error = NULL WHERE project_id = ?'
-    ).run(new Date().toISOString(), projectId)
+      'UPDATE task_source_config SET last_synced_at = ?, last_error = NULL WHERE project_id = ? AND adapter_key = ?'
+    ).run(new Date().toISOString(), projectId, adapterKey)
 
     return { created, updated, deleted }
   } catch (err: any) {
     const errorMsg = err?.message || String(err)
     db.prepare(
-      'UPDATE task_source_config SET last_error = ? WHERE project_id = ?'
-    ).run(errorMsg, projectId)
+      'UPDATE task_source_config SET last_error = ? WHERE project_id = ? AND adapter_key = ?'
+    ).run(errorMsg, projectId, adapterKey)
     return { created: 0, updated: 0, deleted: 0, error: errorMsg }
   }
+}
+
+export async function syncProject(
+  db: Database,
+  projectId: string,
+): Promise<SyncResult[]> {
+  const configs = listTaskSourceConfigs(db, projectId)
+  return Promise.all(
+    configs
+      .filter(c => c.is_active)
+      .map(c => syncProjectSource(db, projectId, c.adapter_key))
+  )
 }

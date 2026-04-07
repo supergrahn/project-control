@@ -1,60 +1,62 @@
 import { getDb } from '@/lib/db'
 import { listActiveTaskSources } from '@/lib/db/taskSourceConfig'
-import { syncProject } from '@/lib/taskSources/syncService'
+import { syncProjectSource } from '@/lib/taskSources/syncService'
 import { logEvent } from '@/lib/events'
 
-const POLL_INTERVAL_MS = 60_000  // 1 minute
+const POLL_INTERVAL_MS = 60_000
 
-// Use globalThis to survive Next.js hot-reload (same pattern as procMap in session-manager)
 declare global {
   var pollTimers: Map<string, ReturnType<typeof setInterval>> | undefined
 }
 
 function getTimers(): Map<string, ReturnType<typeof setInterval>> {
-  if (!globalThis.pollTimers) {
-    globalThis.pollTimers = new Map()
-  }
+  if (!globalThis.pollTimers) globalThis.pollTimers = new Map()
   return globalThis.pollTimers
 }
 
-export function startPolling(projectId: string): void {
+function timerKey(projectId: string, adapterKey: string): string {
+  return `${projectId}:${adapterKey}`
+}
+
+export function startPolling(projectId: string, adapterKey: string): void {
   const timers = getTimers()
-  // Don't start duplicate timers
-  if (timers.has(projectId)) return
+  const key = timerKey(projectId, adapterKey)
+  if (timers.has(key)) return
 
   const timer = setInterval(async () => {
     try {
       const db = getDb()
-      const result = await syncProject(db, projectId)
+      const result = await syncProjectSource(db, projectId, adapterKey)
       if (result.error) {
-        logEvent(db, { projectId, type: 'task_sync', summary: `Sync failed: ${result.error}`, severity: 'warn' })
+        logEvent(db, { projectId, type: 'task_sync', summary: `[${adapterKey}] Sync failed: ${result.error}`, severity: 'warn' })
       } else if (result.created > 0 || result.updated > 0 || result.deleted > 0) {
-        logEvent(db, { projectId, type: 'task_sync', summary: `Synced: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`, severity: 'info' })
+        logEvent(db, { projectId, type: 'task_sync', summary: `[${adapterKey}] Synced: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`, severity: 'info' })
       }
     } catch (err) {
-      console.error(`[poll] sync failed for project ${projectId}:`, err)
+      console.error(`[poll] sync failed for ${projectId}:${adapterKey}:`, err)
     }
   }, POLL_INTERVAL_MS)
 
-  timers.set(projectId, timer)
-  console.log(`[poll] started polling for project ${projectId}`)
+  timers.set(key, timer)
+  console.log(`[poll] started polling for ${projectId}:${adapterKey}`)
 }
 
-export function stopPolling(projectId: string): void {
+export function stopPolling(projectId: string, adapterKey: string): void {
   const timers = getTimers()
-  const timer = timers.get(projectId)
+  const key = timerKey(projectId, adapterKey)
+  const timer = timers.get(key)
   if (timer) {
     clearInterval(timer)
-    timers.delete(projectId)
-    console.log(`[poll] stopped polling for project ${projectId}`)
+    timers.delete(key)
+    console.log(`[poll] stopped polling for ${projectId}:${adapterKey}`)
   }
 }
 
 export function stopAllPolling(): void {
   const timers = getTimers()
-  for (const [projectId, timer] of timers) {
+  for (const [key, timer] of timers) {
     clearInterval(timer)
-    console.log(`[poll] stopped polling for project ${projectId}`)
+    console.log(`[poll] stopped polling for ${key}`)
   }
   timers.clear()
 }
@@ -64,10 +66,10 @@ export function startAllPolling(): void {
     const db = getDb()
     const activeSources = listActiveTaskSources(db)
     for (const source of activeSources) {
-      startPolling(source.project_id)
+      startPolling(source.project_id, source.adapter_key)
     }
     if (activeSources.length > 0) {
-      console.log(`[poll] started polling for ${activeSources.length} project(s)`)
+      console.log(`[poll] started polling for ${activeSources.length} source(s)`)
     }
   } catch (err) {
     console.error('[poll] failed to start polling:', err)
