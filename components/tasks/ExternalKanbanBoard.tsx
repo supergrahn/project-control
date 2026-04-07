@@ -1,6 +1,7 @@
 'use client'
 
-import type { ExternalTask, ExternalTaskSource, ExternalTaskStatus } from '@/lib/types/externalTask'
+import type { ExternalTask, ExternalTaskStatus } from '@/lib/types/externalTask'
+import { SOURCE_STYLES, SOURCE_LABELS } from '@/lib/externalTasks/taskStyles'
 
 interface Column {
   status: ExternalTaskStatus
@@ -16,34 +17,23 @@ const COLUMNS: Column[] = [
   { status: 'done',       label: 'Done',              headerCls: 'text-emerald-300 border-emerald-700/50' },
 ]
 
-const SOURCE_BADGE: Record<ExternalTaskSource, string> = {
-  jira:     'bg-blue-900/50 text-blue-300',
-  monday:   'bg-yellow-900/50 text-yellow-300',
-  donedone: 'bg-green-900/50 text-green-300',
-  github:   'bg-purple-900/50 text-purple-300',
-}
-
-const SOURCE_LABEL: Record<ExternalTaskSource, string> = {
-  jira: 'Jira', monday: 'Monday', donedone: 'DoneDone', github: 'GitHub',
-}
-
 function KanbanTaskCard({ task, onSelect }: { task: ExternalTask; onSelect: (task: ExternalTask) => void }) {
   return (
     <div
       onClick={() => onSelect(task)}
-      className="flex flex-col gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900 p-3 cursor-pointer hover:border-zinc-700 transition-colors"
+      className="flex flex-col gap-1.5 rounded-lg border border-border-default bg-bg-secondary p-3 cursor-pointer hover:border-border-hover transition-colors"
     >
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SOURCE_BADGE[task.source]}`}>
-          {SOURCE_LABEL[task.source]}
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${SOURCE_STYLES[task.source]}`}>
+          {SOURCE_LABELS[task.source]}
         </span>
       </div>
-      <p className="text-xs font-medium text-zinc-200 leading-snug line-clamp-2">{task.title}</p>
+      <p className="text-xs font-medium text-text-primary leading-snug line-clamp-2">{task.title}</p>
       {task.rawStatus && (
-        <p className="text-[10px] text-zinc-500 truncate">{task.rawStatus}</p>
+        <p className="text-[10px] text-text-secondary truncate">{task.rawStatus}</p>
       )}
       {task.assignees.length > 0 && (
-        <p className="text-[10px] text-zinc-600 truncate">{task.assignees[0]}</p>
+        <p className="text-[10px] text-text-muted truncate">{task.assignees[0]}</p>
       )}
     </div>
   )
@@ -66,11 +56,11 @@ export function ExternalKanbanBoard({ tasks, onSelect }: Props) {
         return (
           <div
             key={col.status}
-            className="flex flex-col gap-2 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 min-h-[200px]"
+            className="flex flex-col gap-2 rounded-xl border border-border-default bg-bg-primary p-3 min-h-[200px]"
           >
             <div className={`flex items-center gap-2 pb-2 mb-1 border-b ${col.headerCls}`}>
               <h2 className="text-xs font-semibold">{col.label}</h2>
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-500">
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-secondary">
                 {colTasks.length}
               </span>
             </div>
@@ -78,7 +68,7 @@ export function ExternalKanbanBoard({ tasks, onSelect }: Props) {
               <KanbanTaskCard key={`${task.source}-${task.id}`} task={task} onSelect={onSelect} />
             ))}
             {colTasks.length === 0 && (
-              <p className="text-[10px] text-zinc-700 italic text-center mt-4">No tasks</p>
+              <p className="text-[10px] text-text-faint italic text-center mt-4">No tasks</p>
             )}
           </div>
         )

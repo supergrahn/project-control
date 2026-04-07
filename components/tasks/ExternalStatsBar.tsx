@@ -1,15 +1,11 @@
 'use client'
 
 import type { ExternalTask, ExternalTaskStatus } from '@/lib/types/externalTask'
+import { STATUS_LABELS } from '@/lib/externalTasks/taskStyles'
 
-const STATUS_COLORS: Record<ExternalTaskStatus, string> = {
+const STATUS_DOT_COLORS: Record<ExternalTaskStatus, string> = {
   todo: 'bg-zinc-500', inprogress: 'bg-blue-500', review: 'bg-purple-500',
   blocked: 'bg-red-500', done: 'bg-green-500',
-}
-
-const STATUS_LABELS: Record<ExternalTaskStatus, string> = {
-  todo: 'Todo', inprogress: 'In Progress', review: 'Review',
-  blocked: 'Blocked', done: 'Done',
 }
 
 interface Props {
@@ -25,7 +21,7 @@ export function ExternalStatsBar({ tasks, onStatusClick }: Props) {
 
   return (
     <div className="flex items-center gap-3 mb-3 text-xs">
-      <span className="text-zinc-400 font-medium">{tasks.length} tasks</span>
+      <span className="text-text-secondary font-medium">{tasks.length} tasks</span>
       <div className="flex items-center gap-2">
         {(Object.entries(counts) as [ExternalTaskStatus, number][])
           .filter(([, count]) => count > 0)
@@ -33,9 +29,9 @@ export function ExternalStatsBar({ tasks, onStatusClick }: Props) {
             <button
               key={status}
               onClick={() => onStatusClick?.(status)}
-              className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 bg-transparent border-none cursor-pointer transition-colors"
+              className="flex items-center gap-1 text-text-secondary hover:text-text-primary bg-transparent border-none cursor-pointer transition-colors"
             >
-              <span className={`w-2 h-2 rounded-full ${STATUS_COLORS[status]}`} />
+              <span className={`w-2 h-2 rounded-full ${STATUS_DOT_COLORS[status]}`} />
               <span>{count} {STATUS_LABELS[status]}</span>
             </button>
           ))

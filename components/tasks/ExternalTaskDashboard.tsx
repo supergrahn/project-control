@@ -46,15 +46,15 @@ const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 function SkeletonCard() {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3 animate-pulse">
+    <div className="rounded-xl border border-border-default bg-bg-secondary p-4 space-y-3 animate-pulse">
       <div className="flex gap-2">
-        <div className="h-5 w-14 rounded-full bg-zinc-800" />
-        <div className="h-5 w-12 rounded bg-zinc-800" />
+        <div className="h-5 w-14 rounded-full bg-bg-tertiary" />
+        <div className="h-5 w-12 rounded bg-bg-tertiary" />
       </div>
-      <div className="h-4 w-3/4 rounded bg-zinc-800" />
+      <div className="h-4 w-3/4 rounded bg-bg-tertiary" />
       <div className="flex gap-2">
-        <div className="h-3 w-20 rounded bg-zinc-800" />
-        <div className="h-3 w-24 rounded bg-zinc-800" />
+        <div className="h-3 w-20 rounded bg-bg-tertiary" />
+        <div className="h-3 w-24 rounded bg-bg-tertiary" />
       </div>
     </div>
   )
@@ -277,8 +277,8 @@ export function ExternalTaskDashboard() {
     if (nonEmpty.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <Inbox className="w-10 h-10 text-zinc-700 mb-3" />
-          <p className="text-zinc-500 text-sm">No tasks match the current filters.</p>
+          <Inbox className="w-10 h-10 text-text-faint mb-3" />
+          <p className="text-text-secondary text-sm">No tasks match the current filters.</p>
         </div>
       )
     }
@@ -289,10 +289,10 @@ export function ExternalTaskDashboard() {
           <div key={section.key}>
             {section.label && (
               <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
                   {section.label}
                 </h2>
-                <span className="text-xs px-1.5 py-0.5 rounded-full bg-zinc-800 text-zinc-400 font-medium">
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-bg-tertiary text-text-secondary font-medium">
                   {section.tasks.length}
                 </span>
               </div>
@@ -334,14 +334,14 @@ export function ExternalTaskDashboard() {
               className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border transition-colors ${
                 showOverdueOnly
                   ? 'bg-red-500/20 border-red-500/40 text-red-300'
-                  : 'bg-transparent border-zinc-700 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                  : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-primary'
               }`}
             >
               <AlertTriangle className="w-3 h-3" />
               {overdueCount} overdue
             </button>
           )}
-          <span className="text-xs text-zinc-600">
+          <span className="text-xs text-text-muted">
             {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -352,7 +352,7 @@ export function ExternalTaskDashboard() {
           <select
             value={groupBy}
             onChange={e => changeGroupBy(e.target.value as GroupBy)}
-            className="sm:hidden text-xs bg-zinc-800 border border-zinc-700 rounded-lg px-2 py-1.5 text-zinc-300 focus:outline-none focus:border-zinc-500"
+            className="sm:hidden text-xs bg-bg-tertiary border border-border-hover rounded-lg px-2 py-1.5 text-text-primary focus:outline-none focus:border-border-strong"
           >
             {GROUP_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -360,15 +360,15 @@ export function ExternalTaskDashboard() {
           </select>
 
           {/* Desktop: button strip */}
-          <div className="hidden sm:flex items-center rounded-lg border border-zinc-800 overflow-hidden">
+          <div className="hidden sm:flex items-center rounded-lg border border-border-default overflow-hidden">
             {GROUP_OPTIONS.map(opt => (
               <button
                 key={opt.value}
                 onClick={() => changeGroupBy(opt.value)}
-                className={`text-xs px-2.5 py-1.5 border-r border-zinc-800 last:border-r-0 transition-colors ${
+                className={`text-xs px-2.5 py-1.5 border-r border-border-default last:border-r-0 transition-colors ${
                   groupBy === opt.value
-                    ? 'bg-zinc-700 text-zinc-100'
-                    : 'bg-transparent text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                    ? 'bg-bg-tertiary text-text-primary'
+                    : 'bg-transparent text-text-secondary hover:bg-bg-tertiary hover:text-text-primary'
                 }`}
               >
                 {opt.label}
@@ -379,7 +379,7 @@ export function ExternalTaskDashboard() {
           <button
             onClick={() => mutate()}
             disabled={isValidating}
-            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border-default text-text-secondary hover:text-text-primary hover:border-border-hover transition-colors disabled:opacity-50"
             title="Refresh"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isValidating ? 'animate-spin' : ''}`} />
@@ -389,7 +389,9 @@ export function ExternalTaskDashboard() {
       </div>
 
       {/* Stats bar */}
-      <ExternalStatsBar tasks={tasks} />
+      <ExternalStatsBar tasks={tasks} onStatusClick={(status) => {
+        setFilters(prev => ({ ...prev, statuses: new Set([status]) }))
+      }} />
 
       {/* Filters */}
       <ExternalTaskFiltersBar

@@ -44,34 +44,34 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-bg-overlay" onClick={onClose} />
 
       {/* Drawer */}
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
-        className="fixed right-0 top-0 z-50 flex h-screen w-[480px] flex-col border-l border-zinc-800 bg-zinc-950 shadow-2xl"
+        className="fixed right-0 top-0 z-50 flex h-screen w-[480px] flex-col border-l border-border-default bg-bg-base shadow-2xl"
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3 shrink-0">
+        <div className="flex items-center justify-between border-b border-border-default px-4 py-3 shrink-0">
           <div className="flex items-center gap-1">
             <button
               onClick={() => hasPrev && onNavigate(tasks[currentIndex - 1])}
               disabled={!hasPrev}
               aria-label="Previous task"
-              className="p-1 rounded text-zinc-500 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1 rounded text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             {currentIndex >= 0 && (
-              <span className="text-xs text-zinc-600 tabular-nums">{currentIndex + 1} / {tasks.length}</span>
+              <span className="text-xs text-text-muted tabular-nums">{currentIndex + 1} / {tasks.length}</span>
             )}
             <button
               onClick={() => hasNext && onNavigate(tasks[currentIndex + 1])}
               disabled={!hasNext}
               aria-label="Next task"
-              className="p-1 rounded text-zinc-500 hover:text-zinc-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+              className="p-1 rounded text-text-secondary hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -80,7 +80,7 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
             ref={closeButtonRef}
             onClick={onClose}
             aria-label="Close"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="text-text-secondary hover:text-text-primary transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -94,7 +94,7 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
               {SOURCE_LABELS[task.source]}
             </span>
             {task.priority && (
-              <span className="flex items-center gap-1 text-xs text-zinc-400">
+              <span className="flex items-center gap-1 text-xs text-text-secondary">
                 <span className={`w-2 h-2 rounded-full ${PRIORITY_COLORS[task.priority]}`} />
                 {PRIORITY_LABELS[task.priority]}
               </span>
@@ -105,40 +105,40 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
           </div>
 
           {/* Title */}
-          <h2 id="drawer-title" className="text-base font-semibold text-zinc-100 leading-snug">{task.title}</h2>
+          <h2 id="drawer-title" className="text-base font-semibold text-text-primary leading-snug">{task.title}</h2>
 
           {/* Description */}
           <div>
-            <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">Description</p>
+            <p className="text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Description</p>
             {task.description ? (
-              <pre className="text-sm text-zinc-300 whitespace-pre-wrap font-sans leading-relaxed">{task.description}</pre>
+              <pre className="text-sm text-text-primary whitespace-pre-wrap font-sans leading-relaxed">{task.description}</pre>
             ) : (
-              <p className="text-sm text-zinc-600 italic">No description</p>
+              <p className="text-sm text-text-muted italic">No description</p>
             )}
           </div>
 
           {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <p className="text-zinc-500 mb-0.5">Project</p>
-              <p className="text-zinc-300">{task.project || '—'}</p>
+              <p className="text-text-secondary mb-0.5">Project</p>
+              <p className="text-text-primary">{task.project || '—'}</p>
             </div>
             {task.dueDate && (
               <div>
-                <p className="text-zinc-500 mb-0.5">Due</p>
-                <p className="text-zinc-300">{task.dueDate}</p>
+                <p className="text-text-secondary mb-0.5">Due</p>
+                <p className="text-text-primary">{task.dueDate}</p>
               </div>
             )}
             {task.createdAt && (
               <div>
-                <p className="text-zinc-500 mb-0.5">Created</p>
-                <p className="text-zinc-300">{relativeTime(task.createdAt)}</p>
+                <p className="text-text-secondary mb-0.5">Created</p>
+                <p className="text-text-primary">{relativeTime(task.createdAt)}</p>
               </div>
             )}
             {task.updatedAt && (
               <div>
-                <p className="text-zinc-500 mb-0.5">Updated</p>
-                <p className="text-zinc-300">{relativeTime(task.updatedAt)}</p>
+                <p className="text-text-secondary mb-0.5">Updated</p>
+                <p className="text-text-primary">{relativeTime(task.updatedAt)}</p>
               </div>
             )}
           </div>
@@ -146,10 +146,10 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
           {/* Assignees */}
           {task.assignees.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">Assignees</p>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Assignees</p>
               <div className="flex flex-wrap gap-1.5">
                 {task.assignees.map(a => (
-                  <span key={a} className="text-xs text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-full">{a}</span>
+                  <span key={a} className="text-xs text-text-primary bg-bg-tertiary px-2 py-0.5 rounded-full">{a}</span>
                 ))}
               </div>
             </div>
@@ -158,10 +158,10 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
           {/* Labels */}
           {task.labels.length > 0 && (
             <div>
-              <p className="text-xs font-medium text-zinc-500 uppercase tracking-wide mb-2">Labels</p>
+              <p className="text-xs font-medium text-text-secondary uppercase tracking-wide mb-2">Labels</p>
               <div className="flex flex-wrap gap-1.5">
                 {task.labels.map(l => (
-                  <span key={l} className="flex items-center gap-1 text-xs text-zinc-400 bg-zinc-800 px-2 py-0.5 rounded">
+                  <span key={l} className="flex items-center gap-1 text-xs text-text-secondary bg-bg-tertiary px-2 py-0.5 rounded">
                     <Tag className="w-3 h-3" />{l}
                   </span>
                 ))}
@@ -171,12 +171,12 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-zinc-800 p-4">
+        <div className="shrink-0 border-t border-border-default p-4">
           <a
             href={task.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-100 px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900 transition-colors inline-flex"
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-lg border border-border-default hover:border-border-hover bg-bg-secondary transition-colors inline-flex"
           >
             <ExternalLink className="w-3.5 h-3.5" />
             Open in {SOURCE_LABELS[task.source]}

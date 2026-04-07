@@ -17,15 +17,15 @@ export function ExternalFocusQueue({ tasks, onSelect }: Props) {
   return (
     <div className="flex flex-col gap-1">
       {ranked.length === 0 && (
-        <div className="text-zinc-600 text-xs text-center py-8">No actionable tasks</div>
+        <div className="text-text-muted text-xs text-center py-8">No actionable tasks</div>
       )}
       {ranked.map((task, idx) => (
         <button
           key={`${task.source}-${task.id}`}
           onClick={() => onSelect(task)}
-          className="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 cursor-pointer text-left w-full transition-colors"
+          className="flex items-center gap-3 p-2.5 rounded-lg bg-bg-secondary hover:bg-bg-tertiary border border-border-default hover:border-border-hover cursor-pointer text-left w-full transition-colors"
         >
-          <span className="text-zinc-600 text-xs font-mono w-6 text-right flex-shrink-0">
+          <span className="text-text-muted text-xs font-mono w-6 text-right flex-shrink-0">
             {idx + 1}
           </span>
           <div className="flex-1 min-w-0">
@@ -35,14 +35,14 @@ export function ExternalFocusQueue({ tasks, onSelect }: Props) {
                   Suggested next
                 </span>
               )}
-              <span className="text-[10px] text-zinc-500">{task.source} · {task.id}</span>
+              <span className="text-[10px] text-text-secondary">{task.source} · {task.id}</span>
             </div>
-            <p className="text-xs text-zinc-200 mt-0.5 truncate">{task.title}</p>
+            <p className="text-xs text-text-primary mt-0.5 truncate">{task.title}</p>
           </div>
-          <span className={`text-[10px] ${priorityColor[task.priority ?? ''] ?? 'text-zinc-600'}`}>
+          <span className={`text-[10px] ${priorityColor[task.priority ?? ''] ?? 'text-text-muted'}`}>
             {task.priority ?? '—'}
           </span>
-          <span className="text-[10px] text-zinc-600 font-mono w-10 text-right">{task.score}</span>
+          <span className="text-[10px] text-text-muted font-mono w-10 text-right">{task.score}</span>
         </button>
       ))}
     </div>

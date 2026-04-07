@@ -34,7 +34,7 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
       onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onSelect?.(task) } }}
       tabIndex={onSelect ? 0 : undefined}
       role={onSelect ? 'button' : undefined}
-      className="group relative flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900 p-4 hover:border-zinc-700 hover:bg-zinc-900/80 transition-all duration-150 cursor-pointer"
+      className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary p-4 hover:border-border-hover hover:bg-bg-secondary transition-all duration-150 cursor-pointer"
     >
       {/* Top row: source + priority */}
       <div className="flex items-center gap-2 flex-wrap">
@@ -42,7 +42,7 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
           {SOURCE_LABELS[task.source]}
         </span>
         {task.priority && (
-          <span className="flex items-center gap-1 ml-auto text-xs text-zinc-400">
+          <span className="flex items-center gap-1 ml-auto text-xs text-text-secondary">
             <span className={`w-2 h-2 rounded-full ${PRIORITY_COLORS[task.priority]}`} />
             {PRIORITY_LABELS[task.priority]}
           </span>
@@ -50,14 +50,14 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
       </div>
 
       {/* Title */}
-      <h3 className="text-sm font-medium text-zinc-100 leading-snug line-clamp-2">
+      <h3 className="text-sm font-medium text-text-primary leading-snug line-clamp-2">
         {task.title}
       </h3>
 
       {/* Meta row */}
       <div className="flex items-center gap-2 flex-wrap text-xs">
-        <span className="text-zinc-500 truncate max-w-[140px]">{task.project}</span>
-        <span className="text-zinc-700">·</span>
+        <span className="text-text-secondary truncate max-w-[140px]">{task.project}</span>
+        <span className="text-text-faint">·</span>
         <span className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md font-medium ${STATUS_STYLES[task.status]}`}>
           <StatusIcon status={task.status} />
           {STATUS_LABELS[task.status]}
@@ -67,7 +67,7 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
           const dueDateCls =
             dueDateStatus === 'overdue'   ? 'text-red-400 font-medium' :
             dueDateStatus === 'due-today' ? 'text-amber-400 font-medium' :
-                                            'text-zinc-400'
+                                            'text-text-secondary'
           let dueDateLabel: string
           if (dueDateStatus === 'overdue') {
             const now = new Date()
@@ -83,7 +83,7 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
           }
           return (
             <>
-              <span className="text-zinc-700">·</span>
+              <span className="text-text-faint">·</span>
               <span className={dueDateCls}>{dueDateLabel}</span>
             </>
           )
@@ -92,27 +92,27 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
 
       {/* Assignees */}
       {task.assignees.length > 0 && (
-        <p className="text-xs text-zinc-500 truncate">{task.assignees.join(', ')}</p>
+        <p className="text-xs text-text-secondary truncate">{task.assignees.join(', ')}</p>
       )}
 
       {/* Stale */}
       {getStaleStatus(task.updatedAt) && (
-        <p className="text-xs text-zinc-600">Stale</p>
+        <p className="text-xs text-text-muted">Stale</p>
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-2 pt-1 border-t border-zinc-800 flex-wrap">
+      <div className="flex items-center gap-2 pt-1 border-t border-border-default flex-wrap">
         <a
           href={task.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
         >
           <ExternalLink className="w-3.5 h-3.5" />
           Open
         </a>
         {task.labels.map((label) => (
-          <span key={label} className="flex items-center gap-1 text-xs text-zinc-600 bg-zinc-800 px-1.5 py-0.5 rounded">
+          <span key={label} className="flex items-center gap-1 text-xs text-text-muted bg-bg-tertiary px-1.5 py-0.5 rounded">
             <Tag className="w-3 h-3" />
             {label}
           </span>

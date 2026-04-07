@@ -51,7 +51,10 @@ export async function GET(
         status: mapToExternalStatus(ext.status),
         rawStatus: ext.status,
         priority: mapToExternalPriority(ext.priority),
-        project: cfg.adapter_key,
+        project: (ext.meta as any)?.fields?.project?.name  // Jira
+          ?? (ext.meta as any)?.board?.name               // Monday
+          ?? (ext.meta as any)?.project_name              // DoneDone
+          ?? cfg.adapter_key,                             // fallback
         labels: ext.labels,
         assignees: ext.assignees,
         dueDate: (ext.meta as any)?.fields?.duedate ?? (ext.meta as any)?.dueDate ?? null,

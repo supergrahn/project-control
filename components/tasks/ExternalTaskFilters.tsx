@@ -102,18 +102,18 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
     <div className="flex flex-col gap-2">
       {/* Text search */}
       <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-secondary pointer-events-none" />
         <input
           type="text"
           placeholder="Search tasks..."
           value={filters.text}
           onChange={(e) => onChange({ ...filters, text: e.target.value })}
-          className="w-full pl-8 pr-3 py-1.5 text-sm bg-zinc-800 border border-zinc-700 rounded-lg text-zinc-200 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors"
+          className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-tertiary border border-border-hover rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-strong transition-colors"
         />
         {filters.text && (
           <button
             onClick={() => onChange({ ...filters, text: '' })}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -122,15 +122,15 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
 
       {/* Source pills */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-zinc-500 mr-1">Source:</span>
+        <span className="text-xs text-text-secondary mr-1">Source:</span>
         {ALL_SOURCES.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => toggleSource(value)}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               filters.sources.has(value)
-                ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
-                : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'
+                ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
             }`}
           >
             {label}
@@ -138,19 +138,19 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
         ))}
       </div>
 
-      <div className="border-t border-zinc-800" />
+      <div className="border-t border-border-default" />
 
       {/* Status pills */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-zinc-500 mr-1">Status:</span>
+        <span className="text-xs text-text-secondary mr-1">Status:</span>
         {ALL_STATUSES.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => toggleStatus(value)}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               filters.statuses.has(value)
-                ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
-                : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'
+                ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
             }`}
           >
             {label}
@@ -158,19 +158,19 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
         ))}
       </div>
 
-      <div className="border-t border-zinc-800" />
+      <div className="border-t border-border-default" />
 
       {/* Priority pills */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-zinc-500 mr-1">Priority:</span>
+        <span className="text-xs text-text-secondary mr-1">Priority:</span>
         {ALL_PRIORITIES.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => togglePriority(value)}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               filters.priorities.has(value)
-                ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
-                : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'
+                ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
             }`}
           >
             {label}
@@ -178,19 +178,19 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
         ))}
       </div>
 
-      <div className="border-t border-zinc-800" />
+      <div className="border-t border-border-default" />
 
       {/* Due date preset pills */}
       <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-zinc-500 mr-1">Due:</span>
+        <span className="text-xs text-text-secondary mr-1">Due:</span>
         {DUE_DATE_PRESETS.map(({ value, label }) => (
           <button
             key={value}
             onClick={() => onChange({ ...filters, dueDatePreset: value })}
             className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
               filters.dueDatePreset === value
-                ? 'bg-zinc-700 border-zinc-600 text-zinc-200'
-                : 'bg-transparent border-zinc-700 text-zinc-500 hover:border-zinc-600 hover:text-zinc-400'
+                ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
             }`}
           >
             {label}
@@ -199,7 +199,7 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
       </div>
 
       {/* Result count + clear */}
-      <div className="flex items-center justify-between text-xs text-zinc-500 pt-1">
+      <div className="flex items-center justify-between text-xs text-text-secondary pt-1">
         <span>
           {resultCount === totalCount
             ? `${totalCount} tasks`
@@ -208,7 +208,7 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
         {!isDefault && (
           <button
             onClick={() => onChange(DEFAULT_FILTERS)}
-            className="flex items-center gap-1 text-zinc-400 hover:text-zinc-200 transition-colors"
+            className="flex items-center gap-1 text-text-secondary hover:text-text-primary transition-colors"
           >
             <X className="w-3 h-3" />
             Clear filters
