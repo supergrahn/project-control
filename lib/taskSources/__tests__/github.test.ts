@@ -7,36 +7,33 @@ describe('GitHub Issues Adapter', () => {
   })
 
   describe('config fields', () => {
-    it('should have token and repos config fields', () => {
-      expect(githubAdapter.configFields).toHaveLength(2)
+    it('should have token config field', () => {
+      expect(githubAdapter.configFields).toHaveLength(1)
       expect(githubAdapter.configFields[0].key).toBe('token')
       expect(githubAdapter.configFields[0].type).toBe('password')
       expect(githubAdapter.configFields[0].required).toBe(true)
-      expect(githubAdapter.configFields[1].key).toBe('repos')
-      expect(githubAdapter.configFields[1].type).toBe('text')
-      expect(githubAdapter.configFields[1].required).toBe(true)
     })
   })
 
   describe('fetchTasks', () => {
     it('should throw error when token is missing', async () => {
-      const config = { repos: 'owner/repo' }
-      await expect(githubAdapter.fetchTasks(config)).rejects.toThrow(
-        'Missing required config: token and repos'
+      const config = {}
+      await expect(githubAdapter.fetchTasks(config, ['owner/repo'])).rejects.toThrow(
+        'Missing required config: token'
       )
     })
 
-    it('should throw error when repos is missing', async () => {
+    it('should throw error when no repositories selected', async () => {
       const config = { token: 'test-token' }
-      await expect(githubAdapter.fetchTasks(config)).rejects.toThrow(
-        'Missing required config: token and repos'
+      await expect(githubAdapter.fetchTasks(config, [])).rejects.toThrow(
+        'No repositories selected'
       )
     })
 
     it('should throw error when no valid repositories configured', async () => {
-      const config = { token: 'test-token', repos: '  ,  ' }
-      await expect(githubAdapter.fetchTasks(config)).rejects.toThrow(
-        'No valid repositories configured'
+      const config = { token: 'test-token' }
+      await expect(githubAdapter.fetchTasks(config, [])).rejects.toThrow(
+        'No repositories selected'
       )
     })
 
@@ -63,10 +60,10 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
-      const tasks = await githubAdapter.fetchTasks({
-        token: 'test-token',
-        repos: 'owner/repo',
-      })
+      const tasks = await githubAdapter.fetchTasks(
+        { token: 'test-token' },
+        ['owner/repo'],
+      )
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].sourceId).toBe('owner/repo#123')
@@ -128,10 +125,10 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
-      const tasks = await githubAdapter.fetchTasks({
-        token: 'test-token',
-        repos: 'owner/repo',
-      })
+      const tasks = await githubAdapter.fetchTasks(
+        { token: 'test-token' },
+        ['owner/repo'],
+      )
 
       expect(tasks).toHaveLength(150)
       expect(mockFetch).toHaveBeenCalledTimes(2)
@@ -182,10 +179,10 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
-      const tasks = await githubAdapter.fetchTasks({
-        token: 'test-token',
-        repos: 'owner/repo1, owner/repo2',
-      })
+      const tasks = await githubAdapter.fetchTasks(
+        { token: 'test-token' },
+        ['owner/repo1', 'owner/repo2'],
+      )
 
       expect(tasks).toHaveLength(2)
       expect(tasks[0].sourceId).toBe('owner/repo1#123')
@@ -203,10 +200,10 @@ describe('GitHub Issues Adapter', () => {
       })
 
       await expect(
-        githubAdapter.fetchTasks({
-          token: 'invalid-token',
-          repos: 'owner/repo',
-        })
+        githubAdapter.fetchTasks(
+          { token: 'invalid-token' },
+          ['owner/repo'],
+        )
       ).rejects.toThrow('GitHub API error: 401 Unauthorized')
     })
 
@@ -255,10 +252,10 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
-      const tasks = await githubAdapter.fetchTasks({
-        token: 'test-token',
-        repos: 'owner/repo',
-      })
+      const tasks = await githubAdapter.fetchTasks(
+        { token: 'test-token' },
+        ['owner/repo'],
+      )
 
       expect(tasks[0].status).toBe('in-progress')
       expect(tasks[1].status).toBe('in-progress')
@@ -310,10 +307,10 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
-      const tasks = await githubAdapter.fetchTasks({
-        token: 'test-token',
-        repos: 'owner/repo',
-      })
+      const tasks = await githubAdapter.fetchTasks(
+        { token: 'test-token' },
+        ['owner/repo'],
+      )
 
       expect(tasks[0].priority).toBe('critical')
       expect(tasks[1].priority).toBe('high')
