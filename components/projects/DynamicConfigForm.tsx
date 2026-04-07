@@ -14,11 +14,19 @@ type DynamicConfigFormProps = {
   fields: ConfigField[]
   values: Record<string, string>
   onSubmit: (values: Record<string, string>) => void
+  onFieldBlur?: (values: Record<string, string>) => void
   submitLabel?: string
   loading?: boolean
 }
 
-export default function DynamicConfigForm({ fields, values, onSubmit, submitLabel = 'Save', loading = false }: DynamicConfigFormProps) {
+export default function DynamicConfigForm({
+  fields,
+  values,
+  onSubmit,
+  onFieldBlur,
+  submitLabel = 'Save',
+  loading = false,
+}: DynamicConfigFormProps) {
   const [formValues, setFormValues] = useState<Record<string, string>>(values)
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({})
 
@@ -42,6 +50,7 @@ export default function DynamicConfigForm({ fields, values, onSubmit, submitLabe
             <textarea
               value={formValues[field.key] || ''}
               onChange={e => handleChange(field.key, e.target.value)}
+              onBlur={() => onFieldBlur?.(formValues)}
               placeholder={field.placeholder}
               required={field.required}
               rows={3}
@@ -53,6 +62,7 @@ export default function DynamicConfigForm({ fields, values, onSubmit, submitLabe
                 type={field.type === 'password' && !showPasswords[field.key] ? 'password' : 'text'}
                 value={formValues[field.key] || ''}
                 onChange={e => handleChange(field.key, e.target.value)}
+                onBlur={() => onFieldBlur?.(formValues)}
                 placeholder={field.placeholder}
                 required={field.required}
                 className="w-full bg-bg-secondary text-text-primary border border-border-default rounded-[6px] px-3 py-2 text-[13px] outline-none"
