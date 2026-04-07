@@ -7,6 +7,7 @@ type RouteParams = { params: Promise<{ id: string }> }
 export async function POST(req: Request, { params }: RouteParams) {
   const { id: projectId } = await params
 
+  // Body is optional — a missing or non-JSON body means "sync all adapters"
   let body: { adapterKey?: string } = {}
   try { body = await req.json() } catch {}
 

@@ -19,14 +19,19 @@ export async function GET(req: Request, { params }: RouteParams) {
   const configs = listTaskSourceConfigs(db, projectId)
 
   const redacted = configs.map(cfg => {
-    const adapter = getTaskSourceAdapter(cfg.adapter_key)
-    const redactedConfig = { ...cfg.config }
-    for (const field of adapter.configFields) {
-      if (field.type === 'password' && redactedConfig[field.key]) {
-        redactedConfig[field.key] = '••••••••'
+    try {
+      const adapter = getTaskSourceAdapter(cfg.adapter_key)
+      const redactedConfig = { ...cfg.config }
+      for (const field of adapter.configFields) {
+        if (field.type === 'password' && redactedConfig[field.key]) {
+          redactedConfig[field.key] = '••••••••'
+        }
       }
+      return { ...cfg, config: redactedConfig }
+    } catch {
+      // Unknown adapter (e.g. removed plugin) — return config unredacted but safe
+      return cfg
     }
-    return { ...cfg, config: redactedConfig }
   })
 
   return NextResponse.json(redacted)
@@ -41,7 +46,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'adapterKey and config required' }, { status: 400 })
   }
 
-  const adapter = getTaskSourceAdapter(adapterKey)
+  let adapter: ReturnType<typeof getTaskSourceAdapter>
+  try {
+    adapter = getTaskSourceAdapter(adapterKey)
+  } catch {
+    return NextResponse.json({ error: `Unknown adapter: ${adapterKey}` }, { status: 400 })
+  }
   const db = getDb()
   const existing = getTaskSourceConfig(db, projectId, adapterKey)
 
