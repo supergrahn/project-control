@@ -8,33 +8,35 @@ const configFields: ConfigField[] = [
     required: true,
     helpText: 'Personal access token with repo scope',
   },
-  {
-    key: 'repos',
-    label: 'Repositories',
-    type: 'text',
-    placeholder: 'owner/repo, owner/repo2',
-    required: true,
-    helpText: 'Comma-separated list of repositories to sync',
-  },
 ]
 
-async function fetchTasks(config: Record<string, string>): Promise<ExternalTask[]> {
+async function fetchAvailableResources(
+  config: Record<string, string>,
+): Promise<{ id: string; name: string }[]> {
+  const { token } = config
+  if (!token) return []
+
+  const response = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  })
+
+  if (!response.ok) throw new Error(`GitHub API error: ${response.status}`)
+
+  const repos = (await response.json()) as { full_name: string }[]
+  return repos.map(r => ({ id: r.full_name, name: r.full_name }))
+}
+
+async function fetchTasks(
+  config: Record<string, string>,
+  resourceIds: string[],
+): Promise<ExternalTask[]> {
   const token = config.token
-  const reposConfig = config.repos
 
-  if (!token || !reposConfig) {
-    throw new Error('Missing required config: token and repos')
-  }
-
-  // Parse repos from config
-  const repos = reposConfig
-    .split(',')
-    .map((r) => r.trim())
-    .filter(Boolean)
-
-  if (repos.length === 0) {
-    throw new Error('No valid repositories configured')
-  }
+  if (!token) throw new Error('Missing required config: token')
+  if (resourceIds.length === 0) throw new Error('No repositories selected')
 
   const tasks: ExternalTask[] = []
   let page = 1
@@ -54,9 +56,7 @@ async function fetchTasks(config: Record<string, string>): Promise<ExternalTask[
     })
 
     if (!response.ok) {
-      throw new Error(
-        `GitHub API error: ${response.status} ${response.statusText}`
-      )
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
     }
 
     const data = (await response.json()) as {
@@ -78,46 +78,25 @@ async function fetchTasks(config: Record<string, string>): Promise<ExternalTask[
       break
     }
 
-    // Filter issues by configured repositories
     for (const item of data.items) {
-      const isInConfiguredRepo = repos.some((repo) =>
-        item.repository_url.endsWith('/' + repo)
-      )
+      const repoPath = item.repository_url.split('/').slice(-2).join('/')
+      if (!resourceIds.includes(repoPath)) continue
 
-      if (!isInConfiguredRepo) {
-        continue
-      }
-
-      // Extract priority from labels
       const priorityLabel = item.labels.find((l: any) =>
         /^priority[:\s-]/i.test(l.name) ||
-        ['critical', 'urgent', 'high', 'medium', 'low', 'normal'].includes(
-          l.name.toLowerCase()
-        )
+        ['critical', 'urgent', 'high', 'medium', 'low', 'normal'].includes(l.name.toLowerCase())
       )
       const priority = priorityLabel
-        ? priorityLabel.name
-            .toLowerCase()
-            .replace(/^priority[:\s-]*/i, '')
+        ? priorityLabel.name.toLowerCase().replace(/^priority[:\s-]*/i, '')
         : null
 
-      // Check for in-progress status from labels
       const labelNames = item.labels.map((l: any) => l.name.toLowerCase())
-      const isInProgress = labelNames.some((l: string) =>
-        ['in-progress', 'wip', 'in progress'].includes(l)
-      )
-      const status =
-        item.state === 'closed'
-          ? 'closed'
-          : isInProgress
-            ? 'in-progress'
-            : 'open'
+      const isInProgress = labelNames.some((l: string) => ['in-progress', 'wip', 'in progress'].includes(l))
+      const status = item.state === 'closed' ? 'closed' : isInProgress ? 'in-progress' : 'open'
 
-      // Construct sourceId for cross-repo uniqueness
-      const repoPath = item.repository_url.split('/').slice(-2).join('/')
       const sourceId = `${repoPath}#${item.number}`
 
-      const task: ExternalTask = {
+      tasks.push({
         sourceId,
         title: item.title,
         description: item.body,
@@ -127,12 +106,9 @@ async function fetchTasks(config: Record<string, string>): Promise<ExternalTask[
         labels: item.labels.map((l: any) => l.name),
         assignees: item.assignees.map((a: any) => a.login),
         meta: item,
-      }
-
-      tasks.push(task)
+      })
     }
 
-    // Check if we should continue paginating
     hasMore = data.items.length === 100
     page++
   }
@@ -179,6 +155,8 @@ export const githubAdapter: TaskSourceAdapter = {
   key: 'github',
   name: 'GitHub Issues',
   configFields,
+  resourceSelectionLabel: 'Select repositories',
+  fetchAvailableResources,
   fetchTasks,
   mapStatus,
   mapPriority,
