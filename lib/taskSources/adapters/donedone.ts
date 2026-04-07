@@ -176,11 +176,16 @@ export const donedoneAdapter: TaskSourceAdapter = {
 
     const data = (await response.json()) as any
 
-    if (!Array.isArray(data)) {
+    // DoneDone API v2 may return a plain array or a wrapped object
+    const issues: any[] = Array.isArray(data)
+      ? data
+      : (data.data ?? data.issues ?? data.items ?? null)
+
+    if (!Array.isArray(issues)) {
       throw new Error('Invalid DoneDone API response: expected array')
     }
 
-    const tasks = data.map((issue: any) => {
+    const tasks = issues.map((issue: any) => {
       const sourceId = String(issue.id || issue.order_number)
       const issueUrl = `https://${subdomain}.mydonedone.com/issuetracker/issues/${issue.id || issue.order_number}`
 

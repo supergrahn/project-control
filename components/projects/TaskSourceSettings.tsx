@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import DynamicConfigForm from './DynamicConfigForm'
 
 type ConfigField = {
@@ -54,9 +54,10 @@ function AdapterCard({ projectId, adapter, config, onSaved }: AdapterCardProps) 
   const [selectedIds, setSelectedIds] = useState<string[]>(config?.resource_ids ?? [])
 
   const fetchResources = useCallback(async (formValues: Record<string, string>) => {
+    // Allow '••••••••' — the server substitutes stored real credentials
     const hasRequired = adapter.configFields
       .filter(f => f.required)
-      .every(f => formValues[f.key] && formValues[f.key] !== '••••••••')
+      .every(f => !!formValues[f.key])
     if (!hasRequired) return
 
     setLoadingResources(true)
@@ -79,6 +80,16 @@ function AdapterCard({ projectId, adapter, config, onSaved }: AdapterCardProps) 
       setLoadingResources(false)
     }
   }, [adapter, projectId])
+
+  // Auto-fetch resources when entering edit mode with a saved config
+  const editingRef = useRef(editing)
+  useEffect(() => {
+    const wasEditing = editingRef.current
+    editingRef.current = editing
+    if (editing && !wasEditing && config) {
+      fetchResources(config.config)
+    }
+  }, [editing]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleResource(id: string) {
     setSelectedIds(prev =>

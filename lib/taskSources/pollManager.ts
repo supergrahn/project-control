@@ -63,6 +63,8 @@ export function stopAllPolling(): void {
 
 export function startAllPolling(): void {
   try {
+    // Clear any stale timers (including old-format keys from pre-multi-source code)
+    stopAllPolling()
     const db = getDb()
     const activeSources = listActiveTaskSources(db)
     for (const source of activeSources) {

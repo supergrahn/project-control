@@ -333,7 +333,7 @@ describe('donedoneAdapter', () => {
     it('should handle invalid response format', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ issues: [] }), // not an array
+        json: async () => ({ unexpected_key: 'something' }), // not an array and no known wrapper key
       } as Response)
 
       const config = {
