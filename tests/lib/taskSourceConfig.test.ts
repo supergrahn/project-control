@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { initDb, createProject } from '@/lib/db'
+import { initDb, createProject, runTaskSourceMigration } from '@/lib/db'
 import Database from 'better-sqlite3'
 import {
   upsertTaskSourceConfig,
@@ -60,30 +60,12 @@ describe('task_source_config schema', () => {
     db.prepare(`INSERT INTO task_source_config (project_id, adapter_key, config, created_at) VALUES (?, 'github', '{"token":"abc"}', ?)`)
       .run(projectId, new Date().toISOString())
 
-    const cols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
-    const hasIdColumn = cols.some(c => c.name === 'id')
-    expect(hasIdColumn).toBe(false)
+    // Verify old schema (no id column)
+    const oldCols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
+    expect(oldCols.map(c => c.name)).not.toContain('id')
 
-    if (cols.length > 0 && !hasIdColumn) {
-      db.transaction(() => {
-        db.exec(`CREATE TABLE task_source_config_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          project_id TEXT NOT NULL,
-          adapter_key TEXT NOT NULL,
-          config TEXT NOT NULL DEFAULT '{}',
-          resource_ids TEXT,
-          is_active INTEGER NOT NULL DEFAULT 1,
-          last_synced_at TEXT,
-          last_error TEXT,
-          created_at TEXT NOT NULL,
-          UNIQUE(project_id, adapter_key)
-        )`)
-        db.exec(`INSERT INTO task_source_config_new (project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at)
-          SELECT project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at FROM task_source_config`)
-        db.exec(`DROP TABLE task_source_config`)
-        db.exec(`ALTER TABLE task_source_config_new RENAME TO task_source_config`)
-      })()
-    }
+    // Run the actual migration function
+    runTaskSourceMigration(db)
 
     const newCols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
     expect(newCols.map(c => c.name)).toContain('id')
@@ -135,7 +117,7 @@ describe('taskSourceConfig CRUD', () => {
     upsertTaskSourceConfig(db, projectId, 'github', { token: 'abc' }, [])
     toggleTaskSourceActive(db, projectId, 'github', false)
     const cfg = getTaskSourceConfig(db, projectId, 'github')
-    expect(cfg?.is_active).toBe(0)
+    expect(cfg?.is_active).toBe(false)
   })
 
   it('listActiveTaskSources returns only active rows', () => {

@@ -6,15 +6,16 @@ export type TaskSourceConfig = {
   adapter_key: string
   config: Record<string, string>
   resource_ids: string[]
-  is_active: number
+  is_active: boolean
   last_synced_at: string | null
   last_error: string | null
   created_at: string
 }
 
-type Row = Omit<TaskSourceConfig, 'config' | 'resource_ids'> & {
+type Row = Omit<TaskSourceConfig, 'config' | 'resource_ids' | 'is_active'> & {
   config: string
   resource_ids: string | null
+  is_active: number
 }
 
 function parseRow(row: Row): TaskSourceConfig {
@@ -22,6 +23,7 @@ function parseRow(row: Row): TaskSourceConfig {
     ...row,
     config: JSON.parse(row.config),
     resource_ids: row.resource_ids ? JSON.parse(row.resource_ids) : [],
+    is_active: row.is_active !== 0,
   }
 }
 
