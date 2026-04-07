@@ -83,6 +83,58 @@ function mapPriority(raw: string | null): TaskPriority {
   return 'medium'
 }
 
+async function fetchAvailableResources(
+  config: Record<string, string>,
+): Promise<{ id: string; name: string }[]> {
+  const { api_token } = config
+  if (!api_token) return []
+
+  const response = await fetch('https://api.monday.com/v2', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: api_token,
+      'API-Version': '2024-10',
+    },
+    body: JSON.stringify({ query: '{ boards(limit: 100) { id name } }' }),
+  })
+
+  if (!response.ok) throw new Error(`Monday.com API error: ${response.status}`)
+
+  const data = (await response.json()) as { data?: { boards?: { id: string; name: string }[] } }
+  return (data.data?.boards ?? []).map(b => ({ id: b.id, name: b.name }))
+}
+
+async function fetchTasks(
+  config: Record<string, string>,
+  resourceIds: string[],
+): Promise<ExternalTask[]> {
+  const { api_token, user_id, subdomain, status_col_id, priority_col_id } = config
+
+  if (!api_token || !user_id || !subdomain) {
+    throw new Error('Missing required Monday.com configuration: api_token, user_id, subdomain')
+  }
+  if (resourceIds.length === 0) throw new Error('No boards selected')
+  const boardIdList = resourceIds
+
+  const tasks: ExternalTask[] = []
+
+  // Fetch tasks from each board
+  for (const boardId of boardIdList) {
+    const boardTasks = await fetchBoardTasks(
+      api_token,
+      boardId,
+      user_id,
+      subdomain,
+      status_col_id,
+      priority_col_id,
+    )
+    tasks.push(...boardTasks)
+  }
+
+  return tasks
+}
+
 /**
  * Monday.com GraphQL API adapter for fetching tasks.
  * Requires Monday.com API token and board configuration.
@@ -96,13 +148,6 @@ export const mondayAdapter: TaskSourceAdapter = {
       key: 'api_token',
       label: 'API Token',
       type: 'password',
-      required: true,
-    },
-    {
-      key: 'board_ids',
-      label: 'Board IDs',
-      type: 'text',
-      placeholder: '123456, 789012',
       required: true,
     },
     {
@@ -135,40 +180,9 @@ export const mondayAdapter: TaskSourceAdapter = {
     },
   ],
 
-  async fetchTasks(config: Record<string, string>): Promise<ExternalTask[]> {
-    const { api_token, board_ids, user_id, subdomain, status_col_id, priority_col_id } = config
-
-    if (!api_token || !board_ids || !user_id || !subdomain) {
-      throw new Error('Missing required Monday.com configuration: api_token, board_ids, user_id, subdomain')
-    }
-
-    const boardIdList = board_ids
-      .split(',')
-      .map((id) => id.trim())
-      .filter((id) => id)
-
-    if (boardIdList.length === 0) {
-      throw new Error('board_ids must contain at least one board ID')
-    }
-
-    const tasks: ExternalTask[] = []
-
-    // Fetch tasks from each board
-    for (const boardId of boardIdList) {
-      const boardTasks = await fetchBoardTasks(
-        api_token,
-        boardId,
-        user_id,
-        subdomain,
-        status_col_id,
-        priority_col_id,
-      )
-      tasks.push(...boardTasks)
-    }
-
-    return tasks
-  },
-
+  resourceSelectionLabel: 'Select boards',
+  fetchAvailableResources,
+  fetchTasks,
   mapStatus,
   mapPriority,
 }

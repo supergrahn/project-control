@@ -15,19 +15,19 @@ describe('Monday.com Adapter', () => {
     it('should define all required config fields', () => {
       const fieldKeys = mondayAdapter.configFields.map((f) => f.key)
       expect(fieldKeys).toContain('api_token')
-      expect(fieldKeys).toContain('board_ids')
+      expect(fieldKeys).not.toContain('board_ids')
       expect(fieldKeys).toContain('user_id')
       expect(fieldKeys).toContain('subdomain')
       expect(fieldKeys).toContain('status_col_id')
       expect(fieldKeys).toContain('priority_col_id')
     })
 
-    it('should mark api_token, board_ids, user_id, subdomain as required', () => {
+    it('should mark api_token, user_id, subdomain as required', () => {
       const required = mondayAdapter.configFields
         .filter((f) => f.required)
         .map((f) => f.key)
       expect(required).toContain('api_token')
-      expect(required).toContain('board_ids')
+      expect(required).not.toContain('board_ids')
       expect(required).toContain('user_id')
       expect(required).toContain('subdomain')
     })
@@ -45,26 +45,24 @@ describe('Monday.com Adapter', () => {
     it('should throw if required config is missing', async () => {
       await expect(
         mondayAdapter.fetchTasks({
-          board_ids: '123',
           user_id: 'user1',
           subdomain: 'company',
           api_token: '',
-        }),
+        }, ['123']),
       ).rejects.toThrow('Missing required Monday.com configuration')
     })
 
-    it('should throw if board_ids contains only whitespace', async () => {
+    it('should throw if resourceIds is empty', async () => {
       await expect(
         mondayAdapter.fetchTasks({
-          board_ids: '  ,  , ',
           user_id: 'user1',
           subdomain: 'company',
           api_token: 'token',
-        }),
-      ).rejects.toThrow('board_ids must contain at least one board ID')
+        }, []),
+      ).rejects.toThrow('No boards selected')
     })
 
-    it('should parse multiple board IDs correctly', async () => {
+    it('should fetch from multiple board IDs correctly', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
@@ -80,11 +78,10 @@ describe('Monday.com Adapter', () => {
       })
 
       await mondayAdapter.fetchTasks({
-        board_ids: '123, 456, 789',
         user_id: 'user1',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123', '456', '789'])
 
       expect(mockFetch).toHaveBeenCalledTimes(3)
     })
@@ -105,11 +102,10 @@ describe('Monday.com Adapter', () => {
       })
 
       await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: 'user1',
         subdomain: 'company',
         api_token: 'test-token',
-      })
+      }, ['123'])
 
       expect(mockFetch).toHaveBeenCalledWith(
         'https://api.monday.com/v2',
@@ -134,11 +130,10 @@ describe('Monday.com Adapter', () => {
 
       await expect(
         mondayAdapter.fetchTasks({
-          board_ids: '123',
           user_id: 'user1',
           subdomain: 'company',
           api_token: 'invalid',
-        }),
+        }, ['123']),
       ).rejects.toThrow('Monday.com API error')
     })
 
@@ -152,11 +147,10 @@ describe('Monday.com Adapter', () => {
 
       await expect(
         mondayAdapter.fetchTasks({
-          board_ids: '123',
           user_id: 'user1',
           subdomain: 'company',
           api_token: 'token',
-        }),
+        }, ['123']),
       ).rejects.toThrow('Monday.com GraphQL error')
     })
 
@@ -218,11 +212,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       // Only task 1 should be returned (assigned to user 100)
       expect(tasks).toHaveLength(1)
@@ -274,11 +267,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].status).toBe('In Progress')
@@ -328,12 +320,11 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
         status_col_id: 'custom_status',
-      })
+      }, ['123'])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].status).toBe('Custom Status')
@@ -382,11 +373,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].priority).toBe('High')
@@ -428,11 +418,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'acme',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks[0].url).toBe(
         'https://acme.monday.com/boards/123/pulses/456'
@@ -478,11 +467,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks[0].assignees).toEqual(['100', '200'])
     })
@@ -523,11 +511,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks[0].labels).toEqual(['Feature'])
     })
@@ -568,11 +555,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks[0].labels).toEqual([])
     })
@@ -593,11 +579,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks).toEqual([])
     })
@@ -639,11 +624,10 @@ describe('Monday.com Adapter', () => {
       })
 
       const tasks = await mondayAdapter.fetchTasks({
-        board_ids: '123',
         user_id: '100',
         subdomain: 'company',
         api_token: 'token',
-      })
+      }, ['123'])
 
       expect(tasks[0].meta).toEqual(expect.objectContaining({
         id: '1',
