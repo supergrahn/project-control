@@ -7,5 +7,6 @@ export async function GET() {
     key: a.key,
     name: a.name,
     configFields: a.configFields,
+    resourceSelectionLabel: a.resourceSelectionLabel,
   })))
 }
