@@ -16,7 +16,7 @@ describe('jiraAdapter', () => {
     })
 
     it('should have required config fields', () => {
-      expect(jiraAdapter.configFields).toHaveLength(4)
+      expect(jiraAdapter.configFields).toHaveLength(3)
 
       const baseUrlField = jiraAdapter.configFields.find(f => f.key === 'base_url')
       expect(baseUrlField).toBeDefined()
@@ -33,9 +33,7 @@ describe('jiraAdapter', () => {
       expect(apiTokenField?.type).toBe('password')
 
       const jqlField = jiraAdapter.configFields.find(f => f.key === 'jql_filter')
-      expect(jqlField).toBeDefined()
-      expect(jqlField?.required).toBe(false)
-      expect(jqlField?.type).toBe('textarea')
+      expect(jqlField).toBeUndefined()
     })
   })
 
@@ -93,7 +91,7 @@ describe('jiraAdapter', () => {
       expect(jqlParam).toBe('assignee = currentUser() AND statusCategory != Done')
     })
 
-    it('should fetch tasks with custom JQL filter', async () => {
+    it('should fetch tasks with project-filtered JQL when resourceIds provided', async () => {
       const mockResponse = {
         issues: [
           {
@@ -119,18 +117,18 @@ describe('jiraAdapter', () => {
         base_url: 'https://example.atlassian.net',
         email: 'test@example.com',
         api_token: 'token',
-        jql_filter: 'project = "MY_PROJECT"',
       }
 
-      const tasks = await jiraAdapter.fetchTasks(config)
+      const tasks = await jiraAdapter.fetchTasks(config, ['MY_PROJECT'])
 
       expect(tasks).toHaveLength(1)
       expect(tasks[0].sourceId).toBe('PROJ-456')
 
-      // Verify custom JQL was used
+      // Verify project-filtered JQL was used
       const callUrl = new URL(vi.mocked(global.fetch).mock.calls[0][0] as string)
       const jqlParam = callUrl.searchParams.get('jql')
-      expect(jqlParam).toBe('project = "MY_PROJECT"')
+      expect(jqlParam).toContain('project in')
+      expect(jqlParam).toContain('"MY_PROJECT"')
     })
 
     it('should map issues to ExternalTask format correctly', async () => {

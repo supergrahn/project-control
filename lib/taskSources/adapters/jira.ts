@@ -72,6 +72,48 @@ function mapPriority(raw: string | null): TaskPriority {
   return 'medium'
 }
 
+const configFields: ConfigField[] = [
+  {
+    key: 'base_url',
+    label: 'Jira URL',
+    type: 'text',
+    placeholder: 'https://your-domain.atlassian.net',
+    required: true,
+  },
+  {
+    key: 'email',
+    label: 'Email',
+    type: 'text',
+    required: true,
+  },
+  {
+    key: 'api_token',
+    label: 'API Token',
+    type: 'password',
+    required: true,
+  },
+]
+
+async function fetchAvailableResources(
+  config: Record<string, string>,
+): Promise<{ id: string; name: string }[]> {
+  const { base_url, email, api_token } = config
+  if (!base_url || !email || !api_token) return []
+
+  const credentials = Buffer.from(`${email}:${api_token}`).toString('base64')
+  const response = await fetch(`${base_url}/rest/api/3/project`, {
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      Accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) throw new Error(`Jira API error: ${response.status}`)
+
+  const projects = (await response.json()) as { key: string; name: string }[]
+  return projects.map(p => ({ id: p.key, name: p.name }))
+}
+
 /**
  * Jira REST API v3 adapter for fetching tasks.
  * Requires Jira Cloud instance with API token authentication.
@@ -80,47 +122,23 @@ export const jiraAdapter: TaskSourceAdapter = {
   key: 'jira',
   name: 'Jira',
 
-  configFields: [
-    {
-      key: 'base_url',
-      label: 'Jira URL',
-      type: 'text',
-      placeholder: 'https://your-domain.atlassian.net',
-      required: true,
-    },
-    {
-      key: 'email',
-      label: 'Email',
-      type: 'text',
-      required: true,
-    },
-    {
-      key: 'api_token',
-      label: 'API Token',
-      type: 'password',
-      required: true,
-    },
-    {
-      key: 'jql_filter',
-      label: 'JQL Filter',
-      type: 'textarea',
-      required: false,
-      helpText: 'Defaults to: assignee = currentUser() AND statusCategory != Done',
-    },
-  ],
+  configFields,
 
-  async fetchTasks(config: Record<string, string>): Promise<ExternalTask[]> {
-    const { base_url, email, api_token, jql_filter } = config
+  resourceSelectionLabel: 'Select projects',
+  fetchAvailableResources,
+
+  async fetchTasks(config: Record<string, string>, resourceIds: string[] = []): Promise<ExternalTask[]> {
+    const { base_url, email, api_token } = config
 
     if (!base_url || !email || !api_token) {
       throw new Error('Missing required Jira configuration: base_url, email, api_token')
     }
 
-    // Use provided JQL or default
-    const jql =
-      jql_filter && jql_filter.trim()
-        ? jql_filter.trim()
-        : 'assignee = currentUser() AND statusCategory != Done'
+    let jql = 'assignee = currentUser() AND statusCategory != Done'
+    if (resourceIds.length > 0) {
+      const keys = resourceIds.map(k => `"${k}"`).join(', ')
+      jql = `project in (${keys}) AND assignee = currentUser() AND statusCategory != Done`
+    }
 
     // Create Basic Auth header
     const credentials = Buffer.from(`${email}:${api_token}`).toString('base64')
