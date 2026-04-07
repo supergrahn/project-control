@@ -291,6 +291,35 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   try { db.exec(`ALTER TABLE tasks ADD COLUMN source_url TEXT`) } catch {}
   try { db.exec(`ALTER TABLE tasks ADD COLUMN source_meta TEXT`) } catch {}
   try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source ON tasks(project_id, source, source_id) WHERE source IS NOT NULL`) } catch {}
+  // ── Multi-source migration: recreate task_source_config with composite key ──
+  try {
+    const cols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
+    const hasIdColumn = cols.some(c => c.name === 'id')
+    if (!hasIdColumn) {
+      db.exec(`
+        CREATE TABLE task_source_config_new (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id    TEXT NOT NULL,
+          adapter_key   TEXT NOT NULL,
+          config        TEXT NOT NULL DEFAULT '{}',
+          resource_ids  TEXT,
+          is_active     INTEGER NOT NULL DEFAULT 1,
+          last_synced_at TEXT,
+          last_error    TEXT,
+          created_at    TEXT NOT NULL,
+          UNIQUE(project_id, adapter_key)
+        )
+      `)
+      db.exec(`
+        INSERT INTO task_source_config_new
+          (project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at)
+          SELECT project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at
+          FROM task_source_config
+      `)
+      db.exec(`DROP TABLE task_source_config`)
+      db.exec(`ALTER TABLE task_source_config_new RENAME TO task_source_config`)
+    }
+  } catch {}
   // Migrate existing file paths to file:// prefix
   try {
     for (const col of ['idea_file', 'spec_file', 'plan_file']) {

@@ -27,7 +27,7 @@ export function upsertTaskSourceConfig(db: Database, projectId: string, adapterK
   db.prepare(`
     INSERT INTO task_source_config (project_id, adapter_key, config, is_active, created_at)
     VALUES (?, ?, ?, 1, ?)
-    ON CONFLICT(project_id) DO UPDATE SET adapter_key = excluded.adapter_key, config = excluded.config
+    ON CONFLICT(project_id, adapter_key) DO UPDATE SET config = excluded.config
   `).run(projectId, adapterKey, JSON.stringify(config), now)
 }
 

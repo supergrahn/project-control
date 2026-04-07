@@ -30,16 +30,16 @@ describe('taskSourceConfig CRUD', () => {
     expect(result?.is_active).toBe(1)
   })
 
-  it('upsertTaskSourceConfig updates existing config (ON CONFLICT)', () => {
+  it('upsertTaskSourceConfig updates existing config (ON CONFLICT) for same adapter_key', () => {
     const config1 = { api_key: 'old_key' }
     const config2 = { api_key: 'new_key', token: 'xyz' }
 
     upsertTaskSourceConfig(db, 'p1', 'github', config1)
-    upsertTaskSourceConfig(db, 'p1', 'jira', config2)
+    upsertTaskSourceConfig(db, 'p1', 'github', config2)
 
     const result = getTaskSourceConfig(db, 'p1')
     expect(result).not.toBeNull()
-    expect(result?.adapter_key).toBe('jira')
+    expect(result?.adapter_key).toBe('github')
     expect(result?.config).toEqual(config2)
   })
 
