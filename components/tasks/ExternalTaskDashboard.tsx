@@ -17,6 +17,9 @@ import { ExternalKanbanBoard } from './ExternalKanbanBoard'
 import { SOURCE_LABELS } from '@/lib/externalTasks/taskStyles'
 import { fetcher } from '@/lib/fetcher'
 
+const FILTER_STORAGE_VERSION = 1
+const FILTER_STORAGE_KEY = 'ext-tasks-filters'
+
 type GroupBy = 'severity' | 'source' | 'status' | 'project' | 'flat' | 'assignee' | 'kanban' | 'focus'
 type PriorityGroup = ExternalTaskPriority | 'none'
 
@@ -64,22 +67,32 @@ export function ExternalTaskDashboard() {
 
   const [groupBy, setGroupBy] = useState<GroupBy>(() => {
     if (typeof window === 'undefined') return 'severity'
-    return (sessionStorage.getItem('ext-tasks-groupby') as GroupBy | null) ?? 'severity'
+    const raw = sessionStorage.getItem('ext-tasks-groupby')
+    if (raw?.startsWith('v1:')) {
+      return raw.slice(3) as GroupBy
+    }
+    return 'severity'
   })
   const [filters, setFilters] = useState<ExternalTaskFilters>(() => {
     if (typeof window === 'undefined') return DEFAULT_FILTERS
     try {
-      const saved = sessionStorage.getItem('ext-tasks-filters')
-      if (!saved) return DEFAULT_FILTERS
-      const parsed = JSON.parse(saved)
-      return {
-        text: parsed.text ?? '',
-        sources: new Set(parsed.sources ?? ['jira', 'monday', 'donedone', 'github']),
-        statuses: new Set(parsed.statuses ?? ['todo', 'inprogress', 'review', 'blocked', 'done']),
-        priorities: new Set(parsed.priorities ?? ['critical', 'high', 'medium', 'low', 'none']),
-        dueDatePreset: parsed.dueDatePreset ?? 'all',
+      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        if (parsed?.v === FILTER_STORAGE_VERSION) {
+          return {
+            text: parsed.text ?? '',
+            sources: new Set(parsed.sources ?? ['jira', 'monday', 'donedone', 'github']),
+            statuses: new Set(parsed.statuses ?? ['todo', 'inprogress', 'review', 'blocked', 'done']),
+            priorities: new Set(parsed.priorities ?? ['critical', 'high', 'medium', 'low', 'none']),
+            dueDatePreset: parsed.dueDatePreset ?? 'all',
+          }
+        } else {
+          sessionStorage.removeItem(FILTER_STORAGE_KEY)
+        }
       }
-    } catch { return DEFAULT_FILTERS }
+    } catch { sessionStorage.removeItem(FILTER_STORAGE_KEY) }
+    return DEFAULT_FILTERS
   })
   const [selectedKey, setSelectedKey] = useState<{ source: string; id: string } | null>(null)
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
@@ -95,13 +108,14 @@ export function ExternalTaskDashboard() {
 
   function changeGroupBy(g: GroupBy) {
     setGroupBy(g)
-    try { sessionStorage.setItem('ext-tasks-groupby', g) } catch {}
+    try { sessionStorage.setItem('ext-tasks-groupby', `v1:${g}`) } catch {}
   }
 
   function handleFiltersChange(next: ExternalTaskFilters) {
     setFilters(next)
     try {
-      sessionStorage.setItem('ext-tasks-filters', JSON.stringify({
+      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
+        v: FILTER_STORAGE_VERSION,
         text: next.text,
         sources: [...next.sources],
         statuses: [...next.statuses],
