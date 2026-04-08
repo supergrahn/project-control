@@ -33,7 +33,7 @@ const SOURCE_LABELS: Record<string, string> = {
 
 export default function InboxPage() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data, isLoading } = useSWR<{ comments: InboxComment[] }>(
+  const { data, isLoading, error } = useSWR<{ comments: InboxComment[] }>(
     `/api/projects/${projectId}/inbox`,
     fetcher,
     { refreshInterval: 60_000 }
@@ -91,6 +91,12 @@ export default function InboxPage() {
 
       {isLoading && (
         <div className="text-text-muted text-sm">Loading...</div>
+      )}
+
+      {error && (
+        <div className="text-status-error text-sm py-4">
+          Failed to load inbox. Please try again.
+        </div>
       )}
 
       {!isLoading && filtered.length === 0 && (
@@ -154,7 +160,7 @@ export default function InboxPage() {
                   {isLong && (
                     <button
                       onClick={() => toggleExpand(comment.id)}
-                      className="text-[12px] text-accent-blue mt-1 cursor-pointer bg-none border-none p-0"
+                      className="text-[12px] text-accent-blue mt-1 cursor-pointer bg-transparent border-none p-0"
                     >
                       {isExpanded ? 'Show less' : 'Show more'}
                     </button>
