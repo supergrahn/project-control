@@ -217,6 +217,14 @@ async function fetchBoardTasks(
             group {
               title
             }
+            updates {
+              id
+              text_body
+              created_at
+              creator {
+                name
+              }
+            }
           }
         }
         columns {
@@ -290,6 +298,14 @@ async function fetchBoardTasks(
         url: `https://${subdomain}.monday.com/boards/${boardId}/pulses/${item.id}`,
         labels: item.group?.title ? [item.group.title] : [],
         assignees,
+        comments: Array.isArray(item.updates)
+          ? item.updates.map((u: any) => ({
+              id: String(u.id),
+              author: u.creator?.name ?? 'unknown',
+              body: u.text_body ?? '',
+              createdAt: u.created_at ?? '',
+            }))
+          : [],
         meta: item,
       } as ExternalTask
     })
