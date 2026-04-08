@@ -2,7 +2,7 @@ import type { Database } from 'better-sqlite3'
 import { randomUUID } from 'crypto'
 import { getTaskSourceConfig, listTaskSourceConfigs } from '@/lib/db/taskSourceConfig'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
-import { createTask, updateTask, deleteTask } from '@/lib/db/tasks'
+import { createTask, updateTask } from '@/lib/db/tasks'
 import type { Task } from '@/lib/db/tasks'
 
 export type SyncResult = {
@@ -72,11 +72,29 @@ export async function syncProjectSource(
     }
 
     let deleted = 0
-    for (const existing of existingTasks) {
-      if (existing.source_id && !seenSourceIds.has(existing.source_id)) {
-        deleteTask(db, existing.id)
-        deleted++
-      }
+    const incomingIds = Array.from(seenSourceIds)
+    const now = new Date().toISOString()
+
+    if (incomingIds.length === 0) {
+      // No tasks returned — soft-delete all tasks for this project+source
+      const result = db.prepare(
+        `UPDATE tasks SET is_deleted = 1, updated_at = ? WHERE project_id = ? AND source = ? AND is_deleted = 0`
+      ).run(now, projectId, adapterKey)
+      deleted = result.changes
+    } else {
+      const placeholders = incomingIds.map(() => '?').join(', ')
+      // Soft-delete tasks that no longer appear in the sync result
+      const deleteResult = db.prepare(`
+        UPDATE tasks SET is_deleted = 1, updated_at = ?
+        WHERE project_id = ? AND source = ? AND source_id NOT IN (${placeholders}) AND is_deleted = 0
+      `).run(now, projectId, adapterKey, ...incomingIds)
+      deleted = deleteResult.changes
+
+      // Un-delete tasks that reappear
+      db.prepare(`
+        UPDATE tasks SET is_deleted = 0, updated_at = ?
+        WHERE project_id = ? AND source = ? AND source_id IN (${placeholders})
+      `).run(now, projectId, adapterKey, ...incomingIds)
     }
 
     // Upsert comments from all tasks
@@ -85,7 +103,6 @@ export async function syncProjectSource(
         (id, project_id, source, task_source_id, comment_id, author, body, created_at, synced_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
-    const now = new Date().toISOString()
     const insertAllComments = db.transaction(() => {
       for (const ext of externalTasks) {
         for (const comment of ext.comments ?? []) {

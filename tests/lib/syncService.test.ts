@@ -123,7 +123,7 @@ describe('syncProjectSource', () => {
     expect(tasks[0].title).toBe('Updated title')
   })
 
-  it('deletes tasks removed from external source', async () => {
+  it('soft-deletes tasks removed from external source', async () => {
     upsertTaskSourceConfig(db, projectId, 'github', { token: 'abc' }, ['owner/repo'])
 
     const { getTaskSourceAdapter } = await import('@/lib/taskSources/adapters')
@@ -153,7 +153,10 @@ describe('syncProjectSource', () => {
     await syncProjectSource(db, projectId, 'github')
     const result2 = await syncProjectSource(db, projectId, 'github')
     expect(result2.deleted).toBe(1)
-    expect(db.prepare('SELECT * FROM tasks WHERE project_id = ?').all(projectId)).toHaveLength(0)
+    // Task is soft-deleted: still exists in DB but marked is_deleted = 1
+    const allTasks = db.prepare('SELECT * FROM tasks WHERE project_id = ?').all(projectId) as any[]
+    expect(allTasks).toHaveLength(1)
+    expect(allTasks[0].is_deleted).toBe(1)
   })
 
   it('returns error result and stores last_error on fetch failure', async () => {

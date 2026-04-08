@@ -350,6 +350,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     )
   `)
   runMigration(db, 49, 'idx_task_comments_project', `CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`)
+  runMigration(db, 50, 'tasks_is_deleted', `ALTER TABLE tasks ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0`, true)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

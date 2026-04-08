@@ -77,11 +77,11 @@ export function getTasksByProject(
   const PRIORITY_ORDER = `CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END`
   if (status) {
     return db.prepare(
-      `SELECT * FROM tasks WHERE project_id = ? AND status = ? ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
+      `SELECT * FROM tasks WHERE project_id = ? AND status = ? AND (is_deleted = 0 OR is_deleted IS NULL) ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
     ).all(projectId, status) as Task[]
   }
   return db.prepare(
-    `SELECT * FROM tasks WHERE project_id = ? ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
+    `SELECT * FROM tasks WHERE project_id = ? AND (is_deleted = 0 OR is_deleted IS NULL) ORDER BY ${PRIORITY_ORDER}, updated_at DESC`
   ).all(projectId) as Task[]
 }
 
