@@ -8,9 +8,10 @@ export const dynamic = 'force-dynamic'
 
 function mapToExternalStatus(raw: string): ExternalTaskStatus {
   const lower = raw.toLowerCase()
-  if (lower === 'done') return 'done'
-  if (lower === 'indeterminate' || lower.includes('progress')) return 'inprogress'
-  if (lower.includes('review') || lower.includes('test')) return 'review'
+  if (lower === 'done' || lower === 'closed' || lower === 'resolved' ||
+      lower === 'fixed' || lower === 'complete' || lower === 'completed') return 'done'
+  if (lower === 'indeterminate' || lower.includes('progress') || lower === 'active' || lower === 'working') return 'inprogress'
+  if (lower.includes('review') || lower.includes('test') || lower.includes('qa')) return 'review'
   if (lower.includes('block')) return 'blocked'
   return 'todo'
 }

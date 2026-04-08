@@ -45,14 +45,20 @@ describe('donedoneAdapter', () => {
     vi.unstubAllGlobals()
   })
 
-  it('fetchTasks filters by resourceIds when provided', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [
-        { id: 101, title: 'Task in proj 1', status: 'open', priority: 'medium', project_id: 1 },
-        { id: 102, title: 'Task in proj 2', status: 'open', priority: 'low', project_id: 2 },
-      ],
-    })
+  it('fetchTasks fetches from per-project endpoint when resourceIds provided', async () => {
+    const mockFetch = vi.fn()
+      // Per-project issues endpoint for project '1'
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 101, title: 'Task in proj 1', status: 'open', priority: 'medium' },
+        ],
+      })
+      // Comment fetch for issue 101 (best-effort)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      })
     vi.stubGlobal('fetch', mockFetch)
 
     const tasks = await donedoneAdapter.fetchTasks(
@@ -61,17 +67,22 @@ describe('donedoneAdapter', () => {
     )
     expect(tasks).toHaveLength(1)
     expect(tasks[0].title).toBe('Task in proj 1')
+    // Should call per-project endpoint, not all_yours
+    expect(mockFetch.mock.calls[0][0]).toContain('/projects/1/')
     vi.unstubAllGlobals()
   })
 
   it('fetchTasks returns all tasks when resourceIds empty', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => [
-        { id: 101, title: 'Task A', status: 'open', priority: 'medium', project_id: 1 },
-        { id: 102, title: 'Task B', status: 'open', priority: 'low', project_id: 2 },
-      ],
-    })
+    const mockFetch = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { id: 101, title: 'Task A', status: 'open', priority: 'medium' },
+          { id: 102, title: 'Task B', status: 'open', priority: 'low' },
+        ],
+      })
+      // Comment fetches for both issues
+      .mockResolvedValue({ ok: true, json: async () => [] })
     vi.stubGlobal('fetch', mockFetch)
 
     const tasks = await donedoneAdapter.fetchTasks(

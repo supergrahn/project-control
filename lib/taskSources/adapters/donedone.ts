@@ -153,39 +153,61 @@ export const donedoneAdapter: TaskSourceAdapter = {
       Accept: 'application/json',
     }
 
-    // Try primary endpoint: GET /issues/all_yours.json
-    let response = await fetch(`${baseUrl}/issues/all_yours.json`, {
-      method: 'GET',
-      headers,
-    })
+    // Fetch issues: per-project when resource IDs are selected, otherwise all assigned
+    let allIssues: any[] = []
 
-    // Fallback to secondary endpoint only if primary returns 404 or 405
-    if (response.status === 404 || response.status === 405) {
-      response = await fetch(`${baseUrl}/issues/all_active.json`, {
+    if (resourceIds.length > 0) {
+      // Fetch per project to avoid cross-project contamination
+      const perProjectResults = await Promise.allSettled(
+        resourceIds.map(async (projectId) => {
+          const res = await fetch(`${baseUrl}/projects/${projectId}/issues/all_active.json`, {
+            method: 'GET',
+            headers,
+          })
+          if (!res.ok) {
+            // Fallback: try the general endpoint filtered by project
+            const res2 = await fetch(`${baseUrl}/projects/${projectId}/issues.json`, {
+              method: 'GET',
+              headers,
+            })
+            if (!res2.ok) return []
+            const d = await res2.json() as any
+            return Array.isArray(d) ? d : (d.data ?? d.issues ?? d.items ?? [])
+          }
+          const d = await res.json() as any
+          return Array.isArray(d) ? d : (d.data ?? d.issues ?? d.items ?? [])
+        })
+      )
+      for (const r of perProjectResults) {
+        if (r.status === 'fulfilled') allIssues.push(...r.value)
+      }
+    } else {
+      // No project filter — fetch all issues assigned to the user
+      let response = await fetch(`${baseUrl}/issues/all_yours.json`, {
         method: 'GET',
         headers,
       })
+      if (response.status === 404 || response.status === 405) {
+        response = await fetch(`${baseUrl}/issues/all_active.json`, {
+          method: 'GET',
+          headers,
+        })
+      }
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(
+          `DoneDone API error: ${response.status} ${response.statusText} - ${errorText}`,
+        )
+      }
+      const data = (await response.json()) as any
+      const parsed = Array.isArray(data) ? data : (data.data ?? data.issues ?? data.items ?? null)
+      if (!Array.isArray(parsed)) {
+        throw new Error('Invalid DoneDone API response: expected array')
+      }
+      allIssues = parsed
     }
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(
-        `DoneDone API error: ${response.status} ${response.statusText} - ${errorText}`,
-      )
-    }
-
-    const data = (await response.json()) as any
-
-    // DoneDone API v2 may return a plain array or a wrapped object
-    const issues: any[] = Array.isArray(data)
-      ? data
-      : (data.data ?? data.issues ?? data.items ?? null)
-
-    if (!Array.isArray(issues)) {
-      throw new Error('Invalid DoneDone API response: expected array')
-    }
-
-    const tasks = issues.map((issue: any) => {
+    const tasks = allIssues.map((issue: any) => {
       const sourceId = String(issue.id || issue.order_number)
       const issueUrl = `https://${subdomain}.mydonedone.com/issuetracker/issues/${issue.id || issue.order_number}`
 
@@ -232,20 +254,9 @@ export const donedoneAdapter: TaskSourceAdapter = {
       } as ExternalTask
     })
 
-    // Filter by selected projects if any are selected
-    const filtered = resourceIds.length > 0
-      ? tasks.filter(t => {
-          const meta = t.meta as any
-          const rawId = meta.project_id ?? meta.projectId ?? meta.project?.id
-          // If we can't determine project ID, include the task (don't silently drop it)
-          if (rawId == null) return true
-          return resourceIds.includes(String(rawId))
-        })
-      : tasks
-
     // Fetch comments for each task (best-effort, parallel)
     await Promise.allSettled(
-      filtered.map(async (task) => {
+      tasks.map(async (task) => {
         const issueId = (task.meta as any)?.id
         if (issueId == null) return
         try {
@@ -269,7 +280,7 @@ export const donedoneAdapter: TaskSourceAdapter = {
       })
     )
 
-    return filtered
+    return tasks
   },
 
   mapStatus,

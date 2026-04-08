@@ -398,6 +398,69 @@ describe('donedoneAdapter', () => {
       expect(tasks).toEqual([])
     })
 
+    it('should fetch per-project when resourceIds are provided', async () => {
+      // Per-project endpoint for project 36785
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          id: 10,
+          title: 'Project task',
+          status: { name: 'Open' },
+          priority: null,
+          tags: [],
+          fixer: null,
+        }]),
+      } as unknown as Response)
+      // Comment fetch for issue 10
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+
+      const tasks = await donedoneAdapter.fetchTasks(
+        { subdomain: 'mycompany', username: 'testuser', api_key: 'secret123' },
+        ['36785']
+      )
+
+      expect(tasks).toHaveLength(1)
+      expect(tasks[0].sourceId).toBe('10')
+      // Should hit per-project endpoint, not all_yours
+      expect(vi.mocked(global.fetch).mock.calls[0][0]).toContain('/projects/36785/')
+    })
+
+    it('should fallback to second per-project endpoint when first fails', async () => {
+      // First endpoint fails
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      } as unknown as Response)
+      // Fallback endpoint succeeds
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          id: 20,
+          title: 'Fallback task',
+          status: { name: 'Open' },
+          priority: null,
+          tags: [],
+          fixer: null,
+        }]),
+      } as unknown as Response)
+      // Comment fetch for issue 20
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+
+      const tasks = await donedoneAdapter.fetchTasks(
+        { subdomain: 'mycompany', username: 'testuser', api_key: 'secret123' },
+        ['36785']
+      )
+
+      expect(tasks).toHaveLength(1)
+      expect(tasks[0].sourceId).toBe('20')
+    })
+
     it('should leave comments undefined when comment fetch fails', async () => {
       vi.mocked(global.fetch).mockResolvedValueOnce({
         ok: true,
