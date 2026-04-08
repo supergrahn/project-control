@@ -84,6 +84,9 @@ async function fetchTasks(
         repository_url: string
         labels: Array<{ name: string }>
         assignees: Array<{ login: string }>
+        created_at: string
+        updated_at: string
+        milestone: { title: string; due_on: string | null } | null
       }>
     }
 

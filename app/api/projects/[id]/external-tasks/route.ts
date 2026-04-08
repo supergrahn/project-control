@@ -52,15 +52,24 @@ export async function GET(
         status: mapToExternalStatus(ext.status),
         rawStatus: ext.status,
         priority: mapToExternalPriority(ext.priority),
-        project: (ext.meta as any)?.fields?.project?.name  // Jira
-          ?? (ext.meta as any)?.board?.name               // Monday
-          ?? (ext.meta as any)?.project_name              // DoneDone
-          ?? cfg.adapter_key,                             // fallback
+        project: (ext.meta as any)?.fields?.project?.name           // Jira
+          ?? (ext.meta as any)?.boardName                          // Monday (board name stored in meta)
+          ?? (ext.meta as any)?.project?.name                      // DoneDone nested project object
+          ?? (ext.meta as any)?.project_name                       // DoneDone flat
+          ?? ((ext.meta as any)?.repository_url as string | undefined)?.split('/').slice(-2).join('/')  // GitHub
+          ?? cfg.adapter_key,                                      // fallback
         labels: ext.labels,
         assignees: ext.assignees,
-        dueDate: (ext.meta as any)?.fields?.duedate ?? (ext.meta as any)?.dueDate ?? null,
-        createdAt: (ext.meta as any)?.fields?.created ?? (ext.meta as any)?.createdAt ?? null,
-        updatedAt: (ext.meta as any)?.fields?.updated ?? (ext.meta as any)?.updatedAt ?? null,
+        dueDate: (ext.meta as any)?.fields?.duedate                // Jira
+          ?? (ext.meta as any)?.due_date                           // DoneDone
+          ?? (ext.meta as any)?.milestone?.due_on                  // GitHub milestone
+          ?? (ext.meta as any)?.dueDate ?? null,
+        createdAt: (ext.meta as any)?.fields?.created              // Jira
+          ?? (ext.meta as any)?.created_at                         // DoneDone, GitHub, Monday
+          ?? (ext.meta as any)?.createdAt ?? null,
+        updatedAt: (ext.meta as any)?.fields?.updated              // Jira
+          ?? (ext.meta as any)?.updated_at                         // DoneDone, GitHub, Monday
+          ?? (ext.meta as any)?.updatedAt ?? null,
         meta: ext.meta as Record<string, unknown>,
       }))
     })

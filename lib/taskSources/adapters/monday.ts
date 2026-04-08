@@ -204,10 +204,13 @@ async function fetchBoardTasks(
   const query = `
     query {
       boards(ids: [${boardId}]) {
+        name
         items_page(limit: 100) {
           items {
             id
             name
+            created_at
+            updated_at
             column_values {
               id
               type
@@ -289,10 +292,16 @@ async function fetchBoardTasks(
         : null
       const assignees = extractAssigneesFromItem(item, peopleColumnIds)
 
+      // Extract description from the first long-text or text column
+      const descriptionCol = item.column_values?.find(
+        (cv: any) => cv.type === 'long_text' || cv.type === 'text'
+      )
+      const description = descriptionCol?.text?.trim() || null
+
       return {
         sourceId: item.id,
         title: item.name || '(Untitled)',
-        description: null, // Monday items don't have a description field in basic query
+        description,
         status: statusValue || 'new',
         priority: priorityValue,
         url: `https://${subdomain}.monday.com/boards/${boardId}/pulses/${item.id}`,
@@ -306,7 +315,7 @@ async function fetchBoardTasks(
               createdAt: u.created_at ?? '',
             }))
           : [],
-        meta: item,
+        meta: { ...item, boardName: board.name },
       } as ExternalTask
     })
 }
