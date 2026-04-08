@@ -1,6 +1,7 @@
 'use client'
 
-import { Search, X } from 'lucide-react'
+import { Search, X, SlidersHorizontal } from 'lucide-react'
+import { useState } from 'react'
 import type { ExternalTaskSource, ExternalTaskStatus, ExternalTaskPriority } from '@/lib/types/externalTask'
 
 export interface ExternalTaskFilters {
@@ -58,6 +59,8 @@ interface Props {
 }
 
 export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCount }: Props) {
+  const [expanded, setExpanded] = useState(false)
+
   function toggleSource(source: ExternalTaskSource) {
     const next = new Set(filters.sources)
     if (next.has(source)) {
@@ -100,120 +103,140 @@ export function ExternalTaskFiltersBar({ filters, onChange, resultCount, totalCo
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Text search */}
-      <div className="relative">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-secondary pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Search tasks..."
-          value={filters.text}
-          onChange={(e) => onChange({ ...filters, text: e.target.value })}
-          className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-tertiary border border-border-hover rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-strong transition-colors"
-        />
-        {filters.text && (
-          <button
-            onClick={() => onChange({ ...filters, text: '' })}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        )}
+      {/* Search + filter toggle row */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-text-secondary pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={filters.text}
+            onChange={(e) => onChange({ ...filters, text: e.target.value })}
+            className="w-full pl-8 pr-3 py-1.5 text-sm bg-bg-tertiary border border-border-hover rounded-lg text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-strong transition-colors"
+          />
+          {filters.text && (
+            <button
+              onClick={() => onChange({ ...filters, text: '' })}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-lg border transition-colors ${
+            expanded || !isDefault
+              ? 'bg-bg-tertiary border-border-strong text-text-primary'
+              : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-primary'
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          Filters
+          {!isDefault && <span className="w-1.5 h-1.5 rounded-full bg-accent-blue inline-block" />}
+        </button>
       </div>
 
-      {/* Source pills */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-text-secondary mr-1">Source:</span>
-        {ALL_SOURCES.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => toggleSource(value)}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              filters.sources.has(value)
-                ? 'bg-bg-tertiary border-border-strong text-text-primary'
-                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {/* Collapsible filter rows */}
+      {expanded && (
+        <>
+          {/* Source pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-text-secondary mr-1">Source:</span>
+            {ALL_SOURCES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => toggleSource(value)}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  filters.sources.has(value)
+                    ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                    : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      <div className="border-t border-border-default" />
+          <div className="border-t border-border-default" />
 
-      {/* Status pills */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-text-secondary mr-1">Status:</span>
-        {ALL_STATUSES.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => toggleStatus(value)}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              filters.statuses.has(value)
-                ? 'bg-bg-tertiary border-border-strong text-text-primary'
-                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Status pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-text-secondary mr-1">Status:</span>
+            {ALL_STATUSES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => toggleStatus(value)}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  filters.statuses.has(value)
+                    ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                    : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      <div className="border-t border-border-default" />
+          <div className="border-t border-border-default" />
 
-      {/* Priority pills */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-text-secondary mr-1">Priority:</span>
-        {ALL_PRIORITIES.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => togglePriority(value)}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              filters.priorities.has(value)
-                ? 'bg-bg-tertiary border-border-strong text-text-primary'
-                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Priority pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-text-secondary mr-1">Priority:</span>
+            {ALL_PRIORITIES.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => togglePriority(value)}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  filters.priorities.has(value)
+                    ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                    : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      <div className="border-t border-border-default" />
+          <div className="border-t border-border-default" />
 
-      {/* Due date preset pills */}
-      <div className="flex items-center gap-1.5 flex-wrap">
-        <span className="text-xs text-text-secondary mr-1">Due:</span>
-        {DUE_DATE_PRESETS.map(({ value, label }) => (
-          <button
-            key={value}
-            onClick={() => onChange({ ...filters, dueDatePreset: value })}
-            className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-              filters.dueDatePreset === value
-                ? 'bg-bg-tertiary border-border-strong text-text-primary'
-                : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+          {/* Due date preset pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-text-secondary mr-1">Due:</span>
+            {DUE_DATE_PRESETS.map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => onChange({ ...filters, dueDatePreset: value })}
+                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                  filters.dueDatePreset === value
+                    ? 'bg-bg-tertiary border-border-strong text-text-primary'
+                    : 'bg-transparent border-border-hover text-text-secondary hover:border-border-strong hover:text-text-secondary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
 
-      {/* Result count + clear */}
-      <div className="flex items-center justify-between text-xs text-text-secondary pt-1">
-        <span>
-          {resultCount === totalCount
-            ? `${totalCount} tasks`
-            : `${resultCount} of ${totalCount} tasks`}
-        </span>
-        {!isDefault && (
-          <button
-            onClick={() => onChange(DEFAULT_FILTERS)}
-            className="flex items-center gap-1 text-text-secondary hover:text-text-primary transition-colors"
-          >
-            <X className="w-3 h-3" />
-            Clear filters
-          </button>
-        )}
+          {!isDefault && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => onChange(DEFAULT_FILTERS)}
+                className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors"
+              >
+                <X className="w-3 h-3" />
+                Clear filters
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Result count */}
+      <div className="text-xs text-text-secondary">
+        {resultCount === totalCount
+          ? `${totalCount} tasks`
+          : `${resultCount} of ${totalCount} tasks`}
       </div>
     </div>
   )
