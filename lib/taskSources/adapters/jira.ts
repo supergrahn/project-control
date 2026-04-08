@@ -170,27 +170,50 @@ export const jiraAdapter: TaskSourceAdapter = {
       throw new Error('Invalid Jira API response: missing issues array')
     }
 
-    return data.issues.map((issue: any) => {
+    const tasks: ExternalTask[] = data.issues.map((issue: any) => {
       const fields = issue.fields || {}
       const statusCategory = fields.status?.statusCategory?.key || 'new'
       const priorityName = fields.priority?.name || null
-
       return {
         sourceId: issue.key,
         title: fields.summary || '(Untitled)',
-        description: fields.description
-          ? extractAdfDocText(fields.description)
-          : null,
+        description: fields.description ? extractAdfDocText(fields.description) : null,
         status: statusCategory,
         priority: priorityName,
         url: `${base_url}/browse/${issue.key}`,
         labels: fields.labels || [],
-        assignees: fields.assignee?.displayName
-          ? [fields.assignee.displayName]
-          : [],
+        assignees: fields.assignee?.displayName ? [fields.assignee.displayName] : [],
         meta: issue,
       } as ExternalTask
     })
+
+    // Fetch comments for each issue in parallel (best-effort, first 100 per issue)
+    await Promise.all(tasks.map(async (task) => {
+      try {
+        const commentsRes = await fetch(
+          `${base_url}/rest/api/3/issue/${task.sourceId}/comment?maxResults=100`,
+          {
+            headers: {
+              Authorization: `Basic ${credentials}`,
+              Accept: 'application/json',
+            },
+          }
+        )
+        if (commentsRes.ok) {
+          const commentsData = await commentsRes.json() as any
+          task.comments = (commentsData.comments ?? []).map((c: any) => ({
+            id: String(c.id),
+            author: c.author?.displayName ?? 'unknown',
+            body: c.body ? extractAdfDocText(c.body) : '',
+            createdAt: c.created ?? '',
+          }))
+        }
+      } catch {
+        // Best-effort
+      }
+    }))
+
+    return tasks
   },
 
   mapStatus,

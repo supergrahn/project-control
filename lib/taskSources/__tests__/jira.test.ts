@@ -287,6 +287,52 @@ describe('jiraAdapter', () => {
       expect(tasks[0].description).toBeNull()
     })
 
+    it('should include comments on each task', async () => {
+      // First fetch: JQL search
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          issues: [{
+            key: 'PROJ-1',
+            fields: {
+              summary: 'Do thing',
+              description: null,
+              status: { statusCategory: { key: 'new' } },
+              priority: { name: 'Medium' },
+              labels: [],
+              assignee: null,
+            },
+          }],
+        }),
+      } as unknown as Response)
+
+      // Second fetch: comments for PROJ-1
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          comments: [{
+            id: '10001',
+            author: { displayName: 'Alice' },
+            body: { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nice work' }] }] },
+            created: '2026-04-01T09:00:00.000+0000',
+          }],
+        }),
+      } as unknown as Response)
+
+      const result = await jiraAdapter.fetchTasks(
+        { base_url: 'https://test.atlassian.net', email: 'user@test.com', api_token: 'tok' },
+        []
+      )
+
+      expect(result[0].comments).toHaveLength(1)
+      expect(result[0].comments![0]).toEqual({
+        id: '10001',
+        author: 'Alice',
+        body: 'Nice work',
+        createdAt: '2026-04-01T09:00:00.000+0000',
+      })
+    })
+
     it('should handle missing assignee gracefully', async () => {
       const mockResponse = {
         issues: [
