@@ -9,6 +9,7 @@ import { RightDrawer } from '@/components/tasks/RightDrawer'
 import { CreateTaskModal } from '@/components/tasks/CreateTaskModal'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
+import { fetcher } from '@/lib/fetcher'
 
 export default function IdeasPage() {
   const { projectId } = useParams() as { projectId: string }
@@ -19,7 +20,7 @@ export default function IdeasPage() {
 
   const { data: taskSessions } = useSWR(
     selectedTask ? `/api/sessions?projectId=${projectId}&taskId=${selectedTask.id}` : null,
-    (url: string) => fetch(url).then(r => r.json()),
+    fetcher,
     { refreshInterval: 3000 }
   )
 

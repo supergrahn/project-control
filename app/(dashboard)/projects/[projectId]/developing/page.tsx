@@ -8,6 +8,7 @@ import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
 import type { Task } from '@/lib/db/tasks'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
+import { fetcher } from '@/lib/fetcher'
 
 export default function DevelopingPage() {
   const { projectId } = useParams() as { projectId: string }
@@ -17,7 +18,7 @@ export default function DevelopingPage() {
 
   const { data: taskSessions } = useSWR(
     selectedTask ? `/api/sessions?projectId=${projectId}&taskId=${selectedTask.id}` : null,
-    (url: string) => fetch(url).then(r => r.json()),
+    fetcher,
     { refreshInterval: 3000 }
   )
 
