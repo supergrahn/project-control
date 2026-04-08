@@ -277,6 +277,18 @@ async function fetchBoardTasks(
   // Find people columns for user filtering
   const peopleColumnIds = findPeopleColumns(columns)
 
+  // Detect description column once per board: prefer title match, then fall back to long_text type
+  const descriptionColumnId: string | null = (
+    columns.find(
+      (col: any) => /description|notes|details/i.test(col.title) &&
+        (col.type === 'long_text' || col.type === 'text')
+    ) ??
+    columns.find(
+      (col: any) => col.type === 'long_text'
+    ) ??
+    null
+  )?.id ?? null
+
   // Filter items by user and map to ExternalTask
   return items
     .filter((item: any) => {
@@ -292,11 +304,10 @@ async function fetchBoardTasks(
         : null
       const assignees = extractAssigneesFromItem(item, peopleColumnIds)
 
-      // Extract description from the first long-text or text column
-      const descriptionCol = item.column_values?.find(
-        (cv: any) => cv.type === 'long_text' || cv.type === 'text'
-      )
-      const description = descriptionCol?.text?.trim() || null
+      // Extract description using the board-level detected description column
+      const description = descriptionColumnId
+        ? (item.column_values?.find((cv: any) => cv.id === descriptionColumnId)?.text?.trim() || null)
+        : null
 
       return {
         sourceId: item.id,
