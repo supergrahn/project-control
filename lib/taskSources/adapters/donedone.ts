@@ -233,14 +233,39 @@ export const donedoneAdapter: TaskSourceAdapter = {
     })
 
     // Filter by selected projects if any are selected
-    if (resourceIds.length > 0) {
-      return tasks.filter(t => {
-        const meta = t.meta as any
-        const projectId = String(meta.project_id ?? meta.projectId ?? '')
-        return resourceIds.includes(projectId)
-      })
+    const filtered = resourceIds.length > 0
+      ? tasks.filter(t => {
+          const meta = t.meta as any
+          const projectId = String(meta.project_id ?? meta.projectId ?? '')
+          return resourceIds.includes(projectId)
+        })
+      : tasks
+
+    // Fetch comments for each task (best-effort)
+    for (const task of filtered) {
+      const issueId = (task.meta as any)?.id
+      if (!issueId) continue
+      try {
+        const commentsRes = await fetch(
+          `${baseUrl}/issues/${issueId}/comments.json`,
+          { method: 'GET', headers }
+        )
+        if (commentsRes.ok) {
+          const raw = (await commentsRes.json()) as any
+          const arr: any[] = Array.isArray(raw) ? raw : (raw.comments ?? [])
+          task.comments = arr.map((c: any) => ({
+            id: String(c.id),
+            author: c.person?.name ?? c.fixer?.name ?? c.author ?? 'unknown',
+            body: c.body ?? c.content ?? '',
+            createdAt: c.created_at ?? c.created ?? '',
+          }))
+        }
+      } catch {
+        // Best-effort
+      }
     }
-    return tasks
+
+    return filtered
   },
 
   mapStatus,

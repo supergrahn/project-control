@@ -122,6 +122,11 @@ describe('donedoneAdapter', () => {
           ok: true,
           json: async () => mockResponse,
         } as Response)
+        // Third call: comments for issue 456 (best-effort, returns empty)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [],
+        } as Response)
 
       const config = {
         subdomain: 'mycompany',
@@ -134,8 +139,8 @@ describe('donedoneAdapter', () => {
       expect(tasks).toHaveLength(1)
       expect(tasks[0].sourceId).toBe('456')
 
-      // Verify both endpoints were called
-      expect(vi.mocked(global.fetch).mock.calls).toHaveLength(2)
+      // Verify both issue endpoints were called (plus comment fetch)
+      expect(vi.mocked(global.fetch).mock.calls).toHaveLength(3)
       expect(vi.mocked(global.fetch).mock.calls[0][0]).toContain(
         'all_yours.json',
       )
@@ -362,6 +367,45 @@ describe('donedoneAdapter', () => {
       const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toEqual([])
+    })
+
+    it('should include comments on each task', async () => {
+      // First fetch: issues list
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          id: 99,
+          order_number: 1,
+          title: 'Fix crash',
+          description: null,
+          status: { name: 'open' },
+          priority: null,
+          tags: [],
+          fixer: null,
+          project_id: '90271',
+        }]),
+      } as unknown as Response)
+
+      // Second fetch: comments for issue 99
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([
+          { id: 55, person: { name: 'Jane' }, body: 'Checked', created_at: '2026-04-01T07:00:00Z' },
+        ]),
+      } as unknown as Response)
+
+      const result = await donedoneAdapter.fetchTasks(
+        { subdomain: 'mycompany', username: 'testuser', api_key: 'secret123' },
+        []
+      )
+
+      expect(result[0].comments).toHaveLength(1)
+      expect(result[0].comments![0]).toEqual({
+        id: '55',
+        author: 'Jane',
+        body: 'Checked',
+        createdAt: '2026-04-01T07:00:00Z',
+      })
     })
   })
 
