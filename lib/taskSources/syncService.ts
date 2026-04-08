@@ -26,7 +26,7 @@ export async function syncProjectSource(
     const externalTasks = await adapter.fetchTasks(config.config, config.resource_ids)
 
     const existingTasks = db.prepare(
-      'SELECT * FROM tasks WHERE project_id = ? AND source = ? AND is_deleted = 0'
+      'SELECT * FROM tasks WHERE project_id = ? AND source = ? AND (is_deleted = 0 OR is_deleted IS NULL)'
     ).all(projectId, adapterKey) as Task[]
 
     const existingBySourceId = new Map(existingTasks.map(t => [t.source_id, t]))
@@ -59,9 +59,17 @@ export async function syncProjectSource(
         ).get(projectId, adapterKey, ext.sourceId) as { id: string } | undefined
 
         if (softDeleted) {
-          // Resurrect: un-delete and update
-          db.prepare(`UPDATE tasks SET is_deleted = 0, title = ?, status = ?, updated_at = ? WHERE id = ?`)
-            .run(ext.title, mappedStatus, now, softDeleted.id)
+          // Resurrect: un-delete first so updateTask can find it, then update all fields
+          db.prepare(`UPDATE tasks SET is_deleted = 0 WHERE id = ?`).run(softDeleted.id)
+          updateTask(db, softDeleted.id, {
+            title: ext.title,
+            status: mappedStatus,
+            priority: mappedPriority,
+            labels: ext.labels.length > 0 ? ext.labels : null,
+            source_url: ext.url,
+            source_meta: JSON.stringify(ext.meta),
+            idea_file: ext.description,
+          })
           updated++
         } else {
           // Truly new: create
