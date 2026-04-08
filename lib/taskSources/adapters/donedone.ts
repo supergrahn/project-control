@@ -236,8 +236,10 @@ export const donedoneAdapter: TaskSourceAdapter = {
     const filtered = resourceIds.length > 0
       ? tasks.filter(t => {
           const meta = t.meta as any
-          const projectId = String(meta.project_id ?? meta.projectId ?? '')
-          return resourceIds.includes(projectId)
+          const rawId = meta.project_id ?? meta.projectId ?? meta.project?.id
+          // If we can't determine project ID, include the task (don't silently drop it)
+          if (rawId == null) return true
+          return resourceIds.includes(String(rawId))
         })
       : tasks
 
