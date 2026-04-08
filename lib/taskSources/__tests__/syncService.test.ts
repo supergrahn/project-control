@@ -80,6 +80,90 @@ describe('syncProjectSource — comment upsert', () => {
       mapPriority: () => 'medium' as const,
     })
 
-    await expect(syncProjectSource(db, 'p1', 'jira')).resolves.not.toThrow()
+    const result = await syncProjectSource(db, 'p1', 'jira')
+    expect(result).toBeDefined()
+  })
+
+  it('does not create duplicate comments on re-sync', async () => {
+    const mockAdapter = {
+      key: 'jira',
+      name: 'Jira',
+      configFields: [],
+      resourceSelectionLabel: '',
+      fetchAvailableResources: vi.fn(),
+      fetchTasks: vi.fn().mockResolvedValue([{
+        sourceId: 'PROJ-1',
+        title: 'Do thing',
+        description: null,
+        status: 'new',
+        priority: null,
+        url: 'https://test.atlassian.net/browse/PROJ-1',
+        labels: [],
+        assignees: [],
+        meta: {},
+        comments: [
+          { id: 'c1', author: 'Alice', body: 'Hello', createdAt: '2026-04-01T09:00:00Z' },
+        ],
+      }]),
+      mapStatus: () => 'idea' as const,
+      mapPriority: () => 'medium' as const,
+    }
+
+    vi.mocked(adapters.getTaskSourceAdapter).mockReturnValue(mockAdapter)
+    await syncProjectSource(db, 'p1', 'jira')
+
+    vi.mocked(adapters.getTaskSourceAdapter).mockReturnValue(mockAdapter)
+    await syncProjectSource(db, 'p1', 'jira')
+
+    const rows = db.prepare('SELECT * FROM task_comments WHERE project_id = ?').all('p1')
+    expect(rows).toHaveLength(1)
+  })
+
+  it('inserts comments from multiple tasks', async () => {
+    vi.mocked(adapters.getTaskSourceAdapter).mockReturnValue({
+      key: 'jira',
+      name: 'Jira',
+      configFields: [],
+      resourceSelectionLabel: '',
+      fetchAvailableResources: vi.fn(),
+      fetchTasks: vi.fn().mockResolvedValue([
+        {
+          sourceId: 'PROJ-1',
+          title: 'Task 1',
+          description: null,
+          status: 'new',
+          priority: null,
+          url: 'https://test.atlassian.net/browse/PROJ-1',
+          labels: [],
+          assignees: [],
+          meta: {},
+          comments: [
+            { id: 'c1', author: 'Alice', body: 'First', createdAt: '2026-04-01T09:00:00Z' },
+          ],
+        },
+        {
+          sourceId: 'PROJ-2',
+          title: 'Task 2',
+          description: null,
+          status: 'new',
+          priority: null,
+          url: 'https://test.atlassian.net/browse/PROJ-2',
+          labels: [],
+          assignees: [],
+          meta: {},
+          comments: [
+            { id: 'c2', author: 'Bob', body: 'Second', createdAt: '2026-04-01T10:00:00Z' },
+            { id: 'c3', author: 'Carol', body: 'Third', createdAt: '2026-04-01T11:00:00Z' },
+          ],
+        },
+      ]),
+      mapStatus: () => 'idea' as const,
+      mapPriority: () => 'medium' as const,
+    })
+
+    await syncProjectSource(db, 'p1', 'jira')
+
+    const rows = db.prepare('SELECT * FROM task_comments WHERE project_id = ?').all('p1')
+    expect(rows).toHaveLength(3)
   })
 })

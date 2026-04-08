@@ -94,8 +94,8 @@ export async function syncProjectSource(
           adapterKey,
           ext.sourceId,
           comment.id,
-          comment.author,
-          comment.body,
+          comment.author ?? '',
+          comment.body ?? '',
           comment.createdAt,
           now,
         )
