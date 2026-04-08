@@ -34,6 +34,7 @@ export type Task = {
   source_id: string | null
   source_url: string | null
   source_meta: string | null
+  is_deleted: number   // 0 or 1; managed by sync service, not user-editable
   created_at: string
   updated_at: string
 }

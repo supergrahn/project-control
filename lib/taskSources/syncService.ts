@@ -26,13 +26,14 @@ export async function syncProjectSource(
     const externalTasks = await adapter.fetchTasks(config.config, config.resource_ids)
 
     const existingTasks = db.prepare(
-      'SELECT * FROM tasks WHERE project_id = ? AND source = ?'
+      'SELECT * FROM tasks WHERE project_id = ? AND source = ? AND is_deleted = 0'
     ).all(projectId, adapterKey) as Task[]
 
     const existingBySourceId = new Map(existingTasks.map(t => [t.source_id, t]))
 
     let created = 0, updated = 0
     const seenSourceIds = new Set<string>()
+    const now = new Date().toISOString()
 
     for (const ext of externalTasks) {
       seenSourceIds.add(ext.sourceId)
@@ -52,28 +53,40 @@ export async function syncProjectSource(
         })
         updated++
       } else {
-        const task = createTask(db, {
-          id: randomUUID(),
-          projectId,
-          title: ext.title,
-          priority: mappedPriority,
-          labels: ext.labels.length > 0 ? ext.labels : undefined,
-        })
-        updateTask(db, task.id, {
-          source: adapterKey,
-          source_id: ext.sourceId,
-          source_url: ext.url,
-          source_meta: JSON.stringify(ext.meta),
-          idea_file: ext.description,
-          status: mappedStatus,
-        })
-        created++
+        // Check if a soft-deleted task with the same source_id exists
+        const softDeleted = db.prepare(
+          'SELECT id FROM tasks WHERE project_id = ? AND source = ? AND source_id = ? AND is_deleted = 1'
+        ).get(projectId, adapterKey, ext.sourceId) as { id: string } | undefined
+
+        if (softDeleted) {
+          // Resurrect: un-delete and update
+          db.prepare(`UPDATE tasks SET is_deleted = 0, title = ?, status = ?, updated_at = ? WHERE id = ?`)
+            .run(ext.title, mappedStatus, now, softDeleted.id)
+          updated++
+        } else {
+          // Truly new: create
+          const task = createTask(db, {
+            id: randomUUID(),
+            projectId,
+            title: ext.title,
+            priority: mappedPriority,
+            labels: ext.labels.length > 0 ? ext.labels : undefined,
+          })
+          updateTask(db, task.id, {
+            source: adapterKey,
+            source_id: ext.sourceId,
+            source_url: ext.url,
+            source_meta: JSON.stringify(ext.meta),
+            idea_file: ext.description,
+            status: mappedStatus,
+          })
+          created++
+        }
       }
     }
 
     let deleted = 0
     const incomingIds = Array.from(seenSourceIds)
-    const now = new Date().toISOString()
 
     if (incomingIds.length === 0) {
       // No tasks returned — soft-delete all tasks for this project+source
@@ -89,12 +102,6 @@ export async function syncProjectSource(
         WHERE project_id = ? AND source = ? AND source_id NOT IN (${placeholders}) AND is_deleted = 0
       `).run(now, projectId, adapterKey, ...incomingIds)
       deleted = deleteResult.changes
-
-      // Un-delete tasks that reappear
-      db.prepare(`
-        UPDATE tasks SET is_deleted = 0, updated_at = ?
-        WHERE project_id = ? AND source = ? AND source_id IN (${placeholders})
-      `).run(now, projectId, adapterKey, ...incomingIds)
     }
 
     // Upsert comments from all tasks

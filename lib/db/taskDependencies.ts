@@ -42,7 +42,7 @@ export function isTaskBlocked(db: Database, taskId: string): boolean {
   const blocked = db.prepare(
     `SELECT COUNT(*) as count FROM task_dependencies
      WHERE task_id = ? AND depends_on_id IN (
-       SELECT id FROM tasks WHERE status != 'done'
+       SELECT id FROM tasks WHERE status != 'done' AND (is_deleted = 0 OR is_deleted IS NULL)
      )`
   ).get(taskId) as { count: number }
   return blocked.count > 0
