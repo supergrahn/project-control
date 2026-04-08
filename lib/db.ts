@@ -48,6 +48,7 @@ function runMigration(
   version: number,
   name: string,
   sql: string,
+  tolerateExisting = false,
 ): void {
   const already = db
     .prepare('SELECT 1 FROM schema_migrations WHERE version = ?')
@@ -57,12 +58,9 @@ function runMigration(
     try {
       db.exec(sql)
     } catch (err: unknown) {
-      // Tolerate "duplicate column name" — the column was already added to the
-      // base schema, so this ALTER TABLE is a no-op on fresh databases.
+      if (!tolerateExisting) throw err
       const msg = err instanceof Error ? err.message : String(err)
-      if (!msg.includes('duplicate column name') && !msg.includes('already exists')) {
-        throw err
-      }
+      if (!msg.includes('duplicate column name') && !msg.includes('already exists')) throw err
     }
     db.prepare(
       'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',
@@ -110,8 +108,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     );
   `)
   // Migrations
-  runMigration(db, 1, 'sessions_ended_at', `ALTER TABLE sessions ADD COLUMN ended_at TEXT`)
-  runMigration(db, 2, 'projects_last_used_at', `ALTER TABLE projects ADD COLUMN last_used_at TEXT`)
+  runMigration(db, 1, 'sessions_ended_at', `ALTER TABLE sessions ADD COLUMN ended_at TEXT`, true)
+  runMigration(db, 2, 'projects_last_used_at', `ALTER TABLE projects ADD COLUMN last_used_at TEXT`, true)
   runMigration(db, 3, 'create_events', `
     CREATE TABLE IF NOT EXISTS events (
       id         TEXT PRIMARY KEY,
@@ -123,8 +121,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL
     )
   `)
-  runMigration(db, 4, 'sessions_progress_steps', `ALTER TABLE sessions ADD COLUMN progress_steps TEXT`)
-  runMigration(db, 5, 'projects_automation_level', `ALTER TABLE projects ADD COLUMN automation_level TEXT NOT NULL DEFAULT 'checkpoint'`)
+  runMigration(db, 4, 'sessions_progress_steps', `ALTER TABLE sessions ADD COLUMN progress_steps TEXT`, true)
+  runMigration(db, 5, 'projects_automation_level', `ALTER TABLE projects ADD COLUMN automation_level TEXT NOT NULL DEFAULT 'checkpoint'`, true)
   runMigration(db, 6, 'create_orchestrators', `
     CREATE TABLE IF NOT EXISTS orchestrators (
       id         TEXT PRIMARY KEY,
@@ -242,9 +240,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL
     )
   `)
-  runMigration(db, 20, 'sessions_task_id', `ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)`)
-  runMigration(db, 21, 'sessions_output_path', `ALTER TABLE sessions ADD COLUMN output_path TEXT`)
-  runMigration(db, 22, 'sessions_exit_reason', `ALTER TABLE sessions ADD COLUMN exit_reason TEXT`)
+  runMigration(db, 20, 'sessions_task_id', `ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)`, true)
+  runMigration(db, 21, 'sessions_output_path', `ALTER TABLE sessions ADD COLUMN output_path TEXT`, true)
+  runMigration(db, 22, 'sessions_exit_reason', `ALTER TABLE sessions ADD COLUMN exit_reason TEXT`, true)
   runMigration(db, 23, 'create_agents', `
     CREATE TABLE IF NOT EXISTS agents (
       id               TEXT PRIMARY KEY,
@@ -259,12 +257,12 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       updated_at       TEXT NOT NULL
     )
   `)
-  runMigration(db, 24, 'sessions_agent_id', `ALTER TABLE sessions ADD COLUMN agent_id TEXT`)
-  runMigration(db, 25, 'tasks_priority', `ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`)
-  runMigration(db, 26, 'tasks_labels', `ALTER TABLE tasks ADD COLUMN labels TEXT`)
-  runMigration(db, 27, 'tasks_assignee_agent_id', `ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`)
-  runMigration(db, 28, 'projects_provider_id', `ALTER TABLE projects ADD COLUMN provider_id TEXT`)
-  runMigration(db, 29, 'tasks_provider_id', `ALTER TABLE tasks ADD COLUMN provider_id TEXT`)
+  runMigration(db, 24, 'sessions_agent_id', `ALTER TABLE sessions ADD COLUMN agent_id TEXT`, true)
+  runMigration(db, 25, 'tasks_priority', `ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`, true)
+  runMigration(db, 26, 'tasks_labels', `ALTER TABLE tasks ADD COLUMN labels TEXT`, true)
+  runMigration(db, 27, 'tasks_assignee_agent_id', `ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`, true)
+  runMigration(db, 28, 'projects_provider_id', `ALTER TABLE projects ADD COLUMN provider_id TEXT`, true)
+  runMigration(db, 29, 'tasks_provider_id', `ALTER TABLE tasks ADD COLUMN provider_id TEXT`, true)
   runMigration(db, 30, 'create_skills', `
     CREATE TABLE IF NOT EXISTS skills (
       id         TEXT PRIMARY KEY,
@@ -287,7 +285,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL
     )
   `)
-  runMigration(db, 32, 'tasks_session_log', `ALTER TABLE tasks ADD COLUMN session_log TEXT`)
+  runMigration(db, 32, 'tasks_session_log', `ALTER TABLE tasks ADD COLUMN session_log TEXT`, true)
   runMigration(db, 33, 'idx_session_events_session_id', `CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id)`)
   // ── External Task Sources ──────────────────────────────────────────────────
   runMigration(db, 34, 'create_task_source_config', `
@@ -301,10 +299,10 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at   TEXT NOT NULL
     )
   `)
-  runMigration(db, 35, 'tasks_source', `ALTER TABLE tasks ADD COLUMN source TEXT`)
-  runMigration(db, 36, 'tasks_source_id', `ALTER TABLE tasks ADD COLUMN source_id TEXT`)
-  runMigration(db, 37, 'tasks_source_url', `ALTER TABLE tasks ADD COLUMN source_url TEXT`)
-  runMigration(db, 38, 'tasks_source_meta', `ALTER TABLE tasks ADD COLUMN source_meta TEXT`)
+  runMigration(db, 35, 'tasks_source', `ALTER TABLE tasks ADD COLUMN source TEXT`, true)
+  runMigration(db, 36, 'tasks_source_id', `ALTER TABLE tasks ADD COLUMN source_id TEXT`, true)
+  runMigration(db, 37, 'tasks_source_url', `ALTER TABLE tasks ADD COLUMN source_url TEXT`, true)
+  runMigration(db, 38, 'tasks_source_meta', `ALTER TABLE tasks ADD COLUMN source_meta TEXT`, true)
   runMigration(db, 39, 'idx_tasks_source', `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source ON tasks(project_id, source, source_id) WHERE source IS NOT NULL`)
   // ── Multi-source migration: recreate task_source_config with composite key ──
   runTaskSourceMigration(db)
@@ -359,37 +357,33 @@ export function initDb(dbPath = DB_PATH): Database.Database {
 }
 
 export function runTaskSourceMigration(db: Database.Database): void {
-  try {
-    const cols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
-    const hasIdColumn = cols.some(c => c.name === 'id')
-    if (cols.length > 0 && !hasIdColumn) {
-      db.transaction(() => {
-        db.exec(`
-          CREATE TABLE task_source_config_new (
-            id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            project_id    TEXT NOT NULL,
-            adapter_key   TEXT NOT NULL,
-            config        TEXT NOT NULL DEFAULT '{}',
-            resource_ids  TEXT,
-            is_active     INTEGER NOT NULL DEFAULT 1,
-            last_synced_at TEXT,
-            last_error    TEXT,
-            created_at    TEXT NOT NULL,
-            UNIQUE(project_id, adapter_key)
-          )
-        `)
-        db.exec(`
-          INSERT INTO task_source_config_new
-            (project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at)
-            SELECT project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at
-            FROM task_source_config
-        `)
-        db.exec(`DROP TABLE task_source_config`)
-        db.exec(`ALTER TABLE task_source_config_new RENAME TO task_source_config`)
-      })()
-    }
-  } catch (err) {
-    console.error('[db migration] task_source_config multi-source migration failed:', err)
+  const cols = db.prepare(`PRAGMA table_info(task_source_config)`).all() as { name: string }[]
+  const hasIdColumn = cols.some(c => c.name === 'id')
+  if (cols.length > 0 && !hasIdColumn) {
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE task_source_config_new (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          project_id    TEXT NOT NULL,
+          adapter_key   TEXT NOT NULL,
+          config        TEXT NOT NULL DEFAULT '{}',
+          resource_ids  TEXT,
+          is_active     INTEGER NOT NULL DEFAULT 1,
+          last_synced_at TEXT,
+          last_error    TEXT,
+          created_at    TEXT NOT NULL,
+          UNIQUE(project_id, adapter_key)
+        )
+      `)
+      db.exec(`
+        INSERT INTO task_source_config_new
+          (project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at)
+          SELECT project_id, adapter_key, config, is_active, last_synced_at, last_error, created_at
+          FROM task_source_config
+      `)
+      db.exec(`DROP TABLE task_source_config`)
+      db.exec(`ALTER TABLE task_source_config_new RENAME TO task_source_config`)
+    })()
   }
 }
 
