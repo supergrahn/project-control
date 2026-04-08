@@ -80,6 +80,12 @@ describe('donedoneAdapter', () => {
         json: async () => mockResponse,
       } as Response)
 
+      // Comment fetch for issue 123
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+
       const config = {
         subdomain: 'mycompany',
         username: 'testuser',
@@ -168,6 +174,12 @@ describe('donedoneAdapter', () => {
         json: async () => mockResponse,
       } as Response)
 
+      // Comment fetch for issue 789
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+
       const config = {
         subdomain: 'mycompany',
         username: 'testuser',
@@ -186,6 +198,7 @@ describe('donedoneAdapter', () => {
         labels: ['feature', 'frontend'],
         assignees: ['Alice Johnson'],
         meta: mockResponse[0],
+        comments: [],
       })
     })
 
@@ -240,6 +253,16 @@ describe('donedoneAdapter', () => {
         json: async () => mockResponse,
       } as Response)
 
+      // Comment fetches for issues 111 and 222
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
+
       const config = {
         subdomain: 'mycompany',
         username: 'testuser',
@@ -268,6 +291,12 @@ describe('donedoneAdapter', () => {
         ok: true,
         json: async () => mockResponse,
       } as Response)
+
+      // Comment fetch for issue 333
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => [],
+      } as unknown as Response)
 
       const config = {
         subdomain: 'mycompany',
@@ -367,6 +396,36 @@ describe('donedoneAdapter', () => {
       const tasks = await donedoneAdapter.fetchTasks(config, [])
 
       expect(tasks).toEqual([])
+    })
+
+    it('should leave comments undefined when comment fetch fails', async () => {
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ([{
+          id: 99,
+          order_number: 1,
+          title: 'Fix crash',
+          description: null,
+          status: { name: 'open' },
+          priority: null,
+          tags: [],
+          fixer: null,
+          project_id: '90271',
+        }]),
+      } as unknown as Response)
+
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: 'Forbidden' }),
+      } as unknown as Response)
+
+      const result = await donedoneAdapter.fetchTasks(
+        { subdomain: 'mycompany', username: 'testuser', api_key: 'secret123' },
+        []
+      )
+
+      expect(result[0].comments).toBeUndefined()
     })
 
     it('should include comments on each task', async () => {

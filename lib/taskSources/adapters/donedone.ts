@@ -241,29 +241,31 @@ export const donedoneAdapter: TaskSourceAdapter = {
         })
       : tasks
 
-    // Fetch comments for each task (best-effort)
-    for (const task of filtered) {
-      const issueId = (task.meta as any)?.id
-      if (!issueId) continue
-      try {
-        const commentsRes = await fetch(
-          `${baseUrl}/issues/${issueId}/comments.json`,
-          { method: 'GET', headers }
-        )
-        if (commentsRes.ok) {
-          const raw = (await commentsRes.json()) as any
-          const arr: any[] = Array.isArray(raw) ? raw : (raw.comments ?? [])
-          task.comments = arr.map((c: any) => ({
-            id: String(c.id),
-            author: c.person?.name ?? c.fixer?.name ?? c.author ?? 'unknown',
-            body: c.body ?? c.content ?? '',
-            createdAt: c.created_at ?? c.created ?? '',
-          }))
+    // Fetch comments for each task (best-effort, parallel)
+    await Promise.allSettled(
+      filtered.map(async (task) => {
+        const issueId = (task.meta as any)?.id
+        if (issueId == null) return
+        try {
+          const commentsRes = await fetch(
+            `${baseUrl}/issues/${issueId}/comments.json`,
+            { method: 'GET', headers }
+          )
+          if (commentsRes.ok) {
+            const raw = (await commentsRes.json()) as any
+            const arr: any[] = Array.isArray(raw) ? raw : (raw.comments ?? [])
+            task.comments = arr.map((c: any) => ({
+              id: String(c.id),
+              author: c.person?.name ?? c.fixer?.name ?? c.author ?? 'unknown',
+              body: c.body ?? c.content ?? '',
+              createdAt: c.created_at ?? c.created ?? '',
+            }))
+          }
+        } catch {
+          // Best-effort
         }
-      } catch {
-        // Best-effort
-      }
-    }
+      })
+    )
 
     return filtered
   },
