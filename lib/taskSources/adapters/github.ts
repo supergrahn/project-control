@@ -127,6 +127,41 @@ async function fetchTasks(
     page++
   }
 
+  // Fetch comments for each task
+  for (const task of tasks) {
+    // sourceId format: "owner/repo#number"
+    const match = task.sourceId.match(/^(.+)#(\d+)$/)
+    if (!match) continue
+    const [, repoPath, issueNumber] = match
+    try {
+      const commentsRes = await fetch(
+        `https://api.github.com/repos/${repoPath}/issues/${issueNumber}/comments?per_page=100`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }
+      )
+      if (commentsRes.ok) {
+        const raw = await commentsRes.json() as Array<{
+          id: number
+          user: { login: string }
+          body: string
+          created_at: string
+        }>
+        task.comments = raw.map(c => ({
+          id: String(c.id),
+          author: c.user?.login ?? 'unknown',
+          body: c.body ?? '',
+          createdAt: c.created_at,
+        }))
+      }
+    } catch {
+      // Comments are best-effort — don't fail the whole sync
+    }
+  }
+
   return tasks
 }
 

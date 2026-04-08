@@ -131,7 +131,8 @@ describe('GitHub Issues Adapter', () => {
       )
 
       expect(tasks).toHaveLength(150)
-      expect(mockFetch).toHaveBeenCalledTimes(2)
+      // 2 pagination fetches + 1 comment fetch per task
+      expect(mockFetch).toHaveBeenCalledTimes(152)
     })
 
     it('should filter issues by configured repositories', async () => {
@@ -315,6 +316,48 @@ describe('GitHub Issues Adapter', () => {
       expect(tasks[0].priority).toBe('critical')
       expect(tasks[1].priority).toBe('high')
       expect(tasks[2].priority).toBe(null)
+    })
+
+    it('should include comments on each task', async () => {
+      // First fetch: search issues
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        json: async () => ({
+          items: [{
+            id: 1,
+            number: 42,
+            title: 'Fix bug',
+            body: null,
+            state: 'open',
+            html_url: 'https://github.com/acme/api/issues/42',
+            repository_url: 'https://api.github.com/repos/acme/api',
+            labels: [],
+            assignees: [],
+          }],
+        }),
+      } as unknown as Response)
+
+      // Second fetch: comments for issue #42
+      vi.mocked(global.fetch).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ([
+          { id: 101, user: { login: 'bob' }, body: 'Looks good', created_at: '2026-04-01T10:00:00Z' },
+        ]),
+      } as unknown as Response)
+
+      const result = await githubAdapter.fetchTasks({ token: 'ghp_test' }, ['acme/api'])
+
+      expect(result).toHaveLength(1)
+      expect(result[0].comments).toHaveLength(1)
+      expect(result[0].comments![0]).toEqual({
+        id: '101',
+        author: 'bob',
+        body: 'Looks good',
+        createdAt: '2026-04-01T10:00:00Z',
+      })
     })
   })
 
