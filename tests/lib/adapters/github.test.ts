@@ -15,10 +15,9 @@ describe('githubAdapter', () => {
     expect(keys).not.toContain('repos')
   })
 
-  it('fetchTasks throws when resourceIds is empty', async () => {
-    await expect(
-      githubAdapter.fetchTasks({ token: 'tok' }, [])
-    ).rejects.toThrow('No repositories selected')
+  it('fetchTasks returns empty array when resourceIds is empty', async () => {
+    const result = await githubAdapter.fetchTasks({ token: 'tok' }, [])
+    expect(result).toEqual([])
   })
 
   it('fetchAvailableResources returns empty array when no token', async () => {

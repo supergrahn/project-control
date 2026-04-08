@@ -23,18 +23,16 @@ describe('GitHub Issues Adapter', () => {
       )
     })
 
-    it('should throw error when no repositories selected', async () => {
+    it('should return empty array when no repositories selected', async () => {
       const config = { token: 'test-token' }
-      await expect(githubAdapter.fetchTasks(config, [])).rejects.toThrow(
-        'No repositories selected'
-      )
+      const result = await githubAdapter.fetchTasks(config, [])
+      expect(result).toEqual([])
     })
 
-    it('should throw error when no valid repositories configured', async () => {
+    it('should return empty array when no valid repositories configured', async () => {
       const config = { token: 'test-token' }
-      await expect(githubAdapter.fetchTasks(config, [])).rejects.toThrow(
-        'No repositories selected'
-      )
+      const result = await githubAdapter.fetchTasks(config, [])
+      expect(result).toEqual([])
     })
 
     it('should fetch tasks from GitHub API', async () => {
