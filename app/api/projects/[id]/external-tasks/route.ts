@@ -38,7 +38,7 @@ export async function GET(
           ?? (ext.meta as any)?.project?.name                      // DoneDone nested project object
           ?? (ext.meta as any)?.project_name                       // DoneDone flat
           ?? ((ext.meta as any)?.repository_url as string | undefined)?.split('/').slice(-2).join('/')  // GitHub
-          ?? cfg.adapter_key,                                      // fallback
+          ?? adapter.name,                                          // fallback
         labels: ext.labels,
         assignees: ext.assignees,
         dueDate: (ext.meta as any)?.fields?.duedate                // Jira
