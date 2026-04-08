@@ -99,7 +99,7 @@ export default function InboxPage() {
         </div>
       )}
 
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && !error && filtered.length === 0 && (
         <div className="text-text-muted text-sm py-12 text-center">
           No comments yet — comments will appear here as tasks sync.
         </div>
