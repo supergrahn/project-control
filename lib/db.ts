@@ -43,6 +43,33 @@ export type Session = {
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
 
+function runMigration(
+  db: Database.Database,
+  version: number,
+  name: string,
+  sql: string,
+): void {
+  const already = db
+    .prepare('SELECT 1 FROM schema_migrations WHERE version = ?')
+    .get(version)
+  if (already) return
+  db.transaction(() => {
+    try {
+      db.exec(sql)
+    } catch (err: unknown) {
+      // Tolerate "duplicate column name" — the column was already added to the
+      // base schema, so this ALTER TABLE is a no-op on fresh databases.
+      const msg = err instanceof Error ? err.message : String(err)
+      if (!msg.includes('duplicate column name') && !msg.includes('already exists')) {
+        throw err
+      }
+    }
+    db.prepare(
+      'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',
+    ).run(version, name, new Date().toISOString())
+  })()
+}
+
 export function initDb(dbPath = DB_PATH): Database.Database {
   if (dbPath !== ':memory:') {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true })
@@ -50,6 +77,13 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version    INTEGER PRIMARY KEY,
+      name       TEXT NOT NULL,
+      applied_at TEXT NOT NULL
+    )
+  `)
   db.exec(`
     CREATE TABLE IF NOT EXISTS projects (
       id         TEXT PRIMARY KEY,
@@ -76,9 +110,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     );
   `)
   // Migrations
-  try { db.exec(`ALTER TABLE sessions ADD COLUMN ended_at TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE projects ADD COLUMN last_used_at TEXT`) } catch {}
-  try { db.exec(`
+  runMigration(db, 1, 'sessions_ended_at', `ALTER TABLE sessions ADD COLUMN ended_at TEXT`)
+  runMigration(db, 2, 'projects_last_used_at', `ALTER TABLE projects ADD COLUMN last_used_at TEXT`)
+  runMigration(db, 3, 'create_events', `
     CREATE TABLE IF NOT EXISTS events (
       id         TEXT PRIMARY KEY,
       project_id TEXT,
@@ -88,10 +122,10 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       severity   TEXT NOT NULL DEFAULT 'info',
       created_at TEXT NOT NULL
     )
-  `) } catch {}
-  try { db.exec(`ALTER TABLE sessions ADD COLUMN progress_steps TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE projects ADD COLUMN automation_level TEXT NOT NULL DEFAULT 'checkpoint'`) } catch {}
-  try { db.exec(`
+  `)
+  runMigration(db, 4, 'sessions_progress_steps', `ALTER TABLE sessions ADD COLUMN progress_steps TEXT`)
+  runMigration(db, 5, 'projects_automation_level', `ALTER TABLE projects ADD COLUMN automation_level TEXT NOT NULL DEFAULT 'checkpoint'`)
+  runMigration(db, 6, 'create_orchestrators', `
     CREATE TABLE IF NOT EXISTS orchestrators (
       id         TEXT PRIMARY KEY,
       project_id TEXT NOT NULL,
@@ -100,8 +134,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL,
       ended_at   TEXT
     )
-  `) } catch {}
-  try { db.exec(`
+  `)
+  runMigration(db, 7, 'create_orchestrator_decisions', `
     CREATE TABLE IF NOT EXISTS orchestrator_decisions (
       id              TEXT PRIMARY KEY,
       orchestrator_id TEXT NOT NULL,
@@ -112,8 +146,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       severity        TEXT NOT NULL DEFAULT 'info',
       created_at      TEXT NOT NULL
     )
-  `) } catch {}
-  try { db.exec(`
+  `)
+  runMigration(db, 8, 'create_session_proposed_actions', `
     CREATE TABLE IF NOT EXISTS session_proposed_actions (
       id          TEXT PRIMARY KEY,
       session_id  TEXT NOT NULL,
@@ -123,9 +157,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at  TEXT NOT NULL,
       dismissed   INTEGER NOT NULL DEFAULT 0
     )
-  `) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS context_packs (
+  `)
+  runMigration(db, 9, 'create_feature_notes', `CREATE TABLE IF NOT EXISTS feature_notes (file_path TEXT PRIMARY KEY, note TEXT NOT NULL, updated_at TEXT NOT NULL)`)
+  runMigration(db, 10, 'create_context_packs', `CREATE TABLE IF NOT EXISTS context_packs (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
   title TEXT NOT NULL,
@@ -133,11 +167,11 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   source_url TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
+)`)
+  runMigration(db, 11, 'create_search_index', `CREATE VIRTUAL TABLE IF NOT EXISTS search_index USING fts5(
   project_id, project_name, file_path, file_type, title, content, tokenize='porter'
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS insights (
+)`)
+  runMigration(db, 12, 'create_insights', `CREATE TABLE IF NOT EXISTS insights (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL,
   session_id TEXT,
@@ -146,8 +180,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   detail TEXT NOT NULL,
   tags TEXT,
   created_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS bookmarks (
+)`)
+  runMigration(db, 13, 'create_bookmarks', `CREATE TABLE IF NOT EXISTS bookmarks (
   id TEXT PRIMARY KEY,
   project_id TEXT,
   title TEXT NOT NULL,
@@ -155,102 +189,83 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   source_url TEXT,
   tags TEXT,
   created_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS templates (
+)`)
+  runMigration(db, 14, 'create_templates', `CREATE TABLE IF NOT EXISTS templates (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
   dirs TEXT NOT NULL,
   created_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS feature_deps (
+)`)
+  runMigration(db, 15, 'create_feature_deps', `CREATE TABLE IF NOT EXISTS feature_deps (
   id TEXT PRIMARY KEY,
   feature_key TEXT NOT NULL,
   depends_on_key TEXT NOT NULL,
   project_id TEXT NOT NULL,
   created_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS notifications_read (
+)`)
+  runMigration(db, 16, 'create_notifications_read', `CREATE TABLE IF NOT EXISTS notifications_read (
   event_id TEXT PRIMARY KEY,
   read_at TEXT NOT NULL
-)`) } catch {}
-  try { db.exec(`CREATE TABLE IF NOT EXISTS daily_plans (
+)`)
+  runMigration(db, 17, 'create_daily_plans', `CREATE TABLE IF NOT EXISTS daily_plans (
   id TEXT PRIMARY KEY,
   date TEXT NOT NULL UNIQUE,
   items TEXT NOT NULL,
   created_at TEXT NOT NULL
-)`) } catch {}
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS tasks (
-        id          TEXT PRIMARY KEY,
-        project_id  TEXT NOT NULL REFERENCES projects(id),
-        title       TEXT NOT NULL,
-        status      TEXT NOT NULL DEFAULT 'idea',
-        idea_file   TEXT,
-        spec_file   TEXT,
-        plan_file   TEXT,
-        dev_summary TEXT,
-        commit_refs TEXT,
-        doc_refs    TEXT,
-        notes       TEXT,
-        created_at  TEXT NOT NULL,
-        updated_at  TEXT NOT NULL
-      )
-    `)
-  } catch {}
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS providers (
-        id         TEXT PRIMARY KEY,
-        name       TEXT NOT NULL,
-        type       TEXT NOT NULL,
-        command    TEXT NOT NULL,
-        config     TEXT,
-        is_active  INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL
-      )
-    `)
-  } catch {}
-  try { db.exec('ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)') } catch {}
-  try { db.exec('ALTER TABLE sessions ADD COLUMN output_path TEXT') } catch {}
-  try { db.exec('ALTER TABLE sessions ADD COLUMN exit_reason TEXT') } catch {}
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id               TEXT PRIMARY KEY,
-        project_id       TEXT NOT NULL REFERENCES projects(id),
-        name             TEXT NOT NULL,
-        title            TEXT,
-        provider_id      TEXT,
-        model            TEXT,
-        instructions_path TEXT,
-        status           TEXT NOT NULL DEFAULT 'idle',
-        created_at       TEXT NOT NULL,
-        updated_at       TEXT NOT NULL
-      )
-    `)
-  } catch {}
-  try { db.exec('ALTER TABLE sessions ADD COLUMN agent_id TEXT') } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN labels TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`) } catch {}
-  try {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS providers (
-        id         TEXT PRIMARY KEY,
-        name       TEXT NOT NULL,
-        type       TEXT NOT NULL,
-        command    TEXT NOT NULL,
-        config     TEXT,
-        is_active  INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL
-      )
-    `)
-  } catch {}
-  try { db.exec('ALTER TABLE projects ADD COLUMN provider_id TEXT') } catch {}
-  try { db.exec('ALTER TABLE tasks ADD COLUMN provider_id TEXT') } catch {}
-  try { db.exec(`
+)`)
+  runMigration(db, 18, 'create_tasks', `
+    CREATE TABLE IF NOT EXISTS tasks (
+      id          TEXT PRIMARY KEY,
+      project_id  TEXT NOT NULL REFERENCES projects(id),
+      title       TEXT NOT NULL,
+      status      TEXT NOT NULL DEFAULT 'idea',
+      idea_file   TEXT,
+      spec_file   TEXT,
+      plan_file   TEXT,
+      dev_summary TEXT,
+      commit_refs TEXT,
+      doc_refs    TEXT,
+      notes       TEXT,
+      created_at  TEXT NOT NULL,
+      updated_at  TEXT NOT NULL
+    )
+  `)
+  runMigration(db, 19, 'create_providers', `
+    CREATE TABLE IF NOT EXISTS providers (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      type       TEXT NOT NULL,
+      command    TEXT NOT NULL,
+      config     TEXT,
+      is_active  INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    )
+  `)
+  runMigration(db, 20, 'sessions_task_id', `ALTER TABLE sessions ADD COLUMN task_id TEXT REFERENCES tasks(id)`)
+  runMigration(db, 21, 'sessions_output_path', `ALTER TABLE sessions ADD COLUMN output_path TEXT`)
+  runMigration(db, 22, 'sessions_exit_reason', `ALTER TABLE sessions ADD COLUMN exit_reason TEXT`)
+  runMigration(db, 23, 'create_agents', `
+    CREATE TABLE IF NOT EXISTS agents (
+      id               TEXT PRIMARY KEY,
+      project_id       TEXT NOT NULL REFERENCES projects(id),
+      name             TEXT NOT NULL,
+      title            TEXT,
+      provider_id      TEXT,
+      model            TEXT,
+      instructions_path TEXT,
+      status           TEXT NOT NULL DEFAULT 'idle',
+      created_at       TEXT NOT NULL,
+      updated_at       TEXT NOT NULL
+    )
+  `)
+  runMigration(db, 24, 'sessions_agent_id', `ALTER TABLE sessions ADD COLUMN agent_id TEXT`)
+  runMigration(db, 25, 'tasks_priority', `ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'`)
+  runMigration(db, 26, 'tasks_labels', `ALTER TABLE tasks ADD COLUMN labels TEXT`)
+  runMigration(db, 27, 'tasks_assignee_agent_id', `ALTER TABLE tasks ADD COLUMN assignee_agent_id TEXT`)
+  runMigration(db, 28, 'projects_provider_id', `ALTER TABLE projects ADD COLUMN provider_id TEXT`)
+  runMigration(db, 29, 'tasks_provider_id', `ALTER TABLE tasks ADD COLUMN provider_id TEXT`)
+  runMigration(db, 30, 'create_skills', `
     CREATE TABLE IF NOT EXISTS skills (
       id         TEXT PRIMARY KEY,
       project_id TEXT NOT NULL REFERENCES projects(id),
@@ -260,8 +275,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL,
       UNIQUE(project_id, key)
     )
-  `) } catch {}
-  try { db.exec(`
+  `)
+  runMigration(db, 31, 'create_session_events', `
     CREATE TABLE IF NOT EXISTS session_events (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       session_id TEXT NOT NULL REFERENCES sessions(id),
@@ -271,11 +286,11 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       metadata   TEXT,
       created_at TEXT NOT NULL
     )
-  `) } catch {}
-  try { db.exec('ALTER TABLE tasks ADD COLUMN session_log TEXT') } catch {}
-  try { db.exec('CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id)') } catch {}
+  `)
+  runMigration(db, 32, 'tasks_session_log', `ALTER TABLE tasks ADD COLUMN session_log TEXT`)
+  runMigration(db, 33, 'idx_session_events_session_id', `CREATE INDEX IF NOT EXISTS idx_session_events_session_id ON session_events(session_id)`)
   // ── External Task Sources ──────────────────────────────────────────────────
-  try { db.exec(`
+  runMigration(db, 34, 'create_task_source_config', `
     CREATE TABLE IF NOT EXISTS task_source_config (
       project_id   TEXT PRIMARY KEY REFERENCES projects(id),
       adapter_key  TEXT NOT NULL,
@@ -285,22 +300,20 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       last_error     TEXT,
       created_at   TEXT NOT NULL
     )
-  `) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN source TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_id TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_url TEXT`) } catch {}
-  try { db.exec(`ALTER TABLE tasks ADD COLUMN source_meta TEXT`) } catch {}
-  try { db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source ON tasks(project_id, source, source_id) WHERE source IS NOT NULL`) } catch {}
+  `)
+  runMigration(db, 35, 'tasks_source', `ALTER TABLE tasks ADD COLUMN source TEXT`)
+  runMigration(db, 36, 'tasks_source_id', `ALTER TABLE tasks ADD COLUMN source_id TEXT`)
+  runMigration(db, 37, 'tasks_source_url', `ALTER TABLE tasks ADD COLUMN source_url TEXT`)
+  runMigration(db, 38, 'tasks_source_meta', `ALTER TABLE tasks ADD COLUMN source_meta TEXT`)
+  runMigration(db, 39, 'idx_tasks_source', `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_source ON tasks(project_id, source, source_id) WHERE source IS NOT NULL`)
   // ── Multi-source migration: recreate task_source_config with composite key ──
   runTaskSourceMigration(db)
   // Migrate existing file paths to file:// prefix
-  try {
-    for (const col of ['idea_file', 'spec_file', 'plan_file']) {
-      db.exec(`UPDATE tasks SET ${col} = 'file://' || ${col} WHERE ${col} IS NOT NULL AND ${col} NOT LIKE 'file://%'`)
-    }
-  } catch {}
+  runMigration(db, 40, 'tasks_file_path_prefix_idea', `UPDATE tasks SET idea_file = 'file://' || idea_file WHERE idea_file IS NOT NULL AND idea_file NOT LIKE 'file://%'`)
+  runMigration(db, 41, 'tasks_file_path_prefix_spec', `UPDATE tasks SET spec_file = 'file://' || spec_file WHERE spec_file IS NOT NULL AND spec_file NOT LIKE 'file://%'`)
+  runMigration(db, 42, 'tasks_file_path_prefix_plan', `UPDATE tasks SET plan_file = 'file://' || plan_file WHERE plan_file IS NOT NULL AND plan_file NOT LIKE 'file://%'`)
   // ── Task Flow: Status Audit Log & Dependencies ──────────────────────────
-  try { db.exec(`
+  runMigration(db, 43, 'create_task_status_log', `
     CREATE TABLE IF NOT EXISTS task_status_log (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL REFERENCES tasks(id),
@@ -310,9 +323,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       reason TEXT,
       created_at TEXT NOT NULL
     )
-  `) } catch {}
-  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_status_log_task_id ON task_status_log(task_id)`) } catch {}
-  try { db.exec(`
+  `)
+  runMigration(db, 44, 'idx_task_status_log_task_id', `CREATE INDEX IF NOT EXISTS idx_task_status_log_task_id ON task_status_log(task_id)`)
+  runMigration(db, 45, 'create_task_dependencies', `
     CREATE TABLE IF NOT EXISTS task_dependencies (
       id TEXT PRIMARY KEY,
       task_id TEXT NOT NULL REFERENCES tasks(id),
@@ -320,11 +333,11 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       created_at TEXT NOT NULL,
       UNIQUE(task_id, depends_on_id)
     )
-  `) } catch {}
-  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_task_id ON task_dependencies(task_id)`) } catch {}
-  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_id)`) } catch {}
+  `)
+  runMigration(db, 46, 'idx_task_dependencies_task_id', `CREATE INDEX IF NOT EXISTS idx_task_dependencies_task_id ON task_dependencies(task_id)`)
+  runMigration(db, 47, 'idx_task_dependencies_depends_on', `CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_id)`)
   // ── Task Comments ─────────────────────────────────────────────────────────
-  try { db.exec(`
+  runMigration(db, 48, 'create_task_comments', `
     CREATE TABLE IF NOT EXISTS task_comments (
       id             TEXT PRIMARY KEY,
       project_id     TEXT NOT NULL,
@@ -337,8 +350,8 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       synced_at      TEXT NOT NULL,
       UNIQUE(source, task_source_id, comment_id)
     )
-  `) } catch {}
-  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`) } catch {}
+  `)
+  runMigration(db, 49, 'idx_task_comments_project', `CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
