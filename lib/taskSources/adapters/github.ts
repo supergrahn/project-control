@@ -127,13 +127,13 @@ async function fetchTasks(
     page++
   }
 
-  // Fetch comments for each task
-  for (const task of tasks) {
-    // sourceId format: "owner/repo#number"
+  // Fetch comments for each task in parallel (best-effort, first 100 per task)
+  await Promise.all(tasks.map(async (task) => {
     const match = task.sourceId.match(/^(.+)#(\d+)$/)
-    if (!match) continue
+    if (!match) return
     const [, repoPath, issueNumber] = match
     try {
+      // NOTE: Fetches up to 100 comments per issue. Issues with >100 comments will be silently truncated.
       const commentsRes = await fetch(
         `https://api.github.com/repos/${repoPath}/issues/${issueNumber}/comments?per_page=100`,
         {
@@ -160,7 +160,7 @@ async function fetchTasks(
     } catch {
       // Comments are best-effort — don't fail the whole sync
     }
-  }
+  }))
 
   return tasks
 }

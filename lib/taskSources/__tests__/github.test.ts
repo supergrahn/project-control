@@ -319,8 +319,11 @@ describe('GitHub Issues Adapter', () => {
     })
 
     it('should include comments on each task', async () => {
+      const mockFetch = vi.fn()
+      global.fetch = mockFetch
+
       // First fetch: search issues
-      vi.mocked(global.fetch).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         headers: { get: () => null },
@@ -337,16 +340,16 @@ describe('GitHub Issues Adapter', () => {
             assignees: [],
           }],
         }),
-      } as unknown as Response)
+      })
 
       // Second fetch: comments for issue #42
-      vi.mocked(global.fetch).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ([
           { id: 101, user: { login: 'bob' }, body: 'Looks good', created_at: '2026-04-01T10:00:00Z' },
         ]),
-      } as unknown as Response)
+      })
 
       const result = await githubAdapter.fetchTasks({ token: 'ghp_test' }, ['acme/api'])
 
