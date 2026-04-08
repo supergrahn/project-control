@@ -326,7 +326,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   // ── Task Comments ─────────────────────────────────────────────────────────
   try { db.exec(`
     CREATE TABLE IF NOT EXISTS task_comments (
-      id             TEXT NOT NULL,
+      id             TEXT PRIMARY KEY,
       project_id     TEXT NOT NULL,
       source         TEXT NOT NULL,
       task_source_id TEXT NOT NULL,

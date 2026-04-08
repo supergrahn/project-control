@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import type { Database } from 'better-sqlite3'
-import { initDb } from '../db'
+import { initDb } from '@/lib/db'
 
 describe('task_comments table', () => {
   let db: Database
