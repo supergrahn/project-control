@@ -19,11 +19,19 @@ export type ExternalTask = {
   labels: string[]
   assignees: string[]
   meta: Record<string, unknown>
+  comments?: ExternalComment[]
 }
 
 export type AvailableResource = {
   id: string
   name: string
+}
+
+export type ExternalComment = {
+  id: string
+  author: string
+  body: string
+  createdAt: string
 }
 
 export type TaskSourceAdapter = {
