@@ -8,8 +8,7 @@ import { useSessions } from '@/hooks/useSessions'
 
 import { STATUS_TO_SESSION_PHASES } from '@/lib/taskPhaseConfig'
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { fetcher } from '@/lib/fetcher'
 
 type GitInfo = { branch: string; lastCommit: string; uncommitted: number }
 type Me = { name: string; initials: string }

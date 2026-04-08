@@ -3,8 +3,7 @@ import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { fetcher } from '@/lib/fetcher'
 
 type InboxComment = {
   id: string

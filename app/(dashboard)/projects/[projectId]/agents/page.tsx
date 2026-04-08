@@ -5,8 +5,7 @@ import useSWR from 'swr'
 import { AgentCard } from '@/components/agents/AgentCard'
 import { CreateAgentModal } from '@/components/agents/CreateAgentModal'
 import type { Agent } from '@/lib/db/agents'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { fetcher } from '@/lib/fetcher'
 
 type Provider = { id: string; name: string }
 

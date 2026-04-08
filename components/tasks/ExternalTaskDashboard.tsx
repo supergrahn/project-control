@@ -15,6 +15,7 @@ import { ExternalStatsBar } from './ExternalStatsBar'
 import { ExternalFocusQueue } from './ExternalFocusQueue'
 import { ExternalKanbanBoard } from './ExternalKanbanBoard'
 import { SOURCE_LABELS } from '@/lib/externalTasks/taskStyles'
+import { fetcher } from '@/lib/fetcher'
 
 type GroupBy = 'severity' | 'source' | 'status' | 'project' | 'flat' | 'assignee' | 'kanban' | 'focus'
 type PriorityGroup = ExternalTaskPriority | 'none'
@@ -41,8 +42,6 @@ const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'kanban',   label: 'Kanban'   },
   { value: 'focus',    label: 'Focus'    },
 ]
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 function SkeletonCard() {
   return (

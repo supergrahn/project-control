@@ -1,7 +1,6 @@
 import useSWR, { mutate as globalMutate } from 'swr'
 import type { Task, TaskStatus, UpdateTaskInput } from '@/lib/db/tasks'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { fetcher } from '@/lib/fetcher'
 
 export function useTasks(projectId: string, status?: TaskStatus) {
   const url = status

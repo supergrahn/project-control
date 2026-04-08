@@ -4,8 +4,7 @@ import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import type { Agent } from '@/lib/db/agents'
 import { SkillsTab as SkillsTabComponent } from '@/components/agents/SkillsTab'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { fetcher } from '@/lib/fetcher'
 
 type Tab = 'dashboard' | 'instructions' | 'configuration' | 'runs' | 'skills'
 
