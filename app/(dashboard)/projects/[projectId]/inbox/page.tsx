@@ -52,7 +52,7 @@ export default function InboxPage() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-text-primary">Inbox</h1>
         <p className="text-sm text-text-secondary mt-1">
@@ -61,7 +61,7 @@ export default function InboxPage() {
       </div>
 
       {/* Source filter pills */}
-      {sources.length > 1 && (
+      {sources.length > 0 && (
         <div className="flex gap-2 mb-5 flex-wrap">
           <button
             onClick={() => setActiveFilter(null)}
