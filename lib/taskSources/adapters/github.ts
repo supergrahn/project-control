@@ -50,7 +50,7 @@ async function fetchTasks(
   const token = config.token
 
   if (!token) throw new Error('Missing required config: token')
-  if (resourceIds.length === 0) throw new Error('No repositories selected')
+  if (resourceIds.length === 0) return []
 
   const tasks: ExternalTask[] = []
   let page = 1
