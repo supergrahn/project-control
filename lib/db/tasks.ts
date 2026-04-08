@@ -9,6 +9,11 @@ function getLogStatusChange() {
   return logStatusChangeImpl
 }
 
+/**
+ * Status values for internal project tasks (ideas, specs, plans, dev work).
+ * Distinct from `ExternalTaskStatus` (used for tasks synced from external sources).
+ * Updated via the task status log (`task_status_log` table).
+ */
 export type TaskStatus = 'idea' | 'speccing' | 'planning' | 'developing' | 'done'
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent'
