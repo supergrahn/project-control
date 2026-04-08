@@ -565,7 +565,7 @@ describe('Monday.com Adapter', () => {
 
     it('should include updates as comments on each task', async () => {
       const userId = '47250927'
-      vi.mocked(global.fetch).mockResolvedValueOnce({
+      mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           data: {
@@ -604,6 +604,117 @@ describe('Monday.com Adapter', () => {
         author: 'Tom',
         body: 'This is done',
         createdAt: '2026-04-01T08:00:00Z',
+      })
+    })
+
+    it('should return empty comments array when updates is empty', async () => {
+      const userId = '47250927'
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            boards: [{
+              items_page: {
+                items: [{
+                  id: '123',
+                  name: 'Build feature',
+                  column_values: [{
+                    id: 'people_col',
+                    type: 'people',
+                    text: '',
+                    value: JSON.stringify({ personsAndTeams: [{ id: userId, kind: 'person' }] }),
+                  }],
+                  group: { title: 'Sprint 1' },
+                  updates: [],
+                }],
+              },
+              columns: [{ id: 'people_col', title: 'People', type: 'people' }],
+            }],
+          },
+        }),
+      } as unknown as Response)
+
+      const result = await mondayAdapter.fetchTasks(
+        { api_token: 'tok', user_id: userId, subdomain: 'acme' },
+        ['board1']
+      )
+
+      expect(result[0].comments).toEqual([])
+    })
+
+    it('should return empty comments array when updates field is absent', async () => {
+      const userId = '47250927'
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            boards: [{
+              items_page: {
+                items: [{
+                  id: '123',
+                  name: 'Build feature',
+                  column_values: [{
+                    id: 'people_col',
+                    type: 'people',
+                    text: '',
+                    value: JSON.stringify({ personsAndTeams: [{ id: userId, kind: 'person' }] }),
+                  }],
+                  group: { title: 'Sprint 1' },
+                }],
+              },
+              columns: [{ id: 'people_col', title: 'People', type: 'people' }],
+            }],
+          },
+        }),
+      } as unknown as Response)
+
+      const result = await mondayAdapter.fetchTasks(
+        { api_token: 'tok', user_id: userId, subdomain: 'acme' },
+        ['board1']
+      )
+
+      expect(result[0].comments).toEqual([])
+    })
+
+    it('should handle malformed update with null fields gracefully', async () => {
+      const userId = '47250927'
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            boards: [{
+              items_page: {
+                items: [{
+                  id: '123',
+                  name: 'Build feature',
+                  column_values: [{
+                    id: 'people_col',
+                    type: 'people',
+                    text: '',
+                    value: JSON.stringify({ personsAndTeams: [{ id: userId, kind: 'person' }] }),
+                  }],
+                  group: { title: 'Sprint 1' },
+                  updates: [
+                    { id: 'u1', text_body: null, creator: null, created_at: null },
+                  ],
+                }],
+              },
+              columns: [{ id: 'people_col', title: 'People', type: 'people' }],
+            }],
+          },
+        }),
+      } as unknown as Response)
+
+      const result = await mondayAdapter.fetchTasks(
+        { api_token: 'tok', user_id: userId, subdomain: 'acme' },
+        ['board1']
+      )
+
+      expect(result[0].comments![0]).toEqual({
+        id: 'u1',
+        author: 'unknown',
+        body: '',
+        createdAt: '',
       })
     })
 
