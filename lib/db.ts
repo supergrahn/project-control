@@ -58,9 +58,9 @@ function runMigration(
     try {
       db.exec(sql)
     } catch (err: unknown) {
-      if (!tolerateExisting) throw err
       const msg = err instanceof Error ? err.message : String(err)
-      if (!msg.includes('duplicate column name') && !msg.includes('already exists')) throw err
+      const isExpected = msg.includes('duplicate column name') || msg.includes('already exists')
+      if (!isExpected || !tolerateExisting) throw err
     }
     db.prepare(
       'INSERT INTO schema_migrations (version, name, applied_at) VALUES (?, ?, ?)',
