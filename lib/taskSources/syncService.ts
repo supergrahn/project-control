@@ -114,9 +114,13 @@ export async function syncProjectSource(
 
     // Upsert comments from all tasks
     const insertComment = db.prepare(`
-      INSERT OR IGNORE INTO task_comments
+      INSERT INTO task_comments
         (id, project_id, source, task_source_id, comment_id, author, body, created_at, synced_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(source, task_source_id, comment_id) DO UPDATE SET
+        author    = excluded.author,
+        body      = excluded.body,
+        synced_at = excluded.synced_at
     `)
     const insertAllComments = db.transaction(() => {
       for (const ext of externalTasks) {
