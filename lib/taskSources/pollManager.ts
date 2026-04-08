@@ -5,6 +5,10 @@ import { logEvent } from '@/lib/events'
 
 const POLL_INTERVAL_MS = 60_000
 
+function withJitter(base: number, jitterMs = 5_000): number {
+  return base + Math.floor((Math.random() * 2 - 1) * jitterMs)
+}
+
 declare global {
   var pollTimers: Map<string, ReturnType<typeof setInterval>> | undefined
 }
@@ -22,8 +26,14 @@ export function startPolling(projectId: string, adapterKey: string): void {
   const timers = getTimers()
   const key = timerKey(projectId, adapterKey)
   if (timers.has(key)) return
+  scheduleNext(projectId, adapterKey)
+  console.log(`[poll] started polling for ${projectId}:${adapterKey}`)
+}
 
-  const timer = setInterval(async () => {
+function scheduleNext(projectId: string, adapterKey: string): void {
+  const timers = getTimers()
+  const key = timerKey(projectId, adapterKey)
+  const timer = setTimeout(async () => {
     try {
       const db = getDb()
       const result = await syncProjectSource(db, projectId, adapterKey)
@@ -34,11 +44,13 @@ export function startPolling(projectId: string, adapterKey: string): void {
       }
     } catch (err) {
       console.error(`[poll] sync failed for ${projectId}:${adapterKey}:`, err)
+    } finally {
+      if (timers.has(key)) {
+        scheduleNext(projectId, adapterKey)
+      }
     }
-  }, POLL_INTERVAL_MS)
-
-  timers.set(key, timer)
-  console.log(`[poll] started polling for ${projectId}:${adapterKey}`)
+  }, withJitter(POLL_INTERVAL_MS))
+  timers.set(key, timer as unknown as ReturnType<typeof setInterval>)
 }
 
 export function stopPolling(projectId: string, adapterKey: string): void {
@@ -46,7 +58,7 @@ export function stopPolling(projectId: string, adapterKey: string): void {
   const key = timerKey(projectId, adapterKey)
   const timer = timers.get(key)
   if (timer) {
-    clearInterval(timer)
+    clearTimeout(timer as unknown as ReturnType<typeof setTimeout>)
     timers.delete(key)
     console.log(`[poll] stopped polling for ${projectId}:${adapterKey}`)
   }
@@ -55,7 +67,7 @@ export function stopPolling(projectId: string, adapterKey: string): void {
 export function stopAllPolling(): void {
   const timers = getTimers()
   for (const [key, timer] of timers) {
-    clearInterval(timer)
+    clearTimeout(timer as unknown as ReturnType<typeof setTimeout>)
     console.log(`[poll] stopped polling for ${key}`)
   }
   timers.clear()
