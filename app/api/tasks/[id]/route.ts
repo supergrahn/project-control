@@ -19,7 +19,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const body = await req.json()
+  const rawBody = await req.json() as unknown
+  if (typeof rawBody !== 'object' || rawBody === null) {
+    return NextResponse.json({ error: 'Request body must be a JSON object' }, { status: 400 })
+  }
+  const body = rawBody as Record<string, unknown>
   const db = getDb()
 
   const task = getTask(db, id)

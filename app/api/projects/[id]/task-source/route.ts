@@ -41,11 +41,18 @@ export async function GET(req: Request, { params }: RouteParams) {
 // PUT: Create or update a specific adapter config
 export async function PUT(req: Request, { params }: RouteParams) {
   const { id: projectId } = await params
-  const { adapterKey, config, resourceIds = [] } = await req.json()
-
-  if (!adapterKey || !config) {
-    return NextResponse.json({ error: 'adapterKey and config required' }, { status: 400 })
+  const rawBody = await req.json() as unknown
+  if (
+    typeof rawBody !== 'object' ||
+    rawBody === null ||
+    typeof (rawBody as any).adapterKey !== 'string' ||
+    !(rawBody as any).adapterKey.trim() ||
+    typeof (rawBody as any).config !== 'object' ||
+    (rawBody as any).config === null
+  ) {
+    return NextResponse.json({ error: 'adapterKey (string) and config (object) are required' }, { status: 400 })
   }
+  const { adapterKey, config, resourceIds = [] } = rawBody as any
 
   let adapter: ReturnType<typeof getTaskSourceAdapter>
   try {
@@ -101,11 +108,16 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 // PATCH: Toggle active/inactive for a specific adapter
 export async function PATCH(req: Request, { params }: RouteParams) {
   const { id: projectId } = await params
-  const { adapterKey, is_active } = await req.json()
-
-  if (!adapterKey) {
-    return NextResponse.json({ error: 'adapterKey required' }, { status: 400 })
+  const rawBody = await req.json() as unknown
+  if (
+    typeof rawBody !== 'object' ||
+    rawBody === null ||
+    typeof (rawBody as any).adapterKey !== 'string' ||
+    !(rawBody as any).adapterKey.trim()
+  ) {
+    return NextResponse.json({ error: 'adapterKey is required' }, { status: 400 })
   }
+  const { adapterKey, is_active } = rawBody as any
 
   const db = getDb()
   toggleTaskSourceActive(db, projectId, adapterKey, is_active)

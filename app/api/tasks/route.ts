@@ -19,12 +19,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const { projectId, title, notes, priority, labels, assignee_agent_id } = body
-
-  if (!projectId || !title?.trim()) {
-    return NextResponse.json({ error: 'projectId and title required' }, { status: 400 })
+  const body = await req.json() as unknown
+  if (
+    typeof body !== 'object' ||
+    body === null ||
+    typeof (body as any).projectId !== 'string' ||
+    !(body as any).projectId.trim() ||
+    typeof (body as any).title !== 'string' ||
+    !(body as any).title.trim()
+  ) {
+    return NextResponse.json({ error: 'projectId and title are required' }, { status: 400 })
   }
+  const { projectId, title, notes, priority, labels, assignee_agent_id } = body as any
 
   const db = getDb()
   let task = createTask(db, {
