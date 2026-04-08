@@ -6,26 +6,6 @@ import type { ExternalTask, ExternalTaskStatus, ExternalTaskPriority } from '@/l
 
 export const dynamic = 'force-dynamic'
 
-function mapToExternalStatus(raw: string): ExternalTaskStatus {
-  const lower = raw.toLowerCase()
-  if (lower === 'done' || lower === 'closed' || lower === 'resolved' ||
-      lower === 'fixed' || lower === 'complete' || lower === 'completed') return 'done'
-  if (lower === 'indeterminate' || lower.includes('progress') || lower === 'active' || lower === 'working') return 'inprogress'
-  if (lower.includes('review') || lower.includes('test') || lower.includes('qa')) return 'review'
-  if (lower.includes('block')) return 'blocked'
-  return 'todo'
-}
-
-function mapToExternalPriority(raw: string | null): ExternalTaskPriority | null {
-  if (!raw) return null
-  const lower = raw.toLowerCase()
-  if (lower === 'highest' || lower === 'critical') return 'critical'
-  if (lower === 'high') return 'high'
-  if (lower === 'medium') return 'medium'
-  if (lower === 'low' || lower === 'lowest') return 'low'
-  return 'medium'
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -49,9 +29,10 @@ export async function GET(
         url: ext.url,
         title: ext.title,
         description: ext.description,
-        status: mapToExternalStatus(ext.status),
+        // TODO: unify TaskStatus and ExternalTaskStatus enums to remove casts
+        status: adapter.mapStatus(ext.status) as unknown as ExternalTaskStatus,
         rawStatus: ext.status,
-        priority: mapToExternalPriority(ext.priority),
+        priority: ext.priority != null ? (adapter.mapPriority(ext.priority) as unknown as ExternalTaskPriority) : null,
         project: (ext.meta as any)?.fields?.project?.name           // Jira
           ?? (ext.meta as any)?.boardName                          // Monday (board name stored in meta)
           ?? (ext.meta as any)?.project?.name                      // DoneDone nested project object

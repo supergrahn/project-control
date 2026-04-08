@@ -70,8 +70,8 @@ describe('GET /api/projects/[id]/external-tasks', () => {
           meta: { fields: { duedate: '2026-05-01', created: '2026-01-01', updated: '2026-02-01' } },
         },
       ]),
-      mapStatus: vi.fn(),
-      mapPriority: vi.fn(),
+      mapStatus: vi.fn().mockReturnValue('inprogress'),
+      mapPriority: vi.fn().mockReturnValue('high'),
     })
 
     const res = await GET(req('proj-2'), p('proj-2'))
@@ -145,7 +145,7 @@ describe('GET /api/projects/[id]/external-tasks', () => {
     expect(body.errors[0]).toBe('Jira: Auth failed')
   })
 
-  it('maps status values correctly', async () => {
+  it('maps status values correctly via adapter.mapStatus', async () => {
     seedConfig('proj-status', 'github')
 
     const statusCases = [
@@ -179,7 +179,7 @@ describe('GET /api/projects/[id]/external-tasks', () => {
             meta: {},
           },
         ]),
-        mapStatus: vi.fn(),
+        mapStatus: vi.fn().mockReturnValue(expected),
         mapPriority: vi.fn(),
       })
 
@@ -189,7 +189,7 @@ describe('GET /api/projects/[id]/external-tasks', () => {
     }
   })
 
-  it('maps priority values correctly', async () => {
+  it('maps priority values correctly via adapter.mapPriority', async () => {
     seedConfig('proj-priority', 'github')
 
     const priorityCases: Array<{ raw: string | null; expected: string | null }> = [
@@ -223,8 +223,8 @@ describe('GET /api/projects/[id]/external-tasks', () => {
             meta: {},
           },
         ]),
-        mapStatus: vi.fn(),
-        mapPriority: vi.fn(),
+        mapStatus: vi.fn().mockReturnValue('todo'),
+        mapPriority: vi.fn().mockReturnValue(expected),
       })
 
       const res = await GET(req('proj-priority'), p('proj-priority'))
