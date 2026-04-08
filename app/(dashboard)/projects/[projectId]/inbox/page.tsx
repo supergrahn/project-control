@@ -150,7 +150,9 @@ export default function InboxPage() {
                   <div className="text-[12px] text-text-muted mb-2">
                     <span className="text-text-secondary font-medium">{comment.author}</span>
                     {' · '}
-                    {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
+                    {comment.created_at
+                      ? formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })
+                      : 'unknown time'}
                   </div>
 
                   {/* Body */}

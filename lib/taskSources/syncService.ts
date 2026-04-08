@@ -86,21 +86,24 @@ export async function syncProjectSource(
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     const now = new Date().toISOString()
-    for (const ext of externalTasks) {
-      for (const comment of ext.comments ?? []) {
-        insertComment.run(
-          randomUUID(),
-          projectId,
-          adapterKey,
-          ext.sourceId,
-          comment.id,
-          comment.author ?? '',
-          comment.body ?? '',
-          comment.createdAt,
-          now,
-        )
+    const insertAllComments = db.transaction(() => {
+      for (const ext of externalTasks) {
+        for (const comment of ext.comments ?? []) {
+          insertComment.run(
+            randomUUID(),
+            projectId,
+            adapterKey,
+            ext.sourceId,
+            comment.id,
+            comment.author ?? '',
+            comment.body ?? '',
+            comment.createdAt,
+            now,
+          )
+        }
       }
-    }
+    })
+    insertAllComments()
 
     db.prepare(
       'UPDATE task_source_config SET last_synced_at = ?, last_error = NULL WHERE project_id = ? AND adapter_key = ?'

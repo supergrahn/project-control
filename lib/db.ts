@@ -338,7 +338,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       UNIQUE(source, task_source_id, comment_id)
     )
   `) } catch {}
-  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at)`) } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
