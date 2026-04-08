@@ -7,6 +7,7 @@ import {
   deleteTaskSourceConfig,
   toggleTaskSourceActive,
 } from '@/lib/db/taskSourceConfig'
+import { deleteTasksBySource } from '@/lib/db/tasks'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import { startPolling, stopPolling } from '@/lib/taskSources/pollManager'
 
@@ -91,7 +92,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   deleteTaskSourceConfig(db, projectId, adapterKey)
 
   if (deleteTasks) {
-    db.prepare('DELETE FROM tasks WHERE project_id = ? AND source = ?').run(projectId, adapterKey)
+    deleteTasksBySource(db, projectId, adapterKey)
   }
 
   return NextResponse.json({ ok: true })

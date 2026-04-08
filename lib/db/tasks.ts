@@ -157,6 +157,10 @@ export function deleteTask(db: Database, id: string): void {
   db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
 }
 
+export function deleteTasksBySource(db: Database, projectId: string, source: string): void {
+  db.prepare('DELETE FROM tasks WHERE project_id = ? AND source = ?').run(projectId, source)
+}
+
 export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatus): Task {
   const task = getTask(db, id)
   if (!task) throw new Error(`Task ${id} not found`)
