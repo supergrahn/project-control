@@ -64,7 +64,7 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           >
             Dashboard
           </NavItem>
-          <NavItem href="/inbox" active={pathname === '/inbox'}>
+          <NavItem href={`/projects/${projectId}/inbox`} active={pathname === `/projects/${projectId}/inbox`}>
             Inbox
           </NavItem>
           <NavItem
