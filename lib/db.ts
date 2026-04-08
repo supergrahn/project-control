@@ -323,6 +323,22 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   `) } catch {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_task_id ON task_dependencies(task_id)`) } catch {}
   try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends_on ON task_dependencies(depends_on_id)`) } catch {}
+  // ── Task Comments ─────────────────────────────────────────────────────────
+  try { db.exec(`
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id             TEXT NOT NULL,
+      project_id     TEXT NOT NULL,
+      source         TEXT NOT NULL,
+      task_source_id TEXT NOT NULL,
+      comment_id     TEXT NOT NULL,
+      author         TEXT NOT NULL,
+      body           TEXT NOT NULL,
+      created_at     TEXT NOT NULL,
+      synced_at      TEXT NOT NULL,
+      UNIQUE(source, task_source_id, comment_id)
+    )
+  `) } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at)`) } catch {}
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
