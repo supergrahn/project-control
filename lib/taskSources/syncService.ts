@@ -79,6 +79,29 @@ export async function syncProjectSource(
       }
     }
 
+    // Upsert comments from all tasks
+    const insertComment = db.prepare(`
+      INSERT OR IGNORE INTO task_comments
+        (id, project_id, source, task_source_id, comment_id, author, body, created_at, synced_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const now = new Date().toISOString()
+    for (const ext of externalTasks) {
+      for (const comment of ext.comments ?? []) {
+        insertComment.run(
+          randomUUID(),
+          projectId,
+          adapterKey,
+          ext.sourceId,
+          comment.id,
+          comment.author,
+          comment.body,
+          comment.createdAt,
+          now,
+        )
+      }
+    }
+
     db.prepare(
       'UPDATE task_source_config SET last_synced_at = ?, last_error = NULL WHERE project_id = ? AND adapter_key = ?'
     ).run(new Date().toISOString(), projectId, adapterKey)
