@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Task } from '@/lib/db/tasks'
 import { patchTask } from '@/hooks/useTasks'
+import { useMutation } from '@/hooks/useMutation'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: '#5a6370',
@@ -23,6 +24,7 @@ export function PropertiesPanel({ task }: { task: Task }) {
     }
   })
   const [agents, setAgents] = useState<{ id: string; name: string }[]>([])
+  const mutate = useMutation()
   const labelInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -37,13 +39,11 @@ export function PropertiesPanel({ task }: { task: Task }) {
       .catch(() => {})
   }, [task.project_id])
 
-  const handleStatusChange = async (value: string) => {
-    try { await patchTask(task.id, { status: value as Task['status'] }) } catch { /* ignore */ }
-  }
+  const handleStatusChange = (value: string) =>
+    mutate(() => patchTask(task.id, { status: value as Task['status'] }), 'Failed to update status')
 
-  const handlePriorityClick = async (p: string) => {
-    try { await patchTask(task.id, { priority: p as Task['priority'] }) } catch { /* ignore */ }
-  }
+  const handlePriorityClick = (p: string) =>
+    mutate(() => patchTask(task.id, { priority: p as Task['priority'] }), 'Failed to update priority')
 
   const handleLabelKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== 'Enter') return
@@ -53,26 +53,19 @@ export function PropertiesPanel({ task }: { task: Task }) {
     const updated = [...labels, value]
     setLabels(updated)
     input.value = ''
-    try {
-      await patchTask(task.id, { labels: updated })
-    } catch {
-      setLabels(labels)
-    }
+    const result = await mutate(() => patchTask(task.id, { labels: updated }), 'Failed to add label')
+    if (result === undefined) setLabels(labels)
   }
 
   const handleLabelRemove = async (index: number) => {
     const updated = labels.filter((_, i) => i !== index)
     setLabels(updated)
-    try {
-      await patchTask(task.id, { labels: updated })
-    } catch {
-      setLabels(labels)
-    }
+    const result = await mutate(() => patchTask(task.id, { labels: updated }), 'Failed to remove label')
+    if (result === undefined) setLabels(labels)
   }
 
-  const handleAssigneeChange = async (value: string) => {
-    try { await patchTask(task.id, { assignee_agent_id: value || null }) } catch { /* ignore */ }
-  }
+  const handleAssigneeChange = (value: string) =>
+    mutate(() => patchTask(task.id, { assignee_agent_id: value || null }), 'Failed to update assignee')
 
   const formatDate = (iso: string) =>
     new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })

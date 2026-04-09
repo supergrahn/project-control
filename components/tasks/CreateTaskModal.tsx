@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import { createTask } from '@/hooks/useTasks'
+import { useMutation } from '@/hooks/useMutation'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: '#5a6370', medium: '#5b9bd5', high: '#c97e2a', urgent: '#c04040',
@@ -24,6 +25,7 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
   const [assigneeAgentId, setAssigneeAgentId] = useState<string | null>(null)
   const [hasProviders, setHasProviders] = useState<boolean | null>(null)
   const [loading, setLoading] = useState(false)
+  const mutate = useMutation()
 
   const titleRef = useRef<HTMLInputElement>(null)
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
@@ -63,22 +65,20 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
   async function handleSave() {
     if (!title.trim() || loading) return
     setLoading(true)
-    try {
-      await createTask(projectId, title.trim(), description.trim() || undefined, {
+    await mutate(
+      () => createTask(projectId, title.trim(), description.trim() || undefined, {
         priority, labels: labels.length ? labels : undefined,
         assignee_agent_id: assigneeAgentId,
-      })
-      onCreated()
-      onClose()
-    } catch { /* ignore */ } finally {
-      setLoading(false)
-    }
+      }).then(t => { onCreated(); onClose(); return t }),
+      'Failed to create task',
+    )
+    setLoading(false)
   }
 
   async function handleStartNow() {
     if (!title.trim() || loading || hasProviders === false) return
     setLoading(true)
-    try {
+    await mutate(async () => {
       const task = await createTask(projectId, title.trim(), description.trim() || undefined, {
         priority, labels: labels.length ? labels : undefined,
         assignee_agent_id: assigneeAgentId,
@@ -90,13 +90,12 @@ export function CreateTaskModal({ projectId, onCreated, onClose, onNavigate }: P
       })
       if (!r.ok) {
         const err = await r.json()
-        if (err.code !== 'concurrent_session') console.error(err)
+        if (err.code !== 'concurrent_session') throw new Error(err.error ?? 'Failed to start session')
       }
       onNavigate(task.id)
       onClose()
-    } catch { /* ignore */ } finally {
-      setLoading(false)
-    }
+    }, 'Failed to start task')
+    setLoading(false)
   }
 
   function handleLabelKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
