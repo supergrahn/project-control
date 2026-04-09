@@ -55,26 +55,22 @@ export type CreateTaskInput = {
 }
 
 export function createTask(db: Database, input: CreateTaskInput): Task {
-  return db.transaction(() => {
-    const now = new Date().toISOString()
-    db.prepare(`
-      INSERT INTO tasks (id, project_id, title, status, priority, labels, assignee_agent_id, created_at, updated_at)
-      VALUES (?, ?, ?, 'idea', ?, ?, ?, ?, ?)
-    `).run(
-      input.id,
-      input.projectId,
-      input.title,
-      input.priority ?? 'medium',
-      input.labels ? JSON.stringify(input.labels) : null,
-      input.assignee_agent_id ?? null,
-      now,
-      now,
-    )
-    if (input.notes) {
-      db.prepare('UPDATE tasks SET notes = ? WHERE id = ?').run(input.notes, input.id)
-    }
-    return getTask(db, input.id)!
-  })()
+  const now = new Date().toISOString()
+  db.prepare(`
+    INSERT INTO tasks (id, project_id, title, status, priority, labels, assignee_agent_id, notes, created_at, updated_at)
+    VALUES (?, ?, ?, 'idea', ?, ?, ?, ?, ?, ?)
+  `).run(
+    input.id,
+    input.projectId,
+    input.title,
+    input.priority ?? 'medium',
+    input.labels ? JSON.stringify(input.labels) : null,
+    input.assignee_agent_id ?? null,
+    input.notes ?? null,
+    now,
+    now,
+  )
+  return getTask(db, input.id)!
 }
 
 export function getTask(db: Database, id: string): Task | undefined {
@@ -168,9 +164,6 @@ export function deleteTask(db: Database, id: string): void {
   db.prepare('DELETE FROM tasks WHERE id = ?').run(id)
 }
 
-export function deleteTasksBySource(db: Database, projectId: string, source: string): void {
-  db.prepare('DELETE FROM tasks WHERE project_id = ? AND source = ?').run(projectId, source)
-}
 
 export function advanceTaskStatus(db: Database, id: string, newStatus: TaskStatus): Task {
   const task = getTask(db, id)
