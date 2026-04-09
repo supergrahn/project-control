@@ -35,9 +35,6 @@ app.prepare().then(() => {
 
   const shutdown = () => {
     stopAllPolling()
-    for (const proc of procMap.values()) {
-      try { proc.kill() } catch {}
-    }
     process.exit(0)
   }
   process.on('SIGTERM', shutdown)

@@ -45,7 +45,6 @@ if (!globalThis.shutdownRegistered) {
       try { proc.kill() } catch { /* already dead */ }
     }
   }
-  process.on('SIGTERM', () => { killAllProcesses(); process.exit(0) })
   process.on('exit', killAllProcesses)
 }
 
