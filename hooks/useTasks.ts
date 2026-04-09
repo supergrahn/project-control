@@ -1,5 +1,6 @@
 import useSWR, { mutate as globalMutate } from 'swr'
-import type { Task, TaskStatus, UpdateTaskInput } from '@/lib/db/tasks'
+import type { Task, UpdateTaskInput } from '@/lib/db/tasks'
+import type { TaskStatus } from '@/lib/types'
 import { fetcher } from '@/lib/fetcher'
 
 export function useTasks(projectId: string, status?: TaskStatus) {

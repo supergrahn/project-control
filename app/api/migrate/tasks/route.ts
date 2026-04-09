@@ -4,7 +4,7 @@ import { readdirSync, existsSync } from 'fs'
 import path from 'path'
 import { getDb } from '@/lib/db'
 import { createTask, getTasksByProject, updateTask, advanceTaskStatus } from '@/lib/db/tasks'
-import type { TaskStatus } from '@/lib/db/tasks'
+import type { TaskStatus } from '@/lib/types'
 
 function getFileKey(filename: string): string {
   return filename.replace(/^\d{4}-\d{2}-\d{2}-/, '').replace(/\.md$/, '')

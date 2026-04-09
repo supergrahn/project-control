@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb } from '@/lib/db'
 import { getTask, updateTask, advanceTaskStatus, deleteTask } from '@/lib/db/tasks'
-import type { TaskStatus, UpdateTaskInput } from '@/lib/db/tasks'
+import type { UpdateTaskInput } from '@/lib/db/tasks'
+import type { TaskStatus } from '@/lib/types'
 
 export async function GET(
   _req: NextRequest,

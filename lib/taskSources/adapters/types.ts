@@ -1,4 +1,4 @@
-import type { TaskStatus, TaskPriority } from '@/lib/db/tasks'
+import type { TaskStatus, TaskPriority } from '@/lib/types'
 
 export type ConfigField = {
   key: string

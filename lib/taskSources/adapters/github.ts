@@ -1,5 +1,5 @@
 import type { TaskSourceAdapter, ConfigField, ExternalTask } from './types'
-import type { TaskStatus, TaskPriority } from '@/lib/db/tasks'
+import type { TaskStatus, TaskPriority } from '@/lib/types'
 import { fetchWithRetry } from '@/lib/fetcher'
 
 const configFields: ConfigField[] = [

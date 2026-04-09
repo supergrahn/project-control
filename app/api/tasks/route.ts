@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { getDb } from '@/lib/db'
 import { createTask, getTasksByProject } from '@/lib/db/tasks'
-import type { TaskStatus } from '@/lib/db/tasks'
+import type { TaskStatus } from '@/lib/types'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl

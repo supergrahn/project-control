@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import type { Task, TaskStatus } from '@/lib/db/tasks'
+import type { Task } from '@/lib/db/tasks'
+import type { TaskStatus } from '@/lib/types'
 import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
 import { deleteTask } from '@/hooks/useTasks'
 
