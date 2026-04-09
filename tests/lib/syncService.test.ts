@@ -197,6 +197,10 @@ describe('syncProjectSource', () => {
     // All tasks should still be visible — partial update rolled back
     const after = db.prepare('SELECT COUNT(*) as n FROM tasks WHERE project_id = ? AND is_deleted = 0').get(projectId) as { n: number }
     expect(after.n).toBe(2)
+    const tasks = db.prepare(
+      'SELECT title FROM tasks WHERE project_id = ? AND is_deleted = 0 ORDER BY title'
+    ).all(projectId) as { title: string }[]
+    expect(tasks.map(t => t.title)).toEqual(['Task 1', 'Task 2'])
   })
 
   it('returns error result and stores last_error on fetch failure', async () => {
