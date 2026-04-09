@@ -1,5 +1,6 @@
 import type { TaskSourceAdapter, ConfigField, ExternalTask } from './types'
 import type { TaskStatus, TaskPriority } from '@/lib/db/tasks'
+import { fetchWithRetry } from '@/lib/fetcher'
 
 const configFields: ConfigField[] = [
   {
@@ -22,7 +23,7 @@ async function fetchAvailableResources(
   let hasMore = true
 
   while (hasMore) {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://api.github.com/user/repos?per_page=100&sort=updated&page=${page}`,
       {
         headers: {
@@ -62,7 +63,7 @@ async function fetchTasks(
     url.searchParams.set('per_page', '100')
     url.searchParams.set('page', String(page))
 
-    const response = await fetch(url.toString(), {
+    const response = await fetchWithRetry(url.toString(), {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: 'application/vnd.github.v3+json',
@@ -137,7 +138,7 @@ async function fetchTasks(
     const [, repoPath, issueNumber] = match
     try {
       // NOTE: Fetches up to 100 comments per issue. Issues with >100 comments will be silently truncated.
-      const commentsRes = await fetch(
+      const commentsRes = await fetchWithRetry(
         `https://api.github.com/repos/${repoPath}/issues/${issueNumber}/comments?per_page=100`,
         {
           headers: {
