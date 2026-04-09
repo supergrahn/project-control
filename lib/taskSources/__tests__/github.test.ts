@@ -123,6 +123,9 @@ describe('GitHub Issues Adapter', () => {
         }),
       })
 
+      // Default response for the 150 comment fetches (one per task)
+      mockFetch.mockResolvedValue({ ok: true, json: async () => [] })
+
       const tasks = await githubAdapter.fetchTasks(
         { token: 'test-token' },
         ['owner/repo'],
