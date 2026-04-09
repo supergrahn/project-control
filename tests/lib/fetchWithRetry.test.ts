@@ -40,8 +40,9 @@ describe('fetchWithRetry', () => {
   it('throws after exhausting retries on 500', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('error', { status: 500 })))
     const promise = fetchWithRetry('https://example.com', undefined, { retries: 2, timeoutMs: 10_000 })
+    const assertion = expect(promise).rejects.toThrow('HTTP 500')
     await vi.runAllTimersAsync()
-    await expect(promise).rejects.toThrow('HTTP 500')
+    await assertion
     expect(fetch).toHaveBeenCalledTimes(2)
   })
 
@@ -52,7 +53,8 @@ describe('fetchWithRetry', () => {
       })
     }))
     const promise = fetchWithRetry('https://example.com', undefined, { retries: 1, timeoutMs: 5000 })
+    const assertion = expect(promise).rejects.toThrow('timed out')
     await vi.advanceTimersByTimeAsync(5001)
-    await expect(promise).rejects.toThrow('timed out')
+    await assertion
   })
 })
