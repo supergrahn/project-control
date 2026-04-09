@@ -34,6 +34,21 @@ globalThis.wsMap ??= new Map()
 globalThis.hangTimers ??= new Map()
 globalThis.procStderr ??= new Map()
 
+declare global {
+  var shutdownRegistered: boolean | undefined
+}
+
+if (!globalThis.shutdownRegistered) {
+  globalThis.shutdownRegistered = true
+  const killAllProcesses = () => {
+    for (const proc of globalThis.procMap.values()) {
+      try { proc.kill() } catch { /* already dead */ }
+    }
+  }
+  process.on('SIGTERM', () => { killAllProcesses(); process.exit(0) })
+  process.on('exit', killAllProcesses)
+}
+
 // Per-project event emitter for orchestrator wake-up
 declare global {
   var projectEmitters: Map<string, EventEmitter>
