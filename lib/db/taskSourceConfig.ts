@@ -75,6 +75,21 @@ export function deleteTaskSourceConfig(
   ).run(projectId, adapterKey)
 }
 
+export function deleteTaskSourceWithTasks(
+  db: Database,
+  projectId: string,
+  adapterKey: string,
+): void {
+  db.transaction(() => {
+    db.prepare(
+      'DELETE FROM task_source_config WHERE project_id = ? AND adapter_key = ?'
+    ).run(projectId, adapterKey)
+    db.prepare(
+      'DELETE FROM tasks WHERE project_id = ? AND source = ?'
+    ).run(projectId, adapterKey)
+  })()
+}
+
 export function toggleTaskSourceActive(
   db: Database,
   projectId: string,

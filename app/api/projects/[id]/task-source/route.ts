@@ -5,9 +5,9 @@ import {
   listTaskSourceConfigs,
   upsertTaskSourceConfig,
   deleteTaskSourceConfig,
+  deleteTaskSourceWithTasks,
   toggleTaskSourceActive,
 } from '@/lib/db/taskSourceConfig'
-import { deleteTasksBySource } from '@/lib/db/tasks'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import { startPolling, stopPolling } from '@/lib/taskSources/pollManager'
 
@@ -96,10 +96,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
   const db = getDb()
   stopPolling(projectId, adapterKey)
-  deleteTaskSourceConfig(db, projectId, adapterKey)
-
   if (deleteTasks) {
-    deleteTasksBySource(db, projectId, adapterKey)
+    deleteTaskSourceWithTasks(db, projectId, adapterKey)
+  } else {
+    deleteTaskSourceConfig(db, projectId, adapterKey)
   }
 
   return NextResponse.json({ ok: true })

@@ -51,24 +51,30 @@ export type CreateTaskInput = {
   priority?: TaskPriority
   labels?: string[]
   assignee_agent_id?: string | null
+  notes?: string
 }
 
 export function createTask(db: Database, input: CreateTaskInput): Task {
-  const now = new Date().toISOString()
-  db.prepare(`
-    INSERT INTO tasks (id, project_id, title, status, priority, labels, assignee_agent_id, created_at, updated_at)
-    VALUES (?, ?, ?, 'idea', ?, ?, ?, ?, ?)
-  `).run(
-    input.id,
-    input.projectId,
-    input.title,
-    input.priority ?? 'medium',
-    input.labels ? JSON.stringify(input.labels) : null,
-    input.assignee_agent_id ?? null,
-    now,
-    now,
-  )
-  return getTask(db, input.id)!
+  return db.transaction(() => {
+    const now = new Date().toISOString()
+    db.prepare(`
+      INSERT INTO tasks (id, project_id, title, status, priority, labels, assignee_agent_id, created_at, updated_at)
+      VALUES (?, ?, ?, 'idea', ?, ?, ?, ?, ?)
+    `).run(
+      input.id,
+      input.projectId,
+      input.title,
+      input.priority ?? 'medium',
+      input.labels ? JSON.stringify(input.labels) : null,
+      input.assignee_agent_id ?? null,
+      now,
+      now,
+    )
+    if (input.notes) {
+      db.prepare('UPDATE tasks SET notes = ? WHERE id = ?').run(input.notes, input.id)
+    }
+    return getTask(db, input.id)!
+  })()
 }
 
 export function getTask(db: Database, id: string): Task | undefined {
