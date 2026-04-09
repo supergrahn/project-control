@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import type { TaskStatus } from './tasks'
+import type { TaskStatus } from '@/lib/types'
 import { randomUUID } from 'crypto'
 
 export type TaskStatusLogEntry = {

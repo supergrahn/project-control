@@ -1,4 +1,4 @@
-import type { TaskStatus } from './db/tasks'
+import type { TaskStatus } from '@/lib/types'
 
 export const PHASE_INITIALS: Record<string, string> = {
   ideate:       'ID',

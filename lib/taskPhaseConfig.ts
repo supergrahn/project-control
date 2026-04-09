@@ -1,4 +1,4 @@
-import type { TaskStatus } from './db/tasks'
+import type { TaskStatus } from '@/lib/types'
 
 export const STATUS_ORDER: TaskStatus[] = ['idea', 'speccing', 'planning', 'developing', 'done']
 
