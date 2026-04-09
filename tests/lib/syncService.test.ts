@@ -159,6 +159,46 @@ describe('syncProjectSource', () => {
     expect(allTasks[0].is_deleted).toBe(1)
   })
 
+  it('rolls back all task changes if an error occurs mid-sync', async () => {
+    upsertTaskSourceConfig(db, projectId, 'github', { token: 'abc' }, ['owner/repo'])
+
+    const { getTaskSourceAdapter } = await import('@/lib/taskSources/adapters')
+    vi.mocked(getTaskSourceAdapter).mockReturnValue({
+      key: 'github',
+      name: 'GitHub',
+      configFields: [],
+      resourceSelectionLabel: 'Select',
+      fetchAvailableResources: async () => [],
+      fetchTasks: async () => [
+        { sourceId: 'r1', title: 'Task 1', description: null, status: 'open', priority: null, url: 'u1', labels: [], assignees: [], meta: {} },
+        { sourceId: 'r2', title: 'Task 2', description: null, status: 'open', priority: null, url: 'u2', labels: [], assignees: [], meta: {} },
+      ],
+      mapStatus: () => 'idea' as const,
+      mapPriority: () => 'medium' as const,
+    })
+
+    // First sync succeeds - creates 2 tasks
+    await syncProjectSource(db, projectId, 'github')
+    const before = db.prepare('SELECT COUNT(*) as n FROM tasks WHERE project_id = ? AND is_deleted = 0').get(projectId) as { n: number }
+    expect(before.n).toBe(2)
+
+    // Now break the DB mid-transaction by making updateTask throw on second call
+    const original = db.prepare.bind(db)
+    let callCount = 0
+    vi.spyOn(db, 'prepare').mockImplementation((sql: string) => {
+      if (sql.includes('UPDATE tasks SET') && ++callCount === 2) {
+        throw new Error('simulated DB error')
+      }
+      return original(sql)
+    })
+
+    await syncProjectSource(db, projectId, 'github')
+
+    // All tasks should still be visible — partial update rolled back
+    const after = db.prepare('SELECT COUNT(*) as n FROM tasks WHERE project_id = ? AND is_deleted = 0').get(projectId) as { n: number }
+    expect(after.n).toBe(2)
+  })
+
   it('returns error result and stores last_error on fetch failure', async () => {
     upsertTaskSourceConfig(db, projectId, 'github', { token: 'abc' }, ['owner/repo'])
 
