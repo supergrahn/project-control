@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useMutation } from '@/hooks/useMutation'
 
@@ -9,6 +9,8 @@ vi.mock('@/components/ui/feedback/Toast', () => ({
 }))
 
 describe('useMutation', () => {
+  beforeEach(() => { mockToast.mockClear() })
+
   it('returns result on success', async () => {
     const { result } = renderHook(() => useMutation())
     const value = await act(() => result.current(() => Promise.resolve(42)))
