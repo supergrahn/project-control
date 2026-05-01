@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto'
 import { execFileSync } from 'child_process'
 import { writeFrontmatter } from './frontmatter'
 import { resolveProvider } from './sessions/resolveProvider'
+import { renderPrepAsMarkdown } from '@/lib/prep'
 import { getActiveProviders, getProviders, createProvider, getProvider, type ProviderType, type Provider } from './db/providers'
 import { getAdapter } from './sessions/adapters'
 import type { Database } from 'better-sqlite3'
@@ -144,6 +145,30 @@ export function isClaudeAvailable(): boolean {
   return getActiveProviders(db).length > 0
 }
 
+/**
+ * Prepend the task's prep packet to userContext so spawned sessions start
+ * with full context. Idempotent: an `<!-- prep:auto -->` marker prevents
+ * double-injection on respawn (sessions.user_context is persisted, so the
+ * marker survives the respawn round-trip).
+ */
+export function prepUserContext(
+  db: ReturnType<typeof getDb>,
+  taskId: string | undefined,
+  originalContext: string,
+): string {
+  if (!taskId) return originalContext
+  const task = getTask(db, taskId)
+  if (!task?.prep_notes) return originalContext
+  if (originalContext.includes('<!-- prep:auto -->')) return originalContext
+  try {
+    const notes = JSON.parse(task.prep_notes)
+    const rendered = renderPrepAsMarkdown(notes)
+    return `<!-- prep:auto -->\n${rendered}\n\n---\n\n${originalContext}`
+  } catch {
+    return originalContext
+  }
+}
+
 export async function spawnSession(opts: SpawnOptions): Promise<string> {
   const db = getDb()
   const sessionId = randomUUID()
@@ -156,6 +181,13 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     const existing = getActiveSessionForFile(db, canonical)
     if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
   }
+
+  // Inject the task's prep packet (if any) before persisting / spawning so
+  // both the session row and the live adapter see the enriched context. The
+  // helper is idempotent via the `<!-- prep:auto -->` marker, so respawn from
+  // the persisted user_context will not double-inject.
+  const enrichedContext = prepUserContext(db, opts.taskId, opts.userContext)
+  const enrichedOpts: SpawnOptions = { ...opts, userContext: enrichedContext }
 
   // Persist the session row BEFORE resolveProvider — pickRoute writes a
   // routing_decisions row whose session_id FK requires this row to exist —
@@ -172,7 +204,7 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     taskId: opts.taskId,
     outputPath: opts.outputPath,
     agentId: opts.agentId,
-    userContext: opts.userContext,
+    userContext: enrichedContext,
     permissionMode: opts.permissionMode,
     correctionNote: opts.correctionNote,
   })
@@ -207,7 +239,7 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   }
 
   try {
-    await spawnAdapterFor(db, sessionId, provider, opts)
+    await spawnAdapterFor(db, sessionId, provider, enrichedOpts)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
