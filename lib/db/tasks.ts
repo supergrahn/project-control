@@ -3,6 +3,7 @@ import type { TaskStatus, TaskPriority } from '@/lib/types'
 export type { TaskStatus, TaskPriority } from '@/lib/types'
 
 export type TaskComplexity = 'trivial' | 'normal' | 'hard'
+export type TaskPrepStatus = 'prepping' | 'ready' | 'failed'
 
 // Lazy import to avoid potential circular dependency at module load time
 let logStatusChangeImpl: typeof import('./taskStatusLog')['logStatusChange'] | null = null
@@ -38,7 +39,7 @@ export type Task = {
   complexity: TaskComplexity | null
   complexity_overridden: number
   prep_notes: string | null
-  prep_status: 'prepping' | 'ready' | 'failed' | null
+  prep_status: TaskPrepStatus | null
   prepped_at: string | null
   created_at: string
   updated_at: string
@@ -258,20 +259,22 @@ export function setTaskPrep(
   db: Database,
   id: string,
   input: {
-    status: 'prepping' | 'ready' | 'failed'
+    status: TaskPrepStatus
     notes?: string | null
-    prepped_at?: string
+    prepped_at?: string | null
   },
 ): Task {
   const task = getTask(db, id)
   if (!task) throw new Error(`Task ${id} not found`)
   const updates: string[] = ['prep_status = ?']
   const values: unknown[] = [input.status]
+  // 'notes' / 'prepped_at' use the `in` check so callers can explicitly set
+  // them to null (matches the convention in updateTask above).
   if ('notes' in input) {
     updates.push('prep_notes = ?')
     values.push(input.notes)
   }
-  if (input.prepped_at) {
+  if ('prepped_at' in input) {
     updates.push('prepped_at = ?')
     values.push(input.prepped_at)
   }
