@@ -6,11 +6,11 @@ export type TaskComplexity = 'trivial' | 'normal' | 'hard'
 
 // Lazy import to avoid potential circular dependency at module load time
 let logStatusChangeImpl: typeof import('./taskStatusLog')['logStatusChange'] | null = null
-function getLogStatusChange() {
+function getLogStatusChange(): typeof import('./taskStatusLog')['logStatusChange'] {
   if (!logStatusChangeImpl) {
     logStatusChangeImpl = require('./taskStatusLog').logStatusChange
   }
-  return logStatusChangeImpl
+  return logStatusChangeImpl!
 }
 
 export type Task = {

@@ -7,6 +7,7 @@ import { TaskCard } from '@/components/tasks/TaskCard'
 import { TaskDetailView } from '@/components/tasks/TaskDetailView'
 import { RightDrawer } from '@/components/tasks/RightDrawer'
 import type { Task } from '@/lib/db/tasks'
+import type { Session } from '@/hooks/useSessions'
 import type { DrawerSection } from '@/components/tasks/RightDrawer'
 import { fetcher } from '@/lib/fetcher'
 
@@ -16,7 +17,7 @@ export default function DonePage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [drawerSection, setDrawerSection] = useState<DrawerSection | null>(null)
 
-  const { data: taskSessions } = useSWR(
+  const { data: taskSessions } = useSWR<Session[]>(
     selectedTask ? `/api/sessions?projectId=${projectId}&taskId=${selectedTask.id}` : null,
     fetcher,
     { refreshInterval: 3000 }
@@ -35,7 +36,7 @@ export default function DonePage() {
           </div>
           <TaskDetailView
             task={selectedTask}
-            activeSessionId={taskSessions?.find((s: any) => !s.ended_at)?.id ?? null}
+            activeSessionId={taskSessions?.find((s) => !s.ended_at)?.id ?? null}
             onOpenDrawer={setDrawerSection}
           />
         </div>

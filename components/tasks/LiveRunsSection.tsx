@@ -79,7 +79,15 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
     ws.onmessage = (e: MessageEvent) => {
       const text: string = typeof e.data === 'string' ? e.data : ''
 
-      let parsed: { type: string; state?: string; data?: string }
+      let parsed: {
+        type: string
+        state?: string
+        data?: string
+        reason?: string
+        message?: string
+        provider?: string
+        retryAfter?: number
+      }
       try {
         parsed = JSON.parse(text)
       } catch {
