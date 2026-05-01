@@ -15,6 +15,10 @@ const MAX_KEYWORDS = 10
 const MAX_RIPGREP_HITS = 20
 const MAX_RETURN = 5
 const PREVIEW_BYTES = 200
+// MAX_KEYWORDS * 80 (per-keyword length cap) keeps the alternation regex
+// well under any conceivable ARG_MAX. If MAX_KEYWORDS ever grows past ~50,
+// the argv length needs revisiting.
+const RIPGREP_TIMEOUT_MS = 15000
 
 function parseJsonArray(raw: string): unknown[] | null {
   try {
@@ -58,30 +62,50 @@ function runRipgrep(projectPath: string, keywords: string[]): Promise<string[]> 
       '--regexp', keywords.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
       projectPath,
     ]
-    const proc = spawn('rg', args)
+    // Ignore stderr — ripgrep emits "permission denied" warnings on hidden /
+    // device files even with the exclude glob; an unconsumed pipe could stall
+    // the child on a backed-up buffer.
+    const proc = spawn('rg', args, { stdio: ['ignore', 'pipe', 'ignore'] })
     let stdout = ''
+    let settled = false
+    const finish = (paths: string[]) => {
+      if (settled) return
+      settled = true
+      clearTimeout(killer)
+      resolve(paths)
+    }
+    // Kill the subprocess if rg hangs (corrupt fs, NFS stall, etc.) so the
+    // outer prepareTask never sits indefinitely with prep_status='prepping'.
+    const killer = setTimeout(() => {
+      try { proc.kill('SIGKILL') } catch {}
+      finish([])
+    }, RIPGREP_TIMEOUT_MS)
     proc.stdout?.on('data', (d) => { stdout += d.toString() })
-    proc.on('error', () => resolve([]))
+    proc.on('error', () => finish([]))
     proc.on('close', () => {
       const paths = stdout
         .split('\n')
         .map((s) => s.trim())
         .filter((s) => s.length > 0)
         .map((p) => path.relative(projectPath, p))
-      resolve(paths.slice(0, MAX_RIPGREP_HITS))
+      finish(paths.slice(0, MAX_RIPGREP_HITS))
     })
   })
 }
 
 function readPreview(absPath: string): string {
+  let fd: number | null = null
   try {
-    const fd = fs.openSync(absPath, 'r')
+    fd = fs.openSync(absPath, 'r')
     const buf = Buffer.alloc(PREVIEW_BYTES)
     const n = fs.readSync(fd, buf, 0, PREVIEW_BYTES, 0)
-    fs.closeSync(fd)
     return buf.subarray(0, n).toString('utf8').replace(/\s+/g, ' ').slice(0, PREVIEW_BYTES)
   } catch {
     return ''
+  } finally {
+    if (fd !== null) {
+      try { fs.closeSync(fd) } catch {}
+    }
   }
 }
 
@@ -129,5 +153,8 @@ export async function findRelevantFiles(
   if (hits.length === 0) return []
   const reranked = await rerank(provider, input, projectPath, hits)
   if (reranked.length > 0) return reranked
+  // Best-effort fallback: ripgrep emits files in directory-traversal order, not
+  // relevance order, so this list is a coarse "files that mention the keywords"
+  // — better than nothing, but the rerank path is the intended primary output.
   return hits.slice(0, MAX_RETURN).map((p) => ({ path: p, why: '' }))
 }
