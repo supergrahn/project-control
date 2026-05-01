@@ -51,11 +51,11 @@ The module reuses `localComplete` from `lib/router`. No new dependency surface.
 
 Three call sites all dispatch the same async `prepareTask(db, taskId)`:
 
-1. **Auto on import** — in `lib/taskSources/syncService.ts`, after a new task row is inserted, call `void prepareTask(db, newTaskId)`. Fire-and-forget; never blocks the sync.
-2. **Auto on update** — in the same sync code, when an existing task's `source_meta.title` or the parsed description text differs from the currently stored snapshot, call `void prepareTask(db, taskId)` to re-prep. Snapshot comparison uses a small hash to avoid string churn.
+1. **Auto on import** — in `lib/taskSources/syncService.ts`, after a `createTask` + `updateTask` pair lands a new row (the existing pattern uses two writes), call `void prepareTask(db, task.id)`. Fire-and-forget; never blocks the sync.
+2. **Auto on update** — same sync code path. Before calling `updateTask` on an existing row, compare the incoming `(ext.title, ext.description)` against the current row's `(title, idea_file)` (the syncService stores the source description in `idea_file`). If either differs, call `void prepareTask(db, existing.id)` after the update. Plain string comparison — no hashing layer.
 3. **Manual** — `POST /api/tasks/:id/prepare` returns 202 immediately and dispatches `void prepareTask(db, taskId)`.
 
-`prepareTask` is internally guarded against concurrent runs on the same task: it skips if the row's `prep_status` is already `'prepping'` and the timestamp is recent (<60s). Older `'prepping'` is treated as crashed and overridden.
+`prepareTask` is internally guarded against concurrent runs on the same task: it skips if the row's `prep_status` is already `'prepping'` and `prepped_at` (or a separate `prep_started_at` we can add if needed) is within the last 60s. Older `'prepping'` is treated as crashed and overridden.
 
 ### Session integration
 
@@ -88,6 +88,54 @@ If ripgrep returns no hits, `files: []` is the expected output.
 
 If step 3 fails to parse, fall back to step 2's top 5 with empty `why` strings.
 
+### Prompts (sketched in `lib/prep/prompts.ts`)
+
+```
+KEYWORD_PROMPT = `
+You are extracting search terms from a software ticket. Reply with a JSON array of up to 10 strings — function names, file fragments, error messages, entity nouns. Lowercase, no punctuation, no duplicates. Reply ONLY with the JSON array.
+
+Title: {title}
+Description: {description}
+
+JSON:
+`
+
+PREP_PROMPT = `
+You are preparing a customer ticket for a developer. Read the title and description and reply with a JSON object with exactly these keys:
+{
+  "summary": <1-2 sentence plain-English summary of what the customer wants>,
+  "intent": <implicit goal or watch-fors the dev should know>,
+  "open_questions": [<ambiguity 1>, <ambiguity 2>, ...]
+}
+Reply ONLY with the JSON object, no preface, no code fence.
+
+Title: {title}
+Description: {description}
+
+JSON:
+`
+
+RERANK_PROMPT = `
+You are picking the most relevant files for a software ticket. Given the candidate file paths and previews below, reply with a JSON array of up to 5 entries:
+[
+  { "path": <exact path from candidates>, "why": <one-line rationale> },
+  ...
+]
+Reply ONLY with the JSON array.
+
+Ticket:
+{title}
+{description}
+
+Candidates:
+{candidates}
+
+JSON:
+`
+```
+
+Final `files` is the union of `findRelevantFiles` (rerank output) merged into the prep packet. The `summary`, `intent`, and `open_questions` come from PREP_PROMPT.
+
 ### `PrepNotes` shape (stored as JSON in `tasks.prep_notes`)
 
 ```ts
@@ -98,57 +146,68 @@ type PrepNotes = {
   open_questions: string[]                                // ambiguities the dev should resolve before starting
   generated_at: string                                    // ISO timestamp
   model: string                                           // e.g. 'qwen-3.6:9b'
-  source_hash: string                                     // hash of (title + description) used to detect re-prep need
 }
 ```
 
-The `source_hash` lets the syncService cheaply detect whether a re-prep is needed: compute the hash on the current source, compare to `prep_notes.source_hash`, only re-prep on mismatch.
+Re-prep eligibility is detected at the trigger sites by direct field comparison (sync hook compares `title` + `idea_file` against the current row before update). No content hash stored on the task; the cost of comparing two strings per task per sync iteration is negligible.
+
+`renderPrepAsMarkdown(notes: PrepNotes): string` is exported from `lib/prep/types.ts` (or a small `lib/prep/render.ts`) and produces the markdown body used both by the session-context injection and the `task_comments` insert below.
 
 ## Data model
 
-Three new columns on `tasks`, added via existing `runMigration` pattern:
+Three new columns on `tasks`, added via existing `runMigration` pattern. **Migration numbering**: pick the next free numbers at implementation time. If the smart-provider-router branch (slice A, migrations 51-60) is merged first, these become 61-63. If task-prep ships first or in parallel, allocate the next free trio (and document the reason for the gap if any). The router branch is committed but not yet merged, so coordinate at merge time.
 
 ```sql
--- Migration 61
+-- Migration N
 ALTER TABLE tasks ADD COLUMN prep_notes TEXT;            -- JSON-serialized PrepNotes; NULL until prepped
 
--- Migration 62
-ALTER TABLE tasks ADD COLUMN prep_status TEXT;           -- 'pending' | 'prepping' | 'ready' | 'failed' | NULL
+-- Migration N+1
+ALTER TABLE tasks ADD COLUMN prep_status TEXT;           -- 'prepping' | 'ready' | 'failed' | NULL
 
--- Migration 63
-ALTER TABLE tasks ADD COLUMN prepped_at TEXT;            -- ISO timestamp of last successful prep (NULL until first success)
+-- Migration N+2
+ALTER TABLE tasks ADD COLUMN prepped_at TEXT;            -- ISO timestamp of last successful prep attempt (NULL until first run)
 ```
 
 `Task` TypeScript type extended in `lib/db/tasks.ts`:
 
 ```ts
 prep_notes: string | null
-prep_status: 'pending' | 'prepping' | 'ready' | 'failed' | null
+prep_status: 'prepping' | 'ready' | 'failed' | null
 prepped_at: string | null
 ```
+
+`prepped_at` is updated at the END of every prep attempt (success or failure) — combined with `prep_status` it gives the concurrent-run guard the recency signal it needs.
 
 A new helper `setTaskPrep(db, id, { status, notes?, prepped_at? })` writes the columns atomically (matches the `setTaskComplexity` pattern from the router slice).
 
 ## Comment-trail integration
 
-The `task_comments` table already exists and powers the inbox feed. Every successful `prepareTask` run inserts one new row:
+The `task_comments` table is keyed by `(source, task_source_id, comment_id)` with a UNIQUE constraint — comments are normally synced from external sources, not authored locally. Prep-bot piggy-backs on this table by writing rows with `source = <task.source>` (so the comment threads under the original ticket) and a synthetic `comment_id = 'prep:<uuid>'` (uuid suffix so the UNIQUE constraint never collides on rapid re-runs).
+
+Every successful `prepareTask` run inserts:
 
 ```ts
 {
-  id: randomUUID(),
-  task_id,
-  author: 'prep-bot',
-  body: <markdown rendering of summary + intent + files (just paths) + open_questions>,
-  created_at: now,
+  id:             randomUUID(),
+  project_id:     <task.project_id>,
+  source:         <task.source>,                    // 'jira' | 'monday' | 'donedone' | 'github'
+  task_source_id: <task.source_id>,                 // the original ticket id (so the inbox feed picks it up)
+  comment_id:     `prep:${randomUUID()}`,           // synthetic + uuid so the UNIQUE(source, task_source_id, comment_id) constraint never collides on rapid re-runs
+  author:         'prep-bot',                       // distinguishes from human comments
+  body:           renderPrepAsMarkdown(notes),
+  created_at:     now,
+  synced_at:      now,
 }
 ```
 
 This single insert feeds two surfaces with zero extra plumbing:
 
-1. The task's comment timeline shows the prep history (timestamped entries every time prep ran).
-2. The inbox feed (`/api/projects/[id]/inbox`) already lists recent `task_comments` from external-task threads — adding `'prep-bot'` to the recognized authors makes prep events appear with a 🔮 badge and "Prepped" label.
+1. **Task comment timeline** — the existing `(source, task_source_id)` thread already groups comments under the ticket; prep-bot rows interleave with human comments in chronological order.
+2. **Inbox feed** (`/api/projects/[id]/inbox`) — already lists recent `task_comments` joined with the parent task title via `(source, task_source_id)`. The inbox page's badge logic uses `SOURCE_LABELS` / `SOURCE_COLORS` keyed by `comment.source` — but since prep-bot comments keep the original source, prep events would otherwise look like normal source comments. Override at render time: when `comment.author === 'prep-bot'`, show a 🔮 "Prepped" pill (e.g. `bg-violet-500/15 text-violet-400`) instead of the source pill, and render the body as markdown rather than plain text.
 
-A failed prep does NOT write a comment (we don't want the timeline cluttered with "prep failed" noise); it only flips `prep_status` and the failure is visible on the task detail page.
+A failed prep does NOT write a comment (timeline stays uncluttered); it only flips `prep_status` and the failure is visible on the task detail page via the Prep panel.
+
+Note: `task_comments` is keyed by the external `source`+`task_source_id`, not by `tasks.id`. Auto-trigger only fires for tasks that have both fields set (external tasks from sync). Manual prep is allowed on native (non-imported) tasks — in that path, `prepareTask` writes `prep_notes` + `prepped_at` + `prep_status` as usual but **skips the comment insert** when `task.source` or `task.source_id` is null. The native-task panel still renders fine; the inbox just doesn't see the event.
 
 ## API
 
@@ -163,7 +222,20 @@ The existing `GET /api/projects/[id]/tasks` already returns full task rows; `pre
 
 ### Task detail surface — Prep panel
 
-`components/tasks/ExternalTaskDetailDrawer.tsx` is the existing detail surface for tasks shown on the Tasks page. Note: the Tasks page lives-fetches `ExternalTask[]` directly from adapters (`GET /api/projects/[id]/external-tasks`), while prep state lives on the synced `tasks` table row. Bridge: extend the external-tasks API response to JOIN each `ExternalTask` with its corresponding `tasks` row via `(source, source_id)` and include `prep_notes`, `prep_status`, `prepped_at` on the response. The drawer already receives the `ExternalTask`; it gains a Prep panel rendered from those new fields.
+`components/tasks/ExternalTaskDetailDrawer.tsx` is the existing detail surface for tasks shown on the Tasks page. Note: the Tasks page lives-fetches `ExternalTask[]` directly from adapters (`GET /api/projects/[id]/external-tasks`), while prep state lives on the synced `tasks` table row.
+
+Bridge: extend the external-tasks API response handler to query the `tasks` table once per request (`SELECT id, source, source_id, prep_notes, prep_status, prepped_at FROM tasks WHERE project_id = ? AND is_deleted = 0`), build a `Map<sourceKey, prepFields>` keyed on `${source}:${source_id}`, and merge prep fields onto each `ExternalTask` before returning. Live tasks that have no synced row yet (race window) get `prep_status = null`, which renders as "Not yet prepped." The `ExternalTask` type gains three optional fields:
+
+```ts
+type ExternalTask = {
+  // ...existing fields
+  prep_notes?: string | null         // JSON; consumer parses
+  prep_status?: 'prepping' | 'ready' | 'failed' | null
+  prepped_at?: string | null
+}
+```
+
+The drawer reads those fields and renders the Prep panel.
 
 Panel content:
 - **Header**: "🔮 Prep" with status pill (`Ready` / `Prepping…` / `Failed` / `Not yet prepped`).
@@ -183,13 +255,11 @@ For native (non-imported) tasks (which today render in `components/tasks/TaskDet
 
 The "Start session" affordance (already on the task page) gets a checkbox: `[x] Include prep in context` (default checked when prep is ready). Click → opens the existing session-start modal with `userContext` pre-populated from prep.
 
-### Inbox
+### Inbox and comment trail (shared renderer change)
 
-No UI change required — the existing inbox surface picks up `task_comments` from `'prep-bot'` automatically. Optionally extend `SOURCE_LABELS` / `SOURCE_COLORS` in the inbox page to give prep events a 🔮 badge with their own color (e.g. `bg-violet-500/15 text-violet-400`).
+The render rule is the same in both surfaces: when `comment.author === 'prep-bot'`, swap the source pill for a 🔮 "Prepped" pill (e.g. `bg-violet-500/15 text-violet-400`) and render the body as markdown. The inbox page already lists comments via `/api/projects/[id]/inbox` (covered above in **Comment-trail integration**). The task-level comment timeline (wherever `task_comments` are rendered for a single task) gets the same one-line `if author === 'prep-bot'` switch.
 
-### Comment trail
-
-The existing comment-trail rendering (wherever `task_comments` are shown today) needs to recognize `'prep-bot'` and render its body as markdown (the human comments are typically plain text). One small `if author === 'prep-bot'` switch in the comment renderer.
+Audit step at implementation time: grep the codebase for places that render `task_comments` rows and confirm both the inbox page and any per-task timeline get the override. Each new render site is a one-liner.
 
 ## Failure handling
 
@@ -202,26 +272,29 @@ The existing comment-trail rendering (wherever `task_comments` are shown today) 
 ## Testing strategy
 
 - **Unit**: `findRelevantFiles` tested with a fixture project tree and a mocked `localComplete`. Covers: keyword extraction, ripgrep dispatch, top-N selection, no-hits, garbage LLM output.
-- **Unit**: `prepareTask` tested with a mocked `localComplete` and `findRelevantFiles`. Covers: happy path writes `prep_notes` + status 'ready' + comment row; LLM error → status 'failed' + no comment; concurrent-run guard; source_hash dedupes re-runs.
-- **Integration**: syncService re-runs prep when title/description changes (not when other fields change). Hash-based comparison.
+- **Unit**: `prepareTask` tested with a mocked `localComplete` and `findRelevantFiles`. Covers: happy path writes `prep_notes` + status 'ready' + comment row + `prepped_at`; LLM error → status 'failed' + no comment + `prepped_at` still updated; concurrent-run guard short-circuits when `prep_status='prepping'` and `prepped_at` is recent.
+- **Integration**: syncService re-runs prep when `title` or `idea_file` changes (not when `priority`, `labels`, etc. change). Direct field comparison.
 - **Integration**: `spawnSession` with a prepped task injects prep into `userContext`. `spawnSession` without `taskId` doesn't. Respawn doesn't double-inject.
 - **API**: `POST /api/tasks/:id/prepare` returns 202 and triggers prep. `GET /api/tasks/:id/prep` returns parsed JSON or 404.
 - **Smoke**: end-to-end via the real API + real local model (skipped in CI; documented for manual run).
 
-## Migration plan
+## Migration / implementation plan
 
-1. Schema: migrations 61-63 (three `runMigration` calls). Update `Task` type and `setTaskPrep` helper. Update `task_comments`-rendering code to handle `prep-bot` markdown body.
-2. `lib/prep/` module skeleton + types + prompts.
-3. `findRelevantFiles` + tests.
-4. `prepareTask` + tests.
-5. Sync hook in `lib/taskSources/syncService.ts` (auto-on-import + auto-on-update via source_hash).
-6. `POST /api/tasks/:id/prepare` + `GET /api/tasks/:id/prep` + tests.
-7. `spawnSession` injection + test.
-8. Task detail Prep panel + Start-session checkbox.
-9. Inbox surface tweaks (badge, color).
-10. End-to-end smoke + ship.
+(Order matters; each step is independently mergeable except where noted.)
 
-Estimated 10-12 tasks, similar shape to the router slice. Reuses the local-model wiring from the router.
+1. **Schema**: three `runMigration` calls (allocate the next free numbers — see Data model). Update `Task` TypeScript type with the three new fields. Add `setTaskPrep(db, id, ...)` helper to `lib/db/tasks.ts`.
+2. **`lib/prep/` module skeleton**: `types.ts` (`PrepNotes`, `PrepStatus`), `prompts.ts` (keyword + main prep prompts), `index.ts` (re-exports), `render.ts` (`renderPrepAsMarkdown`).
+3. **`findRelevantFiles`** in `lib/prep/findFiles.ts` + unit tests with fixture project tree and mocked `localComplete`.
+4. **`prepareTask`** in `lib/prep/prepareTask.ts` + tests covering happy path, LLM error, concurrent-run guard.
+5. **Sync hook** in `lib/taskSources/syncService.ts`: dispatch `void prepareTask(db, task.id)` after `createTask` for new rows, and after `updateTask` for existing rows when `(title, idea_file)` changed. Direct field comparison.
+6. **API**: `POST /api/tasks/:id/prepare` + `GET /api/tasks/:id/prep` + tests.
+7. **`spawnSession` injection**: `prepUserContext` helper called inside `spawnSession` before adapter spawn; `<!-- prep:auto -->` marker prevents respawn double-include. Test with prepped task / unprepped task / respawn.
+8. **External-tasks API enrichment**: extend `GET /api/projects/[id]/external-tasks` to merge `prep_notes`/`prep_status`/`prepped_at` from the `tasks` table onto each `ExternalTask`. Extend the `ExternalTask` type with the optional fields.
+9. **Task detail Prep panel** in `ExternalTaskDetailDrawer.tsx`. **Start-session checkbox** wiring.
+10. **Comment renderer override**: shared `if author === 'prep-bot'` switch — apply at the inbox page and any task-level comment-timeline render site (audit via grep at this step).
+11. **End-to-end smoke** + ship.
+
+Estimated 11 tasks, similar shape to the router slice. Reuses the local-model wiring from the router.
 
 ## Out-of-scope follow-ups
 
