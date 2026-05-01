@@ -70,10 +70,13 @@ describe('POST /api/sessions/[id]/restart-with-route', () => {
       body: JSON.stringify({ providerId: 'new' }),
     })
     await POST(req, p(sessionId))
+    // Assert membership rather than strict order: the seeded row and the
+    // handler's insert can land in the same millisecond, in which case
+    // ORDER BY created_at is non-deterministic on ties.
     const decisions = getDb()
-      .prepare('SELECT picked_provider FROM routing_decisions WHERE session_id = ? ORDER BY created_at ASC')
-      .all(sessionId)
-    expect(decisions).toEqual([{ picked_provider: 'old' }, { picked_provider: 'new' }])
+      .prepare('SELECT picked_provider FROM routing_decisions WHERE session_id = ?')
+      .all(sessionId) as Array<{ picked_provider: string }>
+    expect(decisions.map((d) => d.picked_provider).sort()).toEqual(['new', 'old'])
   })
 
   it('flips session status back to active and calls respawn', async () => {
