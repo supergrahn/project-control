@@ -7,7 +7,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
   return { ...actual, getDb: () => db }
 })
 
-import { getDb, createProject, createSession } from '@/lib/db'
+import { getDb, createProject, createSession, endSession, getLatestSessionForFile } from '@/lib/db'
 import { createProvider } from '@/lib/db/providers'
 import { onPhaseAdvanced, onOverrideDecision } from '@/server/orchestrator-watcher'
 
@@ -58,5 +58,32 @@ describe('orchestrator-watcher → router hook', () => {
     onPhaseAdvanced(db, sessionId)
     const outcomes = db.prepare('SELECT COUNT(*) AS c FROM routing_outcomes').get() as { c: number }
     expect(outcomes.c).toBe(0)
+  })
+})
+
+describe('getLatestSessionForFile', () => {
+  it('finds an ended session by source_file (where the active-only lookup would silently miss it)', () => {
+    const db = getDb()
+    const projectId = createProject(db, { name: 'P', path: `/tmp/p-${randomUUID()}` })
+    const sessionId = randomUUID()
+    const sourceFile = '/some/spec.md'
+    createSession(db, { id: sessionId, projectId, label: 'L', phase: 'develop', sourceFile })
+    endSession(db, sessionId)
+    const found = getLatestSessionForFile(db, sourceFile)
+    expect(found?.id).toBe(sessionId)
+    expect(found?.status).toBe('ended')
+  })
+
+  it('prefers an active session over an older ended one for the same file', () => {
+    const db = getDb()
+    const projectId = createProject(db, { name: 'P', path: `/tmp/p-${randomUUID()}` })
+    const sourceFile = '/some/spec2.md'
+    const oldId = randomUUID()
+    createSession(db, { id: oldId, projectId, label: 'L', phase: 'develop', sourceFile })
+    endSession(db, oldId)
+    const newActiveId = randomUUID()
+    createSession(db, { id: newActiveId, projectId, label: 'L2', phase: 'develop', sourceFile })
+    const found = getLatestSessionForFile(db, sourceFile)
+    expect(found?.id).toBe(newActiveId)
   })
 })

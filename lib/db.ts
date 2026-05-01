@@ -501,6 +501,21 @@ export function getActiveSessionForFile(db: Database.Database, sourceFile: strin
   return db.prepare(`SELECT * FROM sessions WHERE source_file = ? AND status = 'active'`).get(sourceFile) as Session | undefined
 }
 
+/**
+ * Most-recent session for a source file, regardless of status. Prefers an
+ * active session if one exists (for the case where a file is currently being
+ * worked on), then falls back to the most recently created session.
+ *
+ * Use this — not getActiveSessionForFile — when you need to attribute an
+ * after-the-fact event (e.g. an override decision filed after the session
+ * already ended) to the session it belongs to.
+ */
+export function getLatestSessionForFile(db: Database.Database, sourceFile: string): Session | undefined {
+  return db.prepare(
+    `SELECT * FROM sessions WHERE source_file = ? ORDER BY (status = 'active') DESC, created_at DESC LIMIT 1`,
+  ).get(sourceFile) as Session | undefined
+}
+
 export function endSession(db: Database.Database, id: string): void {
   db.prepare(`UPDATE sessions SET status = 'ended', ended_at = ? WHERE id = ?`)
     .run(new Date().toISOString(), id)

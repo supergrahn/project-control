@@ -1,7 +1,7 @@
 // server/orchestrator-tools.ts
 import { randomUUID } from 'crypto'
 import {
-  getDb, getActiveSessions, getActiveSessionForFile, getProject, listProjects,
+  getDb, getActiveSessions, getLatestSessionForFile, getProject, listProjects,
   createDecision, createProposedAction, getOrchestratorByProject,
 } from '../lib/db'
 import type { DecisionSeverity, ProposedActionType } from '../lib/orchestrator-types'
@@ -60,6 +60,9 @@ export async function advancePhase(sessionId: string): Promise<void> {
   console.log(`[orchestrator] advance_phase called for session ${sessionId} (phase: ${session.phase})`)
   // Router learning: a successful phase advance is a positive outcome for the
   // most recent routing decision attached to this session.
+  // IMPORTANT: when advancePhase grows a real durable phase-update write, this
+  // hook MUST stay AFTER it — firing before persistence would record successes
+  // for advances that may then fail to commit.
   onPhaseAdvanced(db, sessionId)
 }
 
@@ -118,10 +121,12 @@ export async function logDecision(input: {
   // Router learning: an override decision means the orchestrator had to step
   // in and correct the picked provider's work — that's a negative outcome for
   // the most recent routing decision on the affected session. We resolve the
-  // session via source_file (the only session-identifying field on a decision
-  // row); if none can be resolved the hook safely no-ops.
+  // session via source_file using getLatestSessionForFile (NOT
+  // getActiveSessionForFile) because most overrides are filed AFTER the session
+  // has ended; gating on status='active' would silently drop the failure
+  // signal in the common case and bias scores toward optimism.
   if (input.severity === 'override' && input.source_file) {
-    const session = getActiveSessionForFile(db, input.source_file)
+    const session = getLatestSessionForFile(db, input.source_file)
     if (session) onOverrideDecision(db, session.id)
   }
 }
