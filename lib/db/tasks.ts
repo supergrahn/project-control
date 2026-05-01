@@ -234,3 +234,14 @@ export function setTaskStatus(db: Database, id: string, status: TaskStatus): Tas
   db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id)
   return getTask(db, id)!
 }
+
+export function setTaskComplexity(
+  db: Database,
+  id: string,
+  complexity: 'trivial' | 'normal' | 'hard',
+  overridden: boolean,
+): void {
+  const now = new Date().toISOString()
+  db.prepare('UPDATE tasks SET complexity = ?, complexity_overridden = ?, updated_at = ? WHERE id = ?')
+    .run(complexity, overridden ? 1 : 0, now, id)
+}
