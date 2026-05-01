@@ -12,6 +12,7 @@ export async function POST(
   const task = getTask(db, id)
   if (!task) return NextResponse.json({ error: 'task not found' }, { status: 404 })
 
+  // Fire-and-forget — prepareTask guards against concurrent runs internally.
   void prepareTask(db, id)
   return NextResponse.json({ ok: true }, { status: 202 })
 }
