@@ -1,6 +1,8 @@
 // server/orchestrator-watcher.ts
+import type { Database } from 'better-sqlite3'
 import { getProjectEmitter } from '../lib/session-manager'
 import { getDb, getOrchestratorById, listOrchestrators } from '../lib/db'
+import { recordOutcome } from '../lib/router'
 
 const watched = new Set<string>()
 
@@ -29,4 +31,30 @@ export function startOrchestratorWatcher(): void {
       if (project) watchProject(orch.project_id, orch.id, project.path)
     }
   }
+}
+
+// --- Router learning hooks ---
+// These are exported as named functions for unit-testability and are called
+// from the orchestrator tools layer (server/orchestrator-tools.ts) at the
+// real phase-advance and decision-write sites. They look up the most recent
+// routing decision for a session and forward a success/failure outcome to
+// the router's score rollup.
+
+function latestDecisionId(db: Database, sessionId: string): string | null {
+  const row = db
+    .prepare(`SELECT id FROM routing_decisions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`)
+    .get(sessionId) as { id: string } | undefined
+  return row?.id ?? null
+}
+
+export function onPhaseAdvanced(db: Database, sessionId: string): void {
+  const decisionId = latestDecisionId(db, sessionId)
+  if (!decisionId) return
+  recordOutcome(db, { decisionId, outcome: 'success' })
+}
+
+export function onOverrideDecision(db: Database, sessionId: string): void {
+  const decisionId = latestDecisionId(db, sessionId)
+  if (!decisionId) return
+  recordOutcome(db, { decisionId, outcome: 'failure' })
 }
