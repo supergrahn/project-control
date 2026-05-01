@@ -35,14 +35,35 @@ function getSuitability(type: string, phase: SessionPhase, complexity: Complexit
   return typeof v === 'number' ? v : SUITABILITY_FALLBACK
 }
 
+export type ScoreParts = {
+  suitability: number
+  cost: number
+  success_rate_blended: number
+  total: number
+}
+
+export function scoreWithBreakdown(
+  provider: ScoreInputProvider,
+  phase: SessionPhase,
+  complexity: Complexity,
+  observed: Observed,
+): ScoreParts {
+  const suit = getSuitability(provider.type, phase, complexity)
+  const cost = Math.max(getCost(provider), COST_EPSILON)
+  const blendedRate = (observed.n * observed.rate + N_PRIOR * suit) / (observed.n + N_PRIOR)
+  return {
+    suitability: suit,
+    cost,
+    success_rate_blended: blendedRate,
+    total: (suit * blendedRate) / cost,
+  }
+}
+
 export function score(
   provider: ScoreInputProvider,
   phase: SessionPhase,
   complexity: Complexity,
   observed: Observed,
 ): number {
-  const suit = getSuitability(provider.type, phase, complexity)
-  const cost = Math.max(getCost(provider), COST_EPSILON)
-  const blendedRate = (observed.n * observed.rate + N_PRIOR * suit) / (observed.n + N_PRIOR)
-  return (suit * blendedRate) / cost
+  return scoreWithBreakdown(provider, phase, complexity, observed).total
 }
