@@ -25,4 +25,7 @@ export type ExternalTask = {
   createdAt: string | null
   updatedAt: string | null
   meta: Record<string, unknown>
+  prep_notes?: string | null         // JSON-serialized PrepNotes; consumer parses
+  prep_status?: 'prepping' | 'ready' | 'failed' | null
+  prepped_at?: string | null
 }
