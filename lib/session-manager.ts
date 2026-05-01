@@ -18,8 +18,9 @@ import { randomUUID } from 'crypto'
 import { execFileSync } from 'child_process'
 import { writeFrontmatter } from './frontmatter'
 import { resolveProvider } from './sessions/resolveProvider'
-import { getActiveProviders, getProviders, createProvider, type ProviderType } from './db/providers'
+import { getActiveProviders, getProviders, createProvider, getProvider, type ProviderType, type Provider } from './db/providers'
 import { getAdapter } from './sessions/adapters'
+import type { Database } from 'better-sqlite3'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 
 // --- Process maps (survive Next.js hot-reload via globalThis) ---
@@ -146,6 +147,36 @@ export function isClaudeAvailable(): boolean {
 export async function spawnSession(opts: SpawnOptions): Promise<string> {
   const db = getDb()
   const sessionId = randomUUID()
+
+  // Block concurrent sessions on the same file BEFORE any writes.
+  if (opts.sourceFile) {
+    const canonical = fs.realpathSync(opts.sourceFile)
+    const existing = getActiveSessionForFile(db, canonical)
+    if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
+  }
+
+  // Persist the session row BEFORE resolveProvider — pickRoute writes a
+  // routing_decisions row whose session_id FK requires this row to exist —
+  // and BEFORE the adapter spawn so that, if the adapter throws, we have a
+  // row to flip to 'needs_route_retry' for the UI to pick up.
+  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+  createSession(db, {
+    id: sessionId,
+    projectId: opts.projectId,
+    label: opts.label,
+    phase: opts.phase as import('./db').SessionPhase,
+    sourceFile: canonical,
+    taskId: opts.taskId,
+    outputPath: opts.outputPath,
+    agentId: opts.agentId,
+  })
+  logEvent(db, {
+    projectId: opts.projectId,
+    type: 'session_started',
+    summary: `Started ${opts.phase} session: ${opts.label}`,
+    severity: 'info',
+  })
+
   const provider = await resolveProvider(db, {
     projectId: opts.projectId,
     taskId: opts.taskId,
@@ -169,13 +200,33 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     }
   }
 
-  // Block concurrent sessions on the same file
-  if (opts.sourceFile) {
-    const canonical = fs.realpathSync(opts.sourceFile)
-    const existing = getActiveSessionForFile(db, canonical)
-    if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
+  try {
+    await spawnAdapterFor(db, sessionId, provider, opts)
+  } catch (err) {
+    db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
+      .run(`adapter_spawn_failed: ${(err as Error).message}`, sessionId)
+    throw err
   }
 
+  return sessionId
+}
+
+/**
+ * Spawn the provider's CLI binary for the given session row, wire up stdout/
+ * stderr/close handlers, and resolve once the child process has successfully
+ * started (or reject if the spawn itself failed). Shared by `spawnSession`
+ * (initial launch) and `respawnSessionWithProvider` (retry with a different
+ * provider).
+ *
+ * Pre-condition: the session row already exists in the DB. Caller is
+ * responsible for flipping `status = 'needs_route_retry'` on rejection.
+ */
+async function spawnAdapterFor(
+  db: Database,
+  sessionId: string,
+  provider: Provider,
+  opts: SpawnOptions,
+): Promise<void> {
   const contextPacks = listContextPacks(db, opts.projectId).map(p => ({ title: p.title, content: p.content }))
 
   // Assemble task context if taskId is provided
@@ -238,30 +289,18 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
-  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
-  try {
-    createSession(db, {
-      id: sessionId,
-      projectId: opts.projectId,
-      label: opts.label,
-      phase: opts.phase as import('./db').SessionPhase,
-      sourceFile: canonical,
-      taskId: opts.taskId,
-      outputPath: opts.outputPath,
-      agentId: opts.agentId,
-    })
-    logEvent(db, {
-      projectId: opts.projectId,
-      type: 'session_started',
-      summary: `Started ${opts.phase} session: ${opts.label}`,
-      severity: 'info',
-    })
-  } catch (err) {
-    try { proc.kill() } catch {}
-    throw err
-  }
+  // Wait for either successful spawn or an error before wiring the persistent
+  // handlers. This converts an async `proc.on('error')` ENOENT into a synchronous
+  // rejection that `spawnSession` can catch and mark `needs_route_retry`.
+  await new Promise<void>((resolve, reject) => {
+    const onSpawn = () => { proc.removeListener('error', onError); resolve() }
+    const onError = (err: Error) => { proc.removeListener('spawn', onSpawn); reject(err) }
+    proc.once('spawn', onSpawn)
+    proc.once('error', onError)
+  })
 
-  // Write session_id into source file frontmatter
+  // Write session_id into source file frontmatter (best effort — frontmatter
+  // is idempotent so replays during respawn don't corrupt anything).
   if (opts.sourceFile && (opts.phase as string) !== 'orchestrator') {
     try {
       const content = fs.readFileSync(opts.sourceFile, 'utf8')
@@ -276,7 +315,8 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   wsMap.set(sessionId, new Set())
   resetHangTimer(sessionId) // Start 5-minute hang detection
 
-  // Handle spawn failures (e.g. command not found)
+  // Late spawn errors (e.g. signal mid-stream) — the early await above already
+  // handles the synchronous ENOENT case.
   proc.on('error', (err) => {
     insertSessionEvent(db, sessionId, {
       type: 'error',
@@ -418,8 +458,6 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     })
     wsMap.delete(sessionId)
   })
-
-  return sessionId
 }
 
 export function killSession(sessionId: string): void {
@@ -661,11 +699,50 @@ export async function spawnOrchestratorSession(opts: {
  * Respawn a session that was put into 'needs_route_retry' using a specific provider.
  * The new routing_decisions row is written by the API handler before this call.
  *
- * For Task 12 this is a shim that throws — Task 14 replaces it with the real
- * implementation that factors out spawnSession's adapter-spawn step. Endpoint
- * tests mock this function so the throw is never hit.
+ * Reuses the shared `spawnAdapterFor` helper so the wiring matches initial spawn.
+ * On failure, flips the session back to 'needs_route_retry' so the user can
+ * retry again with a different provider.
  */
 export async function respawnSessionWithProvider(sessionId: string, providerId: string): Promise<void> {
-  const _unused = { sessionId, providerId }
-  throw new Error('respawnSessionWithProvider: implementation TODO — Task 14')
+  const db = getDb()
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as
+    | {
+        id: string
+        project_id: string
+        phase: import('./db').SessionPhase
+        task_id: string | null
+        label: string
+        source_file: string | null
+        agent_id: string | null
+        output_path: string | null
+      }
+    | undefined
+  if (!session) throw new Error('session not found')
+
+  const provider = getProvider(db, providerId)
+  if (!provider) throw new Error('provider not found')
+
+  const project = getProject(db, session.project_id)
+  if (!project) throw new Error('project not found')
+
+  const opts: SpawnOptions = {
+    projectId: session.project_id,
+    projectPath: project.path,
+    label: session.label,
+    phase: session.phase as Phase,
+    sourceFile: session.source_file,
+    userContext: '',                    // resumes don't need fresh user context
+    permissionMode: 'default',          // default permission mode for retries
+    taskId: session.task_id ?? undefined,
+    agentId: session.agent_id ?? undefined,
+    outputPath: session.output_path ?? undefined,
+  }
+
+  try {
+    await spawnAdapterFor(db, sessionId, provider, opts)
+  } catch (err) {
+    db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
+      .run(`adapter_spawn_failed: ${(err as Error).message}`, sessionId)
+    throw err
+  }
 }
