@@ -1,6 +1,6 @@
 export * from './types'
 export * from './prompts'
 export { renderPrepAsMarkdown } from './render'
+export { findRelevantFiles } from './findFiles'
 // Re-exports added in later tasks:
-// export { findRelevantFiles } from './findFiles'
 // export { prepareTask } from './prepareTask'
