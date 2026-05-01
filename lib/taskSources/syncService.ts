@@ -26,6 +26,11 @@ export async function syncProjectSource(
   try {
     const externalTasks = await adapter.fetchTasks(config.config, config.resource_ids)
 
+    // Note: prepareTask calls fired below run as fire-and-forget (`void`).
+    // Their synchronous prelude (initial setTaskPrep('prepping')) executes
+    // INSIDE this transaction; their async tail (LLM/ripgrep + final
+    // setTaskPrep) runs AFTER the transaction commits. Benign in practice
+    // since the prepping flag is recoverable via the recency guard.
     const { created, updated, deleted } = db.transaction(() => {
       const existingTasks = db.prepare(
         'SELECT * FROM tasks WHERE project_id = ? AND source = ? AND (is_deleted = 0 OR is_deleted IS NULL)'

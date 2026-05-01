@@ -60,7 +60,13 @@ describe('syncProjectSource — prep trigger', () => {
 
     expect(pt).toHaveBeenCalledTimes(1)
     expect(pt.mock.calls[0][0]).toBe(db)
-    expect(typeof pt.mock.calls[0][1]).toBe('string')
+    // Pin: the second arg must be the id of the just-created task row,
+    // not some other id. Closes the gap where prep would fire for the
+    // wrong task and the test would still pass on `typeof === 'string'`.
+    const created = db.prepare(
+      `SELECT id FROM tasks WHERE project_id = ? AND source = 'jira' AND source_id = 'JIRA-1'`,
+    ).get(projectId) as { id: string }
+    expect(pt.mock.calls[0][1]).toBe(created.id)
   })
 
   it('fires prepareTask when title changes on an existing task', async () => {
