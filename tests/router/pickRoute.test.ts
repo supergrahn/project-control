@@ -104,6 +104,7 @@ describe('pickRoute', () => {
     )
     expect(breakdown.considered[0].providerId).toBe('a-claude')
     expect(breakdown.considered[1].providerId).toBe('b-claude')
+    expect(decision.picked_provider).toBe('a-claude')
   })
 
   it('observed routing_scores can flip the cold-start ranking', async () => {

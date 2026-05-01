@@ -6,6 +6,8 @@ import { classifyComplexity } from './classify'
 import type { Complexity, RoutingDecision, ScoreBreakdown, SessionPhase } from './types'
 
 export type PickRouteOpts = {
+  // Caller-provided handle for analytics / future routing-policy use; routing_decisions
+  // joins to project via the session, so this column isn't read here today.
   projectId: string
   sessionId: string
   taskId?: string
@@ -14,6 +16,8 @@ export type PickRouteOpts = {
 
 type ScoreRow = { provider_id: string; n_outcomes: number; success_rate: number }
 
+// Returns at most one row per provider_id because routing_scores PRIMARY KEY is
+// (phase, complexity, provider_id) — safe to use a Map keyed by provider_id.
 function loadScores(db: Database, phase: SessionPhase, complexity: Complexity): Map<string, ScoreRow> {
   const rows = db
     .prepare('SELECT provider_id, n_outcomes, success_rate FROM routing_scores WHERE phase = ? AND complexity = ?')
