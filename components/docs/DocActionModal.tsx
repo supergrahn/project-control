@@ -97,7 +97,7 @@ export function DocActionModal({ open, projectId, phase, sourceFile, sourceName,
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-[2200]"
+      className="fixed inset-0 bg-bg-overlay flex items-center justify-center z-50"
       onMouseDown={onClose}
     >
       <div
@@ -127,8 +127,9 @@ export function DocActionModal({ open, projectId, phase, sourceFile, sourceName,
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={5}
+            autoFocus
             aria-label="Prompt"
-            className="w-full bg-bg-secondary border border-border-default rounded-[6px] px-2.5 py-2 text-text-primary text-[13px] resize-y box-border"
+            className="w-full bg-bg-secondary border border-border-default rounded-[6px] px-2.5 py-2 text-text-primary text-[13px] resize-y"
           />
 
           {error && (

@@ -59,7 +59,7 @@ const NO_SELECTION_PATH = '__none__'
 
 export default function DocsPage() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data, isLoading, isError, refetch } = useDocsTree(projectId)
+  const { data, isLoading, isError } = useDocsTree(projectId)
   const [selected, setSelected] = useState<DocsTreeNode | null>(null)
   const [actionPhase, setActionPhase] = useState<DocActionPhase | null>(null)
 
@@ -175,7 +175,7 @@ export default function DocsPage() {
           sourceFile={selected.relativePath}
           sourceName={selected.name}
           onClose={() => setActionPhase(null)}
-          onStarted={() => { void refetch() }}
+          onStarted={() => setActionPhase(null)}
         />
       )}
     </div>
