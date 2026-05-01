@@ -1,8 +1,8 @@
 export * from './types'
 export * from './defaults'
 export * from './prompts'
+export { score } from './scoring'
 // Re-exports added in later tasks:
-// export { score } from './scoring'
 // export { localComplete } from './localComplete'
 // export { classifyComplexity } from './classify'
 // export { pickRoute } from './pickRoute'
