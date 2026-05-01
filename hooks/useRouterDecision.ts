@@ -1,5 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 
+// Decisions written by pickRoute include the full breakdown and considered list.
+// Decisions written by the manual_retry endpoint
+// (POST /api/sessions/:id/restart-with-route) only carry `{ source, providerId }`,
+// so all the auto-router fields are optional from a consumer's perspective.
 export type RouterDecisionResponse = {
   decision: {
     id: string
@@ -7,12 +11,14 @@ export type RouterDecisionResponse = {
     phase: string
     complexity: string
     score_breakdown: {
-      suitability: number
-      cost: number
-      success_rate_blended: number
-      n_observed: number
-      total: number
-      considered: Array<{ providerId: string; providerName: string; score: number }>
+      suitability?: number
+      cost?: number
+      success_rate_blended?: number
+      n_observed?: number
+      total?: number
+      considered?: Array<{ providerId: string; providerName: string; score: number }>
+      source?: 'auto' | 'manual_retry'
+      providerId?: string
     }
   } | null
 }

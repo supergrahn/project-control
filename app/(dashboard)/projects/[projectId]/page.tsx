@@ -31,9 +31,11 @@ export default function DashboardPage() {
         <div className="mb-8">
           <div className="flex items-center gap-2.5 mb-3.5">
             <div className="text-text-secondary text-xs font-semibold uppercase tracking-wide">Live Sessions</div>
-            {activeSessions.length > 0 && (
+            {/* Count only truly running sessions in the green chip — needs_route_retry
+                rows are surfaced as cards but shouldn't inflate the "Live" total. */}
+            {activeSessions.filter(s => s.status === 'active').length > 0 && (
               <span className="bg-accent-green text-white rounded-pill py-0.25 px-1.75 text-xs font-semibold">
-                {activeSessions.length}
+                {activeSessions.filter(s => s.status === 'active').length}
               </span>
             )}
           </div>

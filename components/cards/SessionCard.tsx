@@ -68,7 +68,7 @@ export function SessionCard({ session, onOpen, onStop }: Props) {
             <span className="text-accent-green text-xs font-semibold uppercase tracking-wide">Active</span>
           </>
         )}
-        {considered && considered.length > 0 && (
+        {decision && considered && considered.length > 0 && (
           <div className="relative group">
             <span className="text-[10px] uppercase tracking-wider text-text-faint border border-border-default rounded px-1.5 py-0.5">
               via router
@@ -79,7 +79,7 @@ export function SessionCard({ session, onOpen, onStop }: Props) {
                 {considered.map((r) => (
                   <li
                     key={r.providerId}
-                    className={r.providerId === decision!.picked_provider ? 'font-semibold text-accent-blue' : ''}
+                    className={r.providerId === decision.picked_provider ? 'font-semibold text-accent-blue' : ''}
                   >
                     {r.providerName} <span className="text-text-muted">{r.score.toFixed(2)}</span>
                   </li>

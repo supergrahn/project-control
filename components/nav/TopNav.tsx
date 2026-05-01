@@ -40,7 +40,10 @@ export function TopNav({ onAssistantToggle, isAssistantOpen, onDrawerToggle, isD
   const unreadCount = notifData?.unreadCount ?? 0
   const { windows, toggleAll } = useSessionWindows()
   const { data: activeSessions = [] } = useSessions({ status: 'active' })
-  const activeCount = activeSessions.length
+  // The list endpoint returns sessions in needs_route_retry too (so the UI can
+  // surface the failure card) — exclude them from the green "live" badge so
+  // stuck sessions don't masquerade as healthy ones.
+  const activeCount = activeSessions.filter((s) => s.status === 'active').length
 
   useEffect(() => {
     if (!showNotifs) return

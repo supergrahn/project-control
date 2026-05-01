@@ -84,7 +84,7 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
             </div>
             <div className="text-text-muted text-xs mt-0.5 flex items-center gap-1.5">
               <span>{session.phase}</span>
-              {considered && considered.length > 0 && (
+              {decision && considered && considered.length > 0 && (
                 <div className="relative group">
                   <span className="text-[10px] uppercase tracking-wider text-text-faint border border-border-default rounded px-1.5 py-0.5">
                     via router
@@ -95,7 +95,7 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
                       {considered.map((r) => (
                         <li
                           key={r.providerId}
-                          className={r.providerId === decision!.picked_provider ? 'font-semibold text-accent-blue' : ''}
+                          className={r.providerId === decision.picked_provider ? 'font-semibold text-accent-blue' : ''}
                         >
                           {r.providerName} <span className="text-text-muted">{r.score.toFixed(2)}</span>
                         </li>

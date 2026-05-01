@@ -170,7 +170,7 @@ describe('SessionAgentCard — router integration', () => {
     }
     vi.mocked(useRouterDecision).mockReturnValueOnce({
       data: { decision: manual },
-    } as unknown as ReturnType<typeof useRouterDecision>)
+    } as ReturnType<typeof useRouterDecision>)
     render(
       <SessionAgentCard session={mockSession} feedEntries={[]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
       { wrapper }
