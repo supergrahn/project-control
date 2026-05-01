@@ -15,9 +15,16 @@ interface Props {
   tasks: ExternalTask[]
   onClose: () => void
   onNavigate: (task: ExternalTask) => void
+  /**
+   * Optional: invoked after a successful POST to /api/tasks/:id/prepare.
+   * Parents wire this to their SWR `mutate` (or equivalent) so the drawer
+   * picks up the freshly written prep_status without waiting for the next
+   * background revalidation.
+   */
+  onPrepStarted?: () => void
 }
 
-export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: Props) {
+export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate, onPrepStarted }: Props) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => { closeButtonRef.current?.focus() }, [])
 
@@ -116,6 +123,116 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
               <p className="text-sm text-text-muted italic">No description</p>
             )}
           </div>
+
+          {/* Prep panel */}
+          {(() => {
+            const status = task.prep_status ?? null
+            const onPrepare = async () => {
+              await fetch(`/api/tasks/${encodeURIComponent(task.id)}/prepare`, { method: 'POST' })
+              onPrepStarted?.()
+            }
+
+            if (status === null) {
+              return (
+                <div className="mt-4 p-3 rounded-[8px] bg-bg-secondary border border-border-default">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-primary text-sm font-semibold">🔮 Prep</span>
+                    <span className="text-text-muted text-xs">Not yet prepped</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onPrepare}
+                    className="text-sm bg-bg-tertiary hover:bg-bg-elevated text-text-primary border border-border-default rounded-[6px] px-3 py-1"
+                  >
+                    Prepare now
+                  </button>
+                </div>
+              )
+            }
+
+            if (status === 'prepping') {
+              return (
+                <div className="mt-4 p-3 rounded-[8px] bg-bg-secondary border border-border-default">
+                  <span className="text-text-primary text-sm font-semibold">🔮 Prep</span>
+                  <div className="text-text-muted text-xs mt-2">Working — this usually takes 5-15 seconds.</div>
+                </div>
+              )
+            }
+
+            if (status === 'failed') {
+              return (
+                <div className="mt-4 p-3 rounded-[8px] bg-bg-secondary border border-border-default">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-text-primary text-sm font-semibold">🔮 Prep</span>
+                    <span className="text-accent-red text-xs">Failed</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onPrepare}
+                    className="text-sm bg-bg-tertiary hover:bg-bg-elevated text-text-primary border border-border-default rounded-[6px] px-3 py-1"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )
+            }
+
+            // status === 'ready'
+            let notes: {
+              summary: string; intent: string
+              files: Array<{ path: string; why: string }>
+              open_questions: string[]
+              generated_at: string; model: string
+            } | null = null
+            try { if (task.prep_notes) notes = JSON.parse(task.prep_notes) } catch {}
+            if (!notes) return null
+
+            return (
+              <div className="mt-4 p-3 rounded-[8px] bg-bg-secondary border border-border-default">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-text-primary text-sm font-semibold">🔮 Prep</span>
+                  <span className="text-accent-green text-xs">Ready</span>
+                </div>
+                <p className="text-text-primary text-sm mb-2">{notes.summary}</p>
+                {notes.intent && (
+                  <p className="text-text-secondary text-xs mb-3"><strong>Intent:</strong> {notes.intent}</p>
+                )}
+                {notes.files.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Likely-relevant files</div>
+                    <ul className="space-y-1">
+                      {notes.files.map((f) => (
+                        <li key={f.path} className="text-xs">
+                          <code className="font-mono text-text-primary cursor-pointer" onClick={() => navigator.clipboard?.writeText(f.path)}>
+                            {f.path}
+                          </code>
+                          {f.why && <span className="text-text-muted ml-2">— {f.why}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {notes.open_questions.length > 0 && (
+                  <div className="mb-3">
+                    <div className="text-text-muted text-[11px] uppercase tracking-wide mb-1">Open questions</div>
+                    <ul className="list-disc list-inside text-xs text-text-primary space-y-0.5">
+                      {notes.open_questions.map((q, i) => (<li key={i}>{q}</li>))}
+                    </ul>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-[11px] text-text-muted">
+                  <span>Prepped {task.prepped_at ? relativeTime(task.prepped_at) : '—'} by {notes.model}</span>
+                  <button
+                    type="button"
+                    onClick={onPrepare}
+                    className="bg-transparent border border-border-default rounded px-2 py-0.5 text-text-secondary hover:text-text-primary"
+                  >
+                    Re-prep
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-3 text-xs">

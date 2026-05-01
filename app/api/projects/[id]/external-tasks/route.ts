@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db'
 import { listTaskSourceConfigs } from '@/lib/db/taskSourceConfig'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import type { ExternalTask, ExternalTaskStatus, ExternalTaskPriority } from '@/lib/types/externalTask'
+import type { TaskPrepStatus } from '@/lib/db/tasks'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,6 +75,34 @@ export async function GET(
     } else {
       errors.push(`${name}: ${(result as PromiseRejectedResult).reason?.message ?? 'Unknown error'}`)
     }
+  }
+
+  // Bridge live-fetched ExternalTasks with prep state stored on the synced
+  // tasks table row. One DB read per request, then a Map lookup per task.
+  type PrepRow = {
+    source: string
+    source_id: string
+    prep_notes: string | null
+    prep_status: TaskPrepStatus | null
+    prepped_at: string | null
+  }
+  const prepRows = db.prepare(
+    `SELECT source, source_id, prep_notes, prep_status, prepped_at
+       FROM tasks WHERE project_id = ? AND is_deleted = 0 AND source IS NOT NULL`,
+  ).all(projectId) as PrepRow[]
+  const prepBySource = new Map<string, { prep_notes: string | null; prep_status: PrepRow['prep_status']; prepped_at: string | null }>()
+  for (const r of prepRows) {
+    prepBySource.set(`${r.source}:${r.source_id}`, {
+      prep_notes: r.prep_notes,
+      prep_status: r.prep_status,
+      prepped_at: r.prepped_at,
+    })
+  }
+  for (const t of tasks) {
+    const prep = prepBySource.get(`${t.source}:${t.id}`)
+    t.prep_notes = prep?.prep_notes ?? null
+    t.prep_status = prep?.prep_status ?? null
+    t.prepped_at = prep?.prepped_at ?? null
   }
 
   return NextResponse.json({ tasks, errors })

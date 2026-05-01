@@ -436,6 +436,7 @@ export function ExternalTaskDashboard() {
           tasks={flatTasks}
           onClose={() => setSelectedKey(null)}
           onNavigate={t => setSelectedKey({ source: t.source, id: t.id })}
+          onPrepStarted={() => mutate()}
         />
       )}
     </div>

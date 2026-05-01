@@ -3,7 +3,25 @@ import { useParams } from 'next/navigation'
 import useSWR from 'swr'
 import { useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import type { Components } from 'react-markdown'
 import { fetcher } from '@/lib/fetcher'
+
+const prepMarkdownComponents: Components = {
+  h2: ({ children }) => <h2 className="text-[13px] font-semibold text-text-primary mt-3 mb-1.5">{children}</h2>,
+  h3: ({ children }) => <h3 className="text-[12px] font-semibold text-text-primary mt-2 mb-1">{children}</h3>,
+  p: ({ children }) => <p className="text-[13px] text-text-secondary leading-relaxed mb-2">{children}</p>,
+  ul: ({ children }) => <ul className="mb-2 space-y-0.5 pl-4 list-disc marker:text-text-faint">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 space-y-0.5 pl-4 list-decimal marker:text-text-muted">{children}</ol>,
+  li: ({ children }) => <li className="text-[13px] text-text-secondary leading-relaxed">{children}</li>,
+  strong: ({ children }) => <strong className="text-text-primary font-semibold">{children}</strong>,
+  code: ({ className, children }) => className?.startsWith('language-')
+    ? <code className={`${className} text-[12px] leading-relaxed`}>{children}</code>
+    : <code className="text-[12px] font-mono bg-bg-secondary text-accent-blue rounded px-1 py-0.5 border border-border-strong">{children}</code>,
+  pre: ({ children }) => <pre className="my-2 rounded-md bg-[#0d1117] border border-border-default p-3 overflow-x-auto text-[12px] leading-relaxed">{children}</pre>,
+  a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent-blue hover:underline">{children}</a>,
+}
 
 type InboxComment = {
   id: string
@@ -121,9 +139,15 @@ export default function InboxPage() {
                 <div className="flex-1 min-w-0">
                   {/* Header row */}
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className={`text-[11px] px-2 py-0.5 rounded border ${SOURCE_COLORS[comment.source] ?? 'bg-bg-secondary text-text-muted border-border-default'}`}>
-                      {SOURCE_LABELS[comment.source] ?? comment.source}
-                    </span>
+                    {comment.author === 'prep-bot' ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded border bg-violet-500/15 text-violet-400 border-violet-500/20">
+                        🔮 Prepped
+                      </span>
+                    ) : (
+                      <span className={`text-[11px] px-2 py-0.5 rounded border ${SOURCE_COLORS[comment.source] ?? 'bg-bg-secondary text-text-muted border-border-default'}`}>
+                        {SOURCE_LABELS[comment.source] ?? comment.source}
+                      </span>
+                    )}
                     {comment.task_title && (
                       comment.source_url ? (
                         <a
@@ -155,9 +179,17 @@ export default function InboxPage() {
                   </div>
 
                   {/* Body */}
-                  <p className="text-[13px] text-text-secondary whitespace-pre-wrap leading-relaxed">
-                    {displayBody}
-                  </p>
+                  {comment.author === 'prep-bot' ? (
+                    <div className="text-[13px] text-text-secondary leading-relaxed">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={prepMarkdownComponents}>
+                        {displayBody}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-text-secondary whitespace-pre-wrap leading-relaxed">
+                      {displayBody}
+                    </p>
+                  )}
                   {isLong && (
                     <button
                       onClick={() => toggleExpand(comment.id)}

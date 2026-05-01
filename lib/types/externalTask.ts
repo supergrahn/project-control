@@ -1,3 +1,5 @@
+import type { TaskPrepStatus } from '@/lib/db/tasks'
+
 export type ExternalTaskSource = 'jira' | 'monday' | 'donedone' | 'github'
 /**
  * Status values for external (synced) tasks as displayed in the UI.
@@ -25,4 +27,7 @@ export type ExternalTask = {
   createdAt: string | null
   updatedAt: string | null
   meta: Record<string, unknown>
+  prep_notes?: string | null         // JSON-serialized PrepNotes; consumer parses
+  prep_status?: TaskPrepStatus | null
+  prepped_at?: string | null
 }

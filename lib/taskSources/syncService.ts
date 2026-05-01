@@ -4,12 +4,35 @@ import { getTaskSourceConfig, listTaskSourceConfigs } from '@/lib/db/taskSourceC
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import { createTask, updateTask } from '@/lib/db/tasks'
 import type { Task } from '@/lib/db/tasks'
+import { prepareTask } from '@/lib/prep/prepareTask'
 
 export type SyncResult = {
   created: number
   updated: number
   deleted: number
   error?: string
+}
+
+// Limit concurrent prepareTask invocations after a sync. A bulk sync of 50
+// tasks would otherwise fan out 50 concurrent localComplete (LLM) calls,
+// which a local single-process Ollama/llama.cpp server cannot service in
+// parallel. Concurrency 2 keeps the local provider busy without thrashing.
+async function runWithConcurrency(
+  tasks: Array<() => Promise<void>>,
+  limit: number,
+): Promise<void> {
+  let i = 0
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (i < tasks.length) {
+      const myIdx = i++
+      try {
+        await tasks[myIdx]()
+      } catch {
+        // swallowed; prepareTask handles its own failures and writes status='failed'
+      }
+    }
+  })
+  await Promise.all(workers)
 }
 
 export async function syncProjectSource(
@@ -25,6 +48,10 @@ export async function syncProjectSource(
   try {
     const externalTasks = await adapter.fetchTasks(config.config, config.resource_ids)
 
+    // Collect task ids that need prepping during the transaction; fire the
+    // actual prepareTask calls AFTER the tx commits, throttled via
+    // runWithConcurrency so a bulk sync doesn't stampede the local LLM.
+    const idsToPrep: string[] = []
     const { created, updated, deleted } = db.transaction(() => {
       const existingTasks = db.prepare(
         'SELECT * FROM tasks WHERE project_id = ? AND source = ? AND (is_deleted = 0 OR is_deleted IS NULL)'
@@ -43,6 +70,8 @@ export async function syncProjectSource(
         const mappedPriority = adapter.mapPriority(ext.priority)
 
         if (existing) {
+          const titleChanged = existing.title !== ext.title
+          const descChanged = (existing.idea_file ?? '') !== (ext.description ?? '')
           updateTask(db, existing.id, {
             title: ext.title,
             priority: mappedPriority,
@@ -52,6 +81,9 @@ export async function syncProjectSource(
             source_meta: JSON.stringify(ext.meta),
             status: mappedStatus,
           })
+          if (titleChanged || descChanged) {
+            idsToPrep.push(existing.id)
+          }
           updated++
         } else {
           const softDeleted = db.prepare(
@@ -69,6 +101,7 @@ export async function syncProjectSource(
               source_meta: JSON.stringify(ext.meta),
               idea_file: ext.description,
             })
+            idsToPrep.push(softDeleted.id)
             updated++
           } else {
             const task = createTask(db, {
@@ -86,6 +119,7 @@ export async function syncProjectSource(
               idea_file: ext.description,
               status: mappedStatus,
             })
+            idsToPrep.push(task.id)
             created++
           }
         }
@@ -140,6 +174,16 @@ export async function syncProjectSource(
 
       return { created, updated, deleted }
     })()
+
+    // Fire-and-forget: keep sync return prompt while throttling LLM fanout.
+    // prepareTask owns its own status writes and recency guard, so workers
+    // running after the tx commit is the documented contract.
+    if (idsToPrep.length > 0) {
+      void runWithConcurrency(
+        idsToPrep.map((id) => () => prepareTask(db, id)),
+        2,
+      )
+    }
 
     return { created, updated, deleted }
   } catch (err: any) {

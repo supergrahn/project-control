@@ -19,6 +19,16 @@ function parseConfig(provider: Provider): ParsedConfig {
   }
 }
 
+/**
+ * Return the model identifier that `localComplete` will use for this provider.
+ * Useful for surfacing the real model name in PrepNotes / telemetry without
+ * forcing every caller of `localComplete` to also unpack the response shape.
+ */
+export function getLocalModelName(provider: Provider): string {
+  const cfg = parseConfig(provider)
+  return cfg.model ?? DEFAULT_MODEL
+}
+
 export async function localComplete(
   provider: Provider,
   prompt: string,

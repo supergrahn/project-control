@@ -14,6 +14,7 @@ import { GET } from '@/app/api/projects/[id]/external-tasks/route'
 import { NextRequest } from 'next/server'
 import { getDb } from '@/lib/db'
 import { upsertTaskSourceConfig, toggleTaskSourceActive } from '@/lib/db/taskSourceConfig'
+import { createTask, updateTask, setTaskPrep } from '@/lib/db/tasks'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 
 const p = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -30,6 +31,8 @@ function seedConfig(projectId: string, adapterKey: string, isActive = true) {
 
 beforeEach(() => {
   getDb().prepare('DELETE FROM task_source_config').run()
+  getDb().prepare('DELETE FROM tasks').run()
+  getDb().prepare('DELETE FROM projects').run()
   vi.clearAllMocks()
 })
 
@@ -265,5 +268,75 @@ describe('GET /api/projects/[id]/external-tasks', () => {
     expect(task.dueDate).toBe('2026-06-01')
     expect(task.createdAt).toBe('2026-01-01')
     expect(task.updatedAt).toBe('2026-03-01')
+  })
+
+  it('merges prep_notes/prep_status/prepped_at from the synced tasks table onto each ExternalTask', async () => {
+    const projectId = 'proj-prep-merge'
+    const db = getDb()
+    db.prepare('INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)')
+      .run(projectId, 'Prep Merge', '/tmp/prep-merge', '2026-01-01')
+    seedConfig(projectId, 'jira')
+
+    // Insert a synced task row mirroring what the sync service would write,
+    // then attach prep state to it.
+    createTask(db, { id: 'task-1', projectId, title: 'Fix the thing' })
+    updateTask(db, 'task-1', { source: 'jira', source_id: 'JIRA-1' })
+    setTaskPrep(db, 'task-1', {
+      status: 'ready',
+      notes: '{"summary":"s"}',
+      prepped_at: '2026-05-01T00:00:00Z',
+    })
+
+    // Also insert a synced task with no prep state to confirm null fallback.
+    createTask(db, { id: 'task-2', projectId, title: 'Another' })
+    updateTask(db, 'task-2', { source: 'jira', source_id: 'JIRA-2' })
+
+    vi.mocked(getTaskSourceAdapter).mockReturnValue({
+      key: 'jira',
+      name: 'Jira',
+      configFields: [],
+      resourceSelectionLabel: 'Projects',
+      fetchAvailableResources: vi.fn(),
+      fetchTasks: vi.fn().mockResolvedValue([
+        {
+          sourceId: 'JIRA-1',
+          title: 'Fix the thing',
+          description: null,
+          status: 'open',
+          priority: null,
+          url: 'https://example.atlassian.net/browse/JIRA-1',
+          labels: [],
+          assignees: [],
+          meta: {},
+        },
+        {
+          sourceId: 'JIRA-2',
+          title: 'Another',
+          description: null,
+          status: 'open',
+          priority: null,
+          url: 'https://example.atlassian.net/browse/JIRA-2',
+          labels: [],
+          assignees: [],
+          meta: {},
+        },
+      ]),
+      mapStatus: vi.fn().mockReturnValue('todo'),
+      mapPriority: vi.fn(),
+    })
+
+    const res = await GET(req(projectId), p(projectId))
+    const body = await res.json()
+
+    expect(body.tasks).toHaveLength(2)
+    const t1 = body.tasks.find((t: { id: string }) => t.id === 'JIRA-1')
+    expect(t1.prep_status).toBe('ready')
+    expect(t1.prep_notes).toBe('{"summary":"s"}')
+    expect(t1.prepped_at).toBe('2026-05-01T00:00:00Z')
+
+    const t2 = body.tasks.find((t: { id: string }) => t.id === 'JIRA-2')
+    expect(t2.prep_status).toBeNull()
+    expect(t2.prep_notes).toBeNull()
+    expect(t2.prepped_at).toBeNull()
   })
 })
