@@ -52,15 +52,18 @@ export async function resolveProvider(db: Database, opts: ResolveProviderOpts): 
     if (p && p.is_active === 1) return p
   }
 
-  // 4. Smart router replaces the static "first active" fallback.
+  // 4. Smart router runs when a sessionId is available; otherwise we still
+  // fall back to first-active for callers that cannot persist a decision row.
   if (!opts.sessionId) {
     // No sessionId means the caller cannot persist a decision (e.g. an early
-    // exploratory call with no session yet). Fall back to first-active so we
-    // never break those paths.
+    // exploratory call with no session yet). Fall back to first-active.
     const active = getActiveProviders(db)
     if (active.length > 0) return active[0]
     throw new Error('NO_PROVIDERS_CONFIGURED')
   }
+  // Dynamic import is defensive — there is no circular dep today, but
+  // pickRoute calls into router internals that could grow a session-side
+  // import in future. The cost amortizes to a Map lookup after first call.
   const { pickRoute } = await import('@/lib/router')
   const decision = await pickRoute(db, {
     projectId: opts.projectId,
@@ -69,6 +72,10 @@ export async function resolveProvider(db: Database, opts: ResolveProviderOpts): 
     phase: opts.phase,
   })
   const picked = getProvider(db, decision.picked_provider)
-  if (!picked) throw new Error('NO_PROVIDERS_CONFIGURED')
+  if (!picked) {
+    // Distinct from NO_PROVIDERS_CONFIGURED: pickRoute selected from active
+    // providers, but the row vanished or was deactivated between then and now.
+    throw new Error('ROUTER_PICKED_UNKNOWN_PROVIDER')
+  }
   return picked
 }

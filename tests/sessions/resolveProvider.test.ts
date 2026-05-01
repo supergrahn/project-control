@@ -9,7 +9,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
 
 import { getDb, createProject, createSession } from '@/lib/db'
 import { createProvider } from '@/lib/db/providers'
-import { createTask, updateTask } from '@/lib/db/tasks'
+import { createTask, setTaskComplexity, updateTask } from '@/lib/db/tasks'
 import { resolveProvider } from '@/lib/sessions/resolveProvider'
 
 beforeEach(() => {
@@ -31,7 +31,7 @@ describe('resolveProvider', () => {
     createProvider(db, { id: 'p-other',  name: 'Y', type: 'codex',  command: 'c', config: null })
     const taskId = randomUUID()
     createTask(db, { id: taskId, projectId, title: 'T' })
-    updateTask(db, taskId, { provider_id: 'p-pinned' } as any)
+    updateTask(db, taskId, { provider_id: 'p-pinned' })
     const sessionId = randomUUID()
     createSession(db, { id: sessionId, projectId, label: 'L', phase: 'develop', sourceFile: null })
 
@@ -68,5 +68,23 @@ describe('resolveProvider', () => {
     expect(provider.id).toBe('p-codex')
     const decisions = db.prepare('SELECT COUNT(*) AS c FROM routing_decisions').get() as { c: number }
     expect(decisions.c).toBe(1)
+  })
+
+  it('forwards taskId so the persisted decision references the task and reflects its complexity', async () => {
+    const db = getDb()
+    const projectId = createProject(db, { name: 'P', path: '/tmp/p4' })
+    createProvider(db, { id: 'p-claude', name: 'claude', type: 'claude', command: 'c', config: null })
+    const taskId = randomUUID()
+    createTask(db, { id: taskId, projectId, title: 'T' })
+    setTaskComplexity(db, taskId, 'hard', false)
+    const sessionId = randomUUID()
+    createSession(db, { id: sessionId, projectId, label: 'L', phase: 'plan', sourceFile: null })
+
+    await resolveProvider(db, { projectId, taskId, phase: 'plan', sessionId })
+    const row = db
+      .prepare('SELECT task_id, complexity FROM routing_decisions WHERE session_id = ?')
+      .get(sessionId) as { task_id: string; complexity: string }
+    expect(row.task_id).toBe(taskId)
+    expect(row.complexity).toBe('hard')
   })
 })
