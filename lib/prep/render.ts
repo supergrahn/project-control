@@ -19,7 +19,11 @@ export function renderPrepAsMarkdown(notes: PrepNotes): string {
     lines.push('')
     lines.push('**Likely-relevant files:**')
     for (const f of notes.files) {
-      lines.push(`- \`${f.path}\` — ${f.why}`)
+      // Drop the trailing " — <why>" suffix when `why` is empty so the
+      // rendered bullet doesn't end with a dangling em-dash.
+      lines.push(f.why && f.why.trim()
+        ? `- \`${f.path}\` — ${f.why}`
+        : `- \`${f.path}\``)
     }
   }
 

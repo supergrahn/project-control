@@ -9,6 +9,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
 
 vi.mock('@/lib/router/localComplete', () => ({
   localComplete: vi.fn(),
+  getLocalModelName: vi.fn(() => 'qwen-3.6:9b'),
 }))
 
 vi.mock('@/lib/prep/findFiles', () => ({

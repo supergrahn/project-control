@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { getProject } from '@/lib/db'
 import { getTask, setTaskPrep } from '@/lib/db/tasks'
 import { getDefaultLocalProvider } from '@/lib/db/providers'
-import { localComplete } from '@/lib/router/localComplete'
+import { localComplete, getLocalModelName } from '@/lib/router/localComplete'
 import { findRelevantFiles } from './findFiles'
 import { renderPrepAsMarkdown } from './render'
 import { PREP_PROMPT } from './prompts'
@@ -67,12 +67,14 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
 
   const local = getDefaultLocalProvider(db)
   if (!local) {
+    console.warn(`prep: no default local provider configured for task ${taskId}`)
     setTaskPrep(db, taskId, { status: 'failed', prepped_at: new Date().toISOString() })
     return
   }
 
   const project = getProject(db, task.project_id)
   if (!project) {
+    console.warn(`prep: project ${task.project_id} not found for task ${taskId}`)
     setTaskPrep(db, taskId, { status: 'failed', prepped_at: new Date().toISOString() })
     return
   }
@@ -83,12 +85,14 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
   let mainRaw: string
   try {
     mainRaw = await localComplete(local, prepPrompt, { maxTokens: 600, timeoutMs: 12000 })
-  } catch {
+  } catch (err) {
+    console.warn(`prep: localComplete failed for task ${taskId}:`, err)
     setTaskPrep(db, taskId, { status: 'failed', prepped_at: new Date().toISOString() })
     return
   }
   const mainParsed = parseRawPrep(mainRaw)
   if (!mainParsed) {
+    console.warn(`prep: failed to parse LLM response as JSON for task ${taskId}; raw output:`, mainRaw.slice(0, 200))
     setTaskPrep(db, taskId, { status: 'failed', prepped_at: new Date().toISOString() })
     return
   }
@@ -99,7 +103,8 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
   let files: PrepFileEntry[]
   try {
     files = await findRelevantFiles(project.path, local, { title: task.title, description })
-  } catch {
+  } catch (err) {
+    console.warn(`prep: findRelevantFiles failed for task ${taskId}:`, err)
     files = []
   }
 
@@ -109,7 +114,7 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
     files,
     open_questions: mainParsed.open_questions,
     generated_at: new Date().toISOString(),
-    model: 'local',
+    model: getLocalModelName(local),
   }
   setTaskPrep(db, taskId, {
     status: 'ready',

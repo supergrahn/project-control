@@ -3,6 +3,7 @@ import { getDb } from '@/lib/db'
 import { listTaskSourceConfigs } from '@/lib/db/taskSourceConfig'
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import type { ExternalTask, ExternalTaskStatus, ExternalTaskPriority } from '@/lib/types/externalTask'
+import type { TaskPrepStatus } from '@/lib/db/tasks'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,7 +83,7 @@ export async function GET(
     source: string
     source_id: string
     prep_notes: string | null
-    prep_status: 'prepping' | 'ready' | 'failed' | null
+    prep_status: TaskPrepStatus | null
     prepped_at: string | null
   }
   const prepRows = db.prepare(

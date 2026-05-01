@@ -37,11 +37,15 @@ async function extractKeywords(provider: Provider, input: FindFilesInput): Promi
   let raw: string
   try {
     raw = await localComplete(provider, prompt, { maxTokens: 200, timeoutMs: 8000 })
-  } catch {
+  } catch (err) {
+    console.warn('prep findFiles: keyword extraction localComplete failed:', err)
     return []
   }
   const parsed = parseJsonArray(raw)
-  if (!parsed) return []
+  if (!parsed) {
+    console.warn('prep findFiles: keyword extraction returned non-JSON-array output:', raw.slice(0, 200))
+    return []
+  }
   return parsed
     .filter((s): s is string => typeof s === 'string')
     .map((s) => s.trim().toLowerCase())
@@ -77,11 +81,15 @@ function runRipgrep(projectPath: string, keywords: string[]): Promise<string[]> 
     // Kill the subprocess if rg hangs (corrupt fs, NFS stall, etc.) so the
     // outer prepareTask never sits indefinitely with prep_status='prepping'.
     const killer = setTimeout(() => {
+      console.warn(`prep findFiles: ripgrep timed out after ${RIPGREP_TIMEOUT_MS}ms`)
       try { proc.kill('SIGKILL') } catch {}
       finish([])
     }, RIPGREP_TIMEOUT_MS)
     proc.stdout?.on('data', (d) => { stdout += d.toString() })
-    proc.on('error', () => finish([]))
+    proc.on('error', (err) => {
+      console.warn('prep findFiles: ripgrep spawn failed:', err)
+      finish([])
+    })
     proc.on('close', () => {
       const paths = stdout
         .split('\n')
@@ -126,11 +134,15 @@ async function rerank(
   let raw: string
   try {
     raw = await localComplete(provider, prompt, { maxTokens: 600, timeoutMs: 12000 })
-  } catch {
+  } catch (err) {
+    console.warn('prep findFiles: rerank localComplete failed:', err)
     return []
   }
   const parsed = parseJsonArray(raw)
-  if (!parsed) return []
+  if (!parsed) {
+    console.warn('prep findFiles: rerank returned non-JSON-array output:', raw.slice(0, 200))
+    return []
+  }
   return parsed
     .filter((e): e is { path: string; why: string } =>
       !!e && typeof e === 'object' &&

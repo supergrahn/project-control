@@ -15,9 +15,16 @@ interface Props {
   tasks: ExternalTask[]
   onClose: () => void
   onNavigate: (task: ExternalTask) => void
+  /**
+   * Optional: invoked after a successful POST to /api/tasks/:id/prepare.
+   * Parents wire this to their SWR `mutate` (or equivalent) so the drawer
+   * picks up the freshly written prep_status without waiting for the next
+   * background revalidation.
+   */
+  onPrepStarted?: () => void
 }
 
-export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: Props) {
+export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate, onPrepStarted }: Props) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
   useEffect(() => { closeButtonRef.current?.focus() }, [])
 
@@ -122,6 +129,7 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
             const status = task.prep_status ?? null
             const onPrepare = async () => {
               await fetch(`/api/tasks/${encodeURIComponent(task.id)}/prepare`, { method: 'POST' })
+              onPrepStarted?.()
             }
 
             if (status === null) {
@@ -213,7 +221,7 @@ export function ExternalTaskDetailDrawer({ task, tasks, onClose, onNavigate }: P
                   </div>
                 )}
                 <div className="flex items-center justify-between text-[11px] text-text-muted">
-                  <span>Prepped {task.prepped_at} by {notes.model}</span>
+                  <span>Prepped {task.prepped_at ? relativeTime(task.prepped_at) : '—'} by {notes.model}</span>
                   <button
                     type="button"
                     onClick={onPrepare}
