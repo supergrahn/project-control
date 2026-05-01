@@ -46,7 +46,7 @@ function setup(opts: { source?: string | null; sourceId?: string | null } = {}):
     updateTask(db, taskId, {
       source: opts.source ?? 'jira',
       source_id: opts.sourceId ?? 'JIRA-123',
-    } as any)
+    })
   }
   return { taskId, projectId }
 }

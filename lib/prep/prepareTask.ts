@@ -7,7 +7,7 @@ import { localComplete } from '@/lib/router/localComplete'
 import { findRelevantFiles } from './findFiles'
 import { renderPrepAsMarkdown } from './render'
 import { PREP_PROMPT } from './prompts'
-import type { PrepNotes } from './types'
+import type { PrepFileEntry, PrepNotes } from './types'
 
 const RECENT_PREPPING_MS = 60_000
 
@@ -93,7 +93,10 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
     return
   }
 
-  let files
+  // findRelevantFiles is itself exhaustively try/catched internally — this
+  // outer catch is defense-in-depth at the orchestrator boundary, currently
+  // unreachable but kept so a future internal change can't crash prepareTask.
+  let files: PrepFileEntry[]
   try {
     files = await findRelevantFiles(project.path, local, { title: task.title, description })
   } catch {
@@ -114,5 +117,14 @@ export async function prepareTask(db: Database, taskId: string): Promise<void> {
     prepped_at: new Date().toISOString(),
   })
 
-  insertPrepBotComment(db, task, renderPrepAsMarkdown(notes))
+  // Note: the status flip and comment insert are intentionally not transactional.
+  // A crash between them leaves prep-ready notes with no comment row — an
+  // acceptable outcome (user still sees the prep panel) and preferred over
+  // holding a tx across two unrelated tables. Wrap the comment insert so a
+  // task_comments-level failure doesn't undo the orchestrator's success.
+  try {
+    insertPrepBotComment(db, task, renderPrepAsMarkdown(notes))
+  } catch {
+    // best-effort — status is already ready, the comment trail is nice-to-have
+  }
 }
