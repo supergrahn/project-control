@@ -10,13 +10,22 @@ export type RecordOutcomeOpts = {
 type DecisionRow = { phase: string; complexity: string; picked_provider: string }
 type ScoreRow    = { n_outcomes: number; success_rate: number }
 
+// Intentionally non-transactional: a crash between the outcome insert and the
+// score upsert leaves the next outcome to rebuild sumPrev = success_rate × n
+// from the stored row, so the rate self-heals on the next call.
+//
+// The float-sum recovery (sumPrev = success_rate × n_outcomes) is numerically
+// safe at this table's expected scale (n in the thousands). At n in the tens
+// of millions, IEEE-754 drift would start to matter; if that ever ships, store
+// n_success directly and compute the rate on read.
 export function recordOutcome(db: Database, opts: RecordOutcomeOpts): void {
   const { decisionId, outcome } = opts
+  const now = new Date().toISOString()
 
   // Always log the outcome event for analytics.
   db.prepare(
     `INSERT INTO routing_outcomes (id, decision_id, outcome, created_at) VALUES (?, ?, ?, ?)`,
-  ).run(randomUUID(), decisionId, outcome, new Date().toISOString())
+  ).run(randomUUID(), decisionId, outcome, now)
 
   // transient_error is not a quality signal — skip the score update.
   if (outcome === 'transient_error') return
@@ -36,7 +45,6 @@ export function recordOutcome(db: Database, opts: RecordOutcomeOpts): void {
   const newN  = (existing?.n_outcomes ?? 0) + 1
   const sumPrev = (existing?.success_rate ?? 0) * (existing?.n_outcomes ?? 0)
   const newRate = (sumPrev + (isSuccess ? 1 : 0)) / newN
-  const now = new Date().toISOString()
 
   if (existing) {
     db.prepare(
