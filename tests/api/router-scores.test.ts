@@ -30,5 +30,15 @@ describe('GET /api/router/scores', () => {
     const body = await res.json()
     // 'develop' sorts before 'plan' lexicographically, so 'a' comes first.
     expect(body.scores.map((r: { provider_id: string }) => r.provider_id)).toEqual(['a', 'b'])
+    // Lock down the full row shape so a future column rename or projection
+    // change in the SELECT doesn't silently drop a column on the wire.
+    expect(body.scores[0]).toMatchObject({
+      phase: 'develop',
+      complexity: 'normal',
+      provider_id: 'a',
+      n_outcomes: 2,
+      success_rate: 0.7,
+    })
+    expect(typeof body.scores[0].updated_at).toBe('string')
   })
 })

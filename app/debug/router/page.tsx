@@ -1,28 +1,21 @@
 import { notFound } from 'next/navigation'
 import { getDb } from '@/lib/db'
+import { listScores } from '@/lib/router'
 
-type ScoreRow = {
-  phase: string
-  complexity: string
-  provider_id: string
-  n_outcomes: number
-  success_rate: number
-  updated_at: string
-}
+// Always render fresh from the DB — never cache. Without this, Next.js may
+// attempt to statically render at build time, calling getDb() in an
+// environment where the DB doesn't exist.
+export const dynamic = 'force-dynamic'
 
-// Server-side render reads the DB directly via getDb() — no fetch hop to the
-// /api/router/scores endpoint, since we're already on the server. The API
+// Server-side render reads the DB directly via listScores — no fetch hop to
+// the /api/router/scores endpoint, since we're already on the server. The API
 // remains for future client-side consumers. The page is gated behind
 // ENABLE_DEBUG_PAGES so a stray hit in production resolves to a 404 rather
 // than exposing routing internals.
 export default async function DebugRouterPage() {
   if (process.env.ENABLE_DEBUG_PAGES !== '1') notFound()
 
-  const scores = getDb()
-    .prepare(
-      'SELECT phase, complexity, provider_id, n_outcomes, success_rate, updated_at FROM routing_scores ORDER BY phase, complexity, provider_id',
-    )
-    .all() as ScoreRow[]
+  const scores = listScores(getDb())
 
   return (
     <div className="p-6">
