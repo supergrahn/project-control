@@ -19,6 +19,9 @@ vi.mock('@/hooks/useTasks', () => ({
 vi.mock('@/hooks/useOrchestratorFeed', () => ({
   useOrchestratorFeed: vi.fn(() => ({ feed: [] })),
 }))
+vi.mock('@/hooks/useRouterDecision', () => ({
+  useRouterDecision: vi.fn(() => ({ data: { decision: null } })),
+}))
 vi.mock('next/navigation', () => ({
   useParams: () => ({ projectId: 'proj-1' }),
 }))

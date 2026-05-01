@@ -1,6 +1,10 @@
 'use client'
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@/hooks/useSessions'
 import type { FeedEntry } from '@/hooks/useOrchestratorFeed'
+import { useRouterDecision } from '@/hooks/useRouterDecision'
+import { RouteRetryDialog } from '@/components/router/RouteRetryDialog'
 import { PHASE_INITIALS, PHASE_TO_STATUS } from '@/lib/sessionPhaseConfig'
 import { PHASE_CONFIG } from '@/lib/taskPhaseConfig'
 
@@ -44,6 +48,13 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
   const taskStatus = PHASE_TO_STATUS[session.phase] ?? 'developing'
   const phaseStyle = PHASE_CONFIG[taskStatus] ?? PHASE_CONFIG['developing']
 
+  const qc = useQueryClient()
+  const [retryOpen, setRetryOpen] = useState(true)
+  const { data: routerData } = useRouterDecision(session.id)
+  const decision = routerData?.decision ?? null
+  const considered = decision?.score_breakdown?.considered
+  const isAwaitingRetry = session.status === 'needs_route_retry'
+
   const todos = parseTodos(feedEntries)
   const completedCount = todos.filter(t => t.status === 'completed').length
 
@@ -71,7 +82,29 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
             <div className="text-text-primary text-xs font-semibold overflow-hidden text-ellipsis whitespace-nowrap">
               {session.label}
             </div>
-            <div className="text-text-muted text-xs mt-0.5">{session.phase}</div>
+            <div className="text-text-muted text-xs mt-0.5 flex items-center gap-1.5">
+              <span>{session.phase}</span>
+              {considered && considered.length > 0 && (
+                <div className="relative group">
+                  <span className="text-[10px] uppercase tracking-wider text-text-faint border border-border-default rounded px-1.5 py-0.5">
+                    via router
+                  </span>
+                  <div className="absolute hidden group-hover:block z-10 top-full left-0 mt-1 w-64 bg-bg-secondary border border-border-default rounded-[6px] p-2 shadow-lg">
+                    <div className="text-[10px] uppercase text-text-faint mb-1">Considered</div>
+                    <ol className="text-xs text-text-primary space-y-0.5">
+                      {considered.map((r) => (
+                        <li
+                          key={r.providerId}
+                          className={r.providerId === decision!.picked_provider ? 'font-semibold text-accent-blue' : ''}
+                        >
+                          {r.providerName} <span className="text-text-muted">{r.score.toFixed(2)}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.25 flex-shrink-0">
             {isLive && <span className="w-1.5 h-1.5 rounded-full bg-accent-green inline-block" />}
@@ -136,6 +169,20 @@ export function SessionAgentCard({ session, feedEntries, onStop, onOpenTerminal 
           </button>
         )}
       </div>
+      {isAwaitingRetry && decision && considered && retryOpen && (
+        <RouteRetryDialog
+          open
+          sessionId={session.id}
+          errorMessage={session.exit_reason ?? 'Session start failed.'}
+          decision={decision}
+          onClose={() => setRetryOpen(false)}
+          onRetried={() => {
+            setRetryOpen(false)
+            qc.invalidateQueries({ queryKey: ['router-decision', session.id] })
+            qc.invalidateQueries({ queryKey: ['sessions'] })
+          }}
+        />
+      )}
     </div>
   )
 }

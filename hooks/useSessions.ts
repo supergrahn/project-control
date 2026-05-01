@@ -9,6 +9,7 @@ export type Session = {
   status: string
   created_at: string
   ended_at: string | null
+  exit_reason?: string | null
 }
 
 export function useSessions(opts?: { status?: 'active' | 'all'; projectId?: string }) {

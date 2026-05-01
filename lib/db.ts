@@ -518,6 +518,20 @@ export function getActiveSessions(db: Database.Database): Session[] {
   return db.prepare(`SELECT * FROM sessions WHERE status = 'active' ORDER BY created_at DESC`).all() as Session[]
 }
 
+/**
+ * Sessions the user still has "in flight" from their POV: actively running OR
+ * stuck awaiting a manual route retry after an adapter spawn failure. The UI
+ * surfaces these together so a failed-spawn session can show its retry dialog
+ * without disappearing into history.
+ */
+export function getInFlightSessions(db: Database.Database): Session[] {
+  return db
+    .prepare(
+      `SELECT * FROM sessions WHERE status IN ('active', 'needs_route_retry') ORDER BY created_at DESC`,
+    )
+    .all() as Session[]
+}
+
 export function getActiveSessionForFile(db: Database.Database, sourceFile: string): Session | undefined {
   return db.prepare(`SELECT * FROM sessions WHERE source_file = ? AND status = 'active'`).get(sourceFile) as Session | undefined
 }
