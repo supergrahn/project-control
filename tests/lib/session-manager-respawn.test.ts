@@ -54,7 +54,7 @@ describe('spawnSession on adapter throw', () => {
       | undefined
     expect(row).toBeTruthy()
     expect(row?.status).toBe('needs_route_retry')
-    expect(row?.exit_reason).toMatch(/adapter_spawn_failed/)
+    expect(row?.exit_reason).toMatch(/^adapter_spawn_failed: /)
     // Sanity: if spawnSession returned an id, it should match the row.
     if (sessionId) expect(row?.id).toBe(sessionId)
   })
@@ -91,7 +91,7 @@ describe('respawnSessionWithProvider', () => {
       | { status: string; exit_reason: string | null }
       | undefined
     expect(row?.status).toBe('needs_route_retry')
-    expect(row?.exit_reason).toMatch(/adapter_spawn_failed/)
+    expect(row?.exit_reason).toMatch(/^adapter_spawn_failed: /)
   })
 
   it('returns 404-equivalent (throws) for unknown session and provider', async () => {
@@ -102,5 +102,42 @@ describe('respawnSessionWithProvider', () => {
     const sessionId = randomUUID()
     createSession(db, { id: sessionId, projectId, label: 'L', phase: 'develop', sourceFile: null })
     await expect(respawnSessionWithProvider(sessionId, 'nope')).rejects.toThrow(/provider not found/)
+  })
+
+  it('persists userContext / permissionMode / correctionNote so respawn reuses them', async () => {
+    const db = getDb()
+    const projectId = createProject(db, { name: 'P', path: `/tmp/p-${randomUUID()}` })
+    createProvider(db, {
+      id: 'broken',
+      name: 'broken',
+      type: 'claude',
+      command: '/nonexistent-binary-xyz',
+      config: null,
+    })
+
+    try {
+      await spawnSession({
+        projectId,
+        projectPath: '/tmp',
+        label: 'L',
+        phase: 'develop',
+        sourceFile: null,
+        userContext: 'the original prompt',
+        permissionMode: 'acceptEdits',
+        correctionNote: 'fix the lint warnings',
+      })
+    } catch {
+      // expected
+    }
+
+    const row = db
+      .prepare(`SELECT user_context, permission_mode, correction_note FROM sessions WHERE project_id = ?`)
+      .get(projectId) as
+      | { user_context: string | null; permission_mode: string | null; correction_note: string | null }
+      | undefined
+
+    expect(row?.user_context).toBe('the original prompt')
+    expect(row?.permission_mode).toBe('acceptEdits')
+    expect(row?.correction_note).toBe('fix the lint warnings')
   })
 })

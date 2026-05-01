@@ -39,6 +39,9 @@ export type Session = {
   ended_at: string | null
   agent_id: string | null
   exit_reason: string | null
+  user_context: string | null
+  permission_mode: string | null
+  correction_note: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -387,6 +390,12 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   `)
   runMigration(db, 56, 'tasks_complexity', `ALTER TABLE tasks ADD COLUMN complexity TEXT`, true)
   runMigration(db, 57, 'tasks_complexity_overridden', `ALTER TABLE tasks ADD COLUMN complexity_overridden INTEGER NOT NULL DEFAULT 0`, true)
+  // Persist spawn options on the session row so respawnSessionWithProvider
+  // can faithfully reconstruct the original launch instead of dropping the
+  // user's prompt and falling back to default permissions.
+  runMigration(db, 58, 'sessions_user_context', `ALTER TABLE sessions ADD COLUMN user_context TEXT`, true)
+  runMigration(db, 59, 'sessions_permission_mode', `ALTER TABLE sessions ADD COLUMN permission_mode TEXT`, true)
+  runMigration(db, 60, 'sessions_correction_note', `ALTER TABLE sessions ADD COLUMN correction_note TEXT`, true)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -488,9 +497,21 @@ export function createSession(db: Database.Database, data: {
   taskId?: string
   outputPath?: string
   agentId?: string
+  userContext?: string
+  permissionMode?: string
+  correctionNote?: string
 }): void {
-  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, task_id, output_path, agent_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, data.taskId ?? null, data.outputPath ?? null, data.agentId ?? null, new Date().toISOString())
+  db.prepare(
+    `INSERT INTO sessions
+       (id, project_id, label, phase, source_file, task_id, output_path, agent_id,
+        user_context, permission_mode, correction_note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    data.id, data.projectId, data.label, data.phase, data.sourceFile,
+    data.taskId ?? null, data.outputPath ?? null, data.agentId ?? null,
+    data.userContext ?? null, data.permissionMode ?? null, data.correctionNote ?? null,
+    new Date().toISOString(),
+  )
 }
 
 export function getActiveSessions(db: Database.Database): Session[] {

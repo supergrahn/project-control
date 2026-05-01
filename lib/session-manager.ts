@@ -148,9 +148,11 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   const db = getDb()
   const sessionId = randomUUID()
 
+  // Resolve real path once and reuse for the concurrent-file check + session row.
+  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+
   // Block concurrent sessions on the same file BEFORE any writes.
-  if (opts.sourceFile) {
-    const canonical = fs.realpathSync(opts.sourceFile)
+  if (canonical) {
     const existing = getActiveSessionForFile(db, canonical)
     if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
   }
@@ -159,7 +161,8 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   // routing_decisions row whose session_id FK requires this row to exist —
   // and BEFORE the adapter spawn so that, if the adapter throws, we have a
   // row to flip to 'needs_route_retry' for the UI to pick up.
-  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+  // We persist userContext / permissionMode / correctionNote so that
+  // respawnSessionWithProvider can faithfully relaunch with the same inputs.
   createSession(db, {
     id: sessionId,
     projectId: opts.projectId,
@@ -169,6 +172,9 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
     taskId: opts.taskId,
     outputPath: opts.outputPath,
     agentId: opts.agentId,
+    userContext: opts.userContext,
+    permissionMode: opts.permissionMode,
+    correctionNote: opts.correctionNote,
   })
   logEvent(db, {
     projectId: opts.projectId,
@@ -203,8 +209,16 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   try {
     await spawnAdapterFor(db, sessionId, provider, opts)
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
     db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
-      .run(`adapter_spawn_failed: ${(err as Error).message}`, sessionId)
+      .run(`adapter_spawn_failed: ${message}`, sessionId)
+    // Roll back the agent state we set above; the proc.on('close') cleanup at
+    // the bottom of spawnAdapterFor never fires for an early spawn failure.
+    if (opts.agentId) {
+      const project = getProject(db, opts.projectId)
+      if (project) { try { deleteInstructions(project, provider.type) } catch {} }
+      updateAgent(db, opts.agentId, { status: 'idle' })
+    }
     throw err
   }
 
@@ -715,6 +729,9 @@ export async function respawnSessionWithProvider(sessionId: string, providerId: 
         source_file: string | null
         agent_id: string | null
         output_path: string | null
+        user_context: string | null
+        permission_mode: string | null
+        correction_note: string | null
       }
     | undefined
   if (!session) throw new Error('session not found')
@@ -725,14 +742,18 @@ export async function respawnSessionWithProvider(sessionId: string, providerId: 
   const project = getProject(db, session.project_id)
   if (!project) throw new Error('project not found')
 
+  // Restore the original spawn options from the persisted session row so the
+  // retry runs with the same prompt, permission mode, and correction note as
+  // the failed attempt — not a hardcoded blank prompt at default permissions.
   const opts: SpawnOptions = {
     projectId: session.project_id,
     projectPath: project.path,
     label: session.label,
     phase: session.phase as Phase,
     sourceFile: session.source_file,
-    userContext: '',                    // resumes don't need fresh user context
-    permissionMode: 'default',          // default permission mode for retries
+    userContext: session.user_context ?? '',
+    permissionMode: (session.permission_mode as SpawnOptions['permissionMode']) ?? 'default',
+    correctionNote: session.correction_note ?? undefined,
     taskId: session.task_id ?? undefined,
     agentId: session.agent_id ?? undefined,
     outputPath: session.output_path ?? undefined,
@@ -741,8 +762,13 @@ export async function respawnSessionWithProvider(sessionId: string, providerId: 
   try {
     await spawnAdapterFor(db, sessionId, provider, opts)
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
     db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
-      .run(`adapter_spawn_failed: ${(err as Error).message}`, sessionId)
+      .run(`adapter_spawn_failed: ${message}`, sessionId)
+    if (opts.agentId) {
+      try { deleteInstructions(project, provider.type) } catch {}
+      updateAgent(db, opts.agentId, { status: 'idle' })
+    }
     throw err
   }
 }
