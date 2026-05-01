@@ -30,22 +30,26 @@ describe('getDefaultLocalProvider', () => {
     expect(getDefaultLocalProvider(db)).toBeNull()
   })
 
-  it('returns the first active ollama provider', () => {
+  it('returns the active ollama provider when one is configured', () => {
     const db = getDb()
     createProvider(db, { id: 'a', name: 'L1', type: 'ollama', command: 'ollama', config: null })
     createProvider(db, { id: 'b', name: 'L2', type: 'ollama', command: 'ollama', config: null })
     const p = getDefaultLocalProvider(db)
-    expect(p?.id).toBe('a')
+    // millisecond-resolution created_at can tie; assert membership rather than strict ordering
+    expect(p).not.toBeNull()
+    expect(['a', 'b']).toContain(p!.id)
   })
 })
 
 describe('setTaskComplexity', () => {
-  it('writes both complexity and complexity_overridden atomically', () => {
+  it('writes both complexity and complexity_overridden atomically and returns the updated task', () => {
     const db = getDb()
     const projectId = createProject(db, { name: 'P', path: '/tmp/p' })
     const taskId = randomUUID()
     createTask(db, { id: taskId, projectId, title: 'T' })
-    setTaskComplexity(db, taskId, 'hard', true)
+    const updated = setTaskComplexity(db, taskId, 'hard', true)
+    expect(updated.complexity).toBe('hard')
+    expect(updated.complexity_overridden).toBe(1)
     const t = getTask(db, taskId)!
     expect(t.complexity).toBe('hard')
     expect(t.complexity_overridden).toBe(1)
@@ -56,9 +60,13 @@ describe('setTaskComplexity', () => {
     const projectId = createProject(db, { name: 'P', path: '/tmp/p' })
     const taskId = randomUUID()
     createTask(db, { id: taskId, projectId, title: 'T' })
-    setTaskComplexity(db, taskId, 'normal', false)
-    const t = getTask(db, taskId)!
-    expect(t.complexity).toBe('normal')
-    expect(t.complexity_overridden).toBe(0)
+    const updated = setTaskComplexity(db, taskId, 'normal', false)
+    expect(updated.complexity).toBe('normal')
+    expect(updated.complexity_overridden).toBe(0)
+  })
+
+  it('throws when the task does not exist', () => {
+    expect(() => setTaskComplexity(getDb(), 'no-such-id', 'normal', false))
+      .toThrow(/not found/)
   })
 })

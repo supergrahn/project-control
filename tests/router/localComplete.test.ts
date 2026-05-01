@@ -34,6 +34,7 @@ describe('localComplete', () => {
     expect(body.max_tokens).toBe(10)
     expect(body.messages[0]).toEqual({ role: 'user', content: 'classify this' })
     expect(body.stream).toBe(false)
+    expect(body.temperature).toBe(0)
   })
 
   it('honors baseUrl + model from config', async () => {

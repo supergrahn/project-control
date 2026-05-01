@@ -1,7 +1,10 @@
 import type { SessionPhase } from '@/lib/db'
 import type { ProviderType } from '@/lib/db/providers'
+import type { TaskComplexity } from '@/lib/db/tasks'
 
-export type Complexity = 'trivial' | 'normal' | 'hard'
+// Single source of truth for complexity lives in lib/db/tasks (the column owner).
+// Router code uses the local alias `Complexity` for ergonomics.
+export type Complexity = TaskComplexity
 export type Outcome = 'success' | 'failure' | 'transient_error'
 
 export type ScoreBreakdown = {
@@ -40,4 +43,5 @@ export type RoutingScore = {
   updated_at: string
 }
 
+// Re-exported so @/lib/router is the single import surface for routing code.
 export type { SessionPhase, ProviderType }

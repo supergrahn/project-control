@@ -141,7 +141,7 @@ export function DocActionModal({ open, projectId, phase, sourceFile, sourceName,
           <button
             type="button"
             onClick={onClose}
-            className="bg-bg-secondary text-text-muted border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer"
+            className="bg-bg-secondary text-text-muted hover:bg-bg-tertiary hover:text-text-primary border border-border-default rounded-[6px] px-3.5 py-1.5 text-[12px] cursor-pointer"
           >
             Cancel
           </button>

@@ -45,9 +45,9 @@ describe('score', () => {
   })
 
   it('unknown provider type falls back to SUITABILITY_FALLBACK (0.5)', () => {
-    const novel = { id: 'n', type: 'mystery', config: null } as { id: string; type: string; config: null }
-    const s = score(novel as any, 'plan', 'hard', { n: 0, rate: 0 })
-    // suit² / cost-fallback... cost lookup also unknown; spec says use COST_EPSILON for missing cost
+    const novel = { id: 'n', type: 'mystery', config: null }
+    const s = score(novel, 'plan', 'hard', { n: 0, rate: 0 })
+    // suit² / cost-fallback: cost lookup also unknown; spec says use COST_EPSILON for missing cost
     // suit = 0.5, so suit² = 0.25; cost falls back to COST_EPSILON = 0.01; total = 0.25/0.01 = 25
     expect(s).toBeCloseTo(25, 2)
   })

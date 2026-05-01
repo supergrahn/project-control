@@ -359,12 +359,12 @@ export function initDb(dbPath = DB_PATH): Database.Database {
       task_id         TEXT REFERENCES tasks(id) ON DELETE SET NULL,
       picked_provider TEXT NOT NULL REFERENCES providers(id),
       phase           TEXT NOT NULL,
-      complexity      TEXT NOT NULL,
+      complexity      TEXT NOT NULL CHECK (complexity IN ('trivial','normal','hard')),
       score_breakdown TEXT NOT NULL,
       created_at      TEXT NOT NULL
     )
   `)
-  runMigration(db, 52, 'idx_routing_decisions_session', `CREATE INDEX IF NOT EXISTS idx_routing_decisions_session ON routing_decisions(session_id)`)
+  runMigration(db, 52, 'idx_routing_decisions_session_created', `CREATE INDEX IF NOT EXISTS idx_routing_decisions_session_created ON routing_decisions(session_id, created_at DESC)`)
   runMigration(db, 53, 'create_routing_outcomes', `
     CREATE TABLE IF NOT EXISTS routing_outcomes (
       id          TEXT PRIMARY KEY,
@@ -377,7 +377,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   runMigration(db, 55, 'create_routing_scores', `
     CREATE TABLE IF NOT EXISTS routing_scores (
       phase        TEXT NOT NULL,
-      complexity   TEXT NOT NULL,
+      complexity   TEXT NOT NULL CHECK (complexity IN ('trivial','normal','hard')),
       provider_id  TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
       n_outcomes   INTEGER NOT NULL DEFAULT 0,
       success_rate REAL NOT NULL DEFAULT 0,
