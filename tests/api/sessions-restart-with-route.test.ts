@@ -32,19 +32,19 @@ beforeEach(() => {
 
 function p(id: string) { return { params: Promise.resolve({ id }) } }
 
-function seed(): { sessionId: string; failedDecisionId: string } {
+function seed(opts: { complexity?: 'trivial' | 'normal' | 'hard'; status?: string } = {}): { sessionId: string; failedDecisionId: string } {
   const db = getDb()
   const projectId = createProject(db, { name: 'P', path: `/tmp/p-${randomUUID()}` })
   createProvider(db, { id: 'old', name: 'O', type: 'claude', command: 'c', config: null })
   createProvider(db, { id: 'new', name: 'N', type: 'codex',  command: 'c', config: null })
   const sessionId = randomUUID()
   createSession(db, { id: sessionId, projectId, label: 'L', phase: 'develop', sourceFile: null })
-  getDb().prepare(`UPDATE sessions SET status = 'needs_route_retry' WHERE id = ?`).run(sessionId)
+  getDb().prepare(`UPDATE sessions SET status = ? WHERE id = ?`).run(opts.status ?? 'needs_route_retry', sessionId)
   const failedDecisionId = randomUUID()
   db.prepare(
     `INSERT INTO routing_decisions (id, session_id, task_id, picked_provider, phase, complexity, score_breakdown, created_at)
-     VALUES (?, ?, NULL, 'old', 'develop', 'normal', '{}', ?)`,
-  ).run(failedDecisionId, sessionId, new Date().toISOString())
+     VALUES (?, ?, NULL, 'old', 'develop', ?, '{}', ?)`,
+  ).run(failedDecisionId, sessionId, opts.complexity ?? 'normal', new Date().toISOString())
   return { sessionId, failedDecisionId }
 }
 
@@ -105,5 +105,44 @@ describe('POST /api/sessions/[id]/restart-with-route', () => {
     })
     const res = await POST(req, p('nope'))
     expect(res.status).toBe(404)
+  })
+
+  it('returns 404 if provider does not exist', async () => {
+    const { sessionId } = seed()
+    const req = new NextRequest(`http://localhost/api/sessions/${sessionId}/restart-with-route`, {
+      method: 'POST',
+      body: JSON.stringify({ providerId: 'nope' }),
+    })
+    const res = await POST(req, p(sessionId))
+    expect(res.status).toBe(404)
+  })
+
+  it('returns 409 when the session is not in needs_route_retry', async () => {
+    const { sessionId } = seed({ status: 'active' })
+    const req = new NextRequest(`http://localhost/api/sessions/${sessionId}/restart-with-route`, {
+      method: 'POST',
+      body: JSON.stringify({ providerId: 'new' }),
+    })
+    const res = await POST(req, p(sessionId))
+    expect(res.status).toBe(409)
+    expect(respawn).not.toHaveBeenCalled()
+    // Nothing should have been written under the precondition guard.
+    const decisions = getDb()
+      .prepare(`SELECT COUNT(*) AS c FROM routing_decisions WHERE session_id = ? AND picked_provider = 'new'`)
+      .get(sessionId) as { c: number }
+    expect(decisions.c).toBe(0)
+  })
+
+  it('carries complexity forward from the failed decision (does not hardcode normal)', async () => {
+    const { sessionId } = seed({ complexity: 'hard' })
+    const req = new NextRequest(`http://localhost/api/sessions/${sessionId}/restart-with-route`, {
+      method: 'POST',
+      body: JSON.stringify({ providerId: 'new' }),
+    })
+    await POST(req, p(sessionId))
+    const newDecision = getDb()
+      .prepare(`SELECT complexity FROM routing_decisions WHERE session_id = ? AND picked_provider = 'new'`)
+      .get(sessionId) as { complexity: string }
+    expect(newDecision.complexity).toBe('hard')
   })
 })
