@@ -35,7 +35,7 @@ describe('RouteRetryDialog', () => {
         open
         sessionId="s1"
         errorMessage="rate limit"
-        decision={decision as any}
+        decision={decision}
         onClose={() => {}}
         onRetried={() => {}}
       />
@@ -54,7 +54,7 @@ describe('RouteRetryDialog', () => {
         open
         sessionId="s1"
         errorMessage="boom"
-        decision={decision as any}
+        decision={decision}
         onClose={() => {}}
         onRetried={onRetried}
       />
@@ -64,5 +64,40 @@ describe('RouteRetryDialog', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('/api/sessions/s1/restart-with-route')
     expect(JSON.parse((init as RequestInit).body as string)).toEqual({ providerId: 'new' })
+  })
+
+  it('shows the server error inline and does not call onRetried when restart fails', async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ error: 'session not found' }), { status: 404 }))
+    const onRetried = vi.fn()
+    render(
+      <RouteRetryDialog
+        open
+        sessionId="s1"
+        errorMessage="boom"
+        decision={decision}
+        onClose={() => {}}
+        onRetried={onRetried}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: /NewOne/ }))
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument())
+    expect(screen.getByRole('alert').textContent).toContain('session not found')
+    expect(onRetried).not.toHaveBeenCalled()
+  })
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn()
+    render(
+      <RouteRetryDialog
+        open
+        sessionId="s1"
+        errorMessage="boom"
+        decision={decision}
+        onClose={onClose}
+        onRetried={() => {}}
+      />
+    )
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalled()
   })
 })
