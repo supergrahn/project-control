@@ -36,7 +36,9 @@ export function RouteRetryDialog({
 
   if (!open) return null
 
-  const alternatives = decision.score_breakdown.considered
+  // The parent only mounts the dialog once `considered` is present and
+  // non-empty; the optional chain is here purely for type narrowing.
+  const alternatives = (decision.score_breakdown.considered ?? [])
     .filter((r) => r.providerId !== decision.picked_provider)
     .slice(0, 5)
 
