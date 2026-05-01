@@ -18,8 +18,10 @@ describe('renderPrepAsMarkdown', () => {
     const out = renderPrepAsMarkdown(notes)
     expect(out).toContain('User can\'t log in with SSO.')
     expect(out).toContain('callback URL mismatch')
-    expect(out).toContain('lib/auth/sso.ts')
-    expect(out).toContain('callback handler')
+    // Pin the exact bullet shape (backticks + em-dash) so a future regression
+    // to plain "- path why" gets caught.
+    expect(out).toContain('- `lib/auth/sso.ts` — callback handler')
+    expect(out).toContain('- `lib/auth/config.ts` — redirect URL config')
     expect(out).toContain('Okta or Azure')
     expect(out).toContain('qwen-3.6:9b')
   })
@@ -35,7 +37,11 @@ describe('renderPrepAsMarkdown', () => {
     }
     const out = renderPrepAsMarkdown(notes)
     expect(out).toContain('Short summary.')
-    expect(out).not.toMatch(/Files:?\s*\n\s*\n/)
-    expect(out).not.toMatch(/Open questions:?\s*\n\s*\n/)
+    // Use exact-string assertions so a re-cased header (or a re-introduced
+    // empty header) gets caught — the previous /Files:?/ regex was a no-op
+    // because the real header is `**Likely-relevant files:**`.
+    expect(out).not.toContain('**Likely-relevant files:**')
+    expect(out).not.toContain('**Open questions:**')
+    expect(out).not.toContain('**Intent:**')
   })
 })

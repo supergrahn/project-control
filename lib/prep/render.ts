@@ -19,7 +19,7 @@ export function renderPrepAsMarkdown(notes: PrepNotes): string {
     lines.push('')
     lines.push('**Likely-relevant files:**')
     for (const f of notes.files) {
-      lines.push('- `' + f.path + '` — ' + f.why)
+      lines.push(`- \`${f.path}\` — ${f.why}`)
     }
   }
 
