@@ -1,14 +1,17 @@
 import type { Database } from 'better-sqlite3'
 import { getProvider, getActiveProviders } from '@/lib/db/providers'
 import type { Provider } from '@/lib/db/providers'
+import type { SessionPhase } from '@/lib/db'
 
 export type ResolveProviderOpts = {
   projectId: string
   taskId?: string
   agentId?: string
+  phase: SessionPhase
+  sessionId?: string  // required when the router branch fires; pins do not need it
 }
 
-export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provider {
+export async function resolveProvider(db: Database, opts: ResolveProviderOpts): Promise<Provider> {
   // 1. Task-level override
   if (opts.taskId) {
     const task = db.prepare('SELECT provider_id FROM tasks WHERE id = ? AND project_id = ?')
@@ -49,7 +52,7 @@ export function resolveProvider(db: Database, opts: ResolveProviderOpts): Provid
     if (p && p.is_active === 1) return p
   }
 
-  // 4. First active provider by created_at
+  // 4. Smart router (replaces "first active" fallback) — wired in Task 10.
   const active = getActiveProviders(db)
   if (active.length > 0) return active[0]
 

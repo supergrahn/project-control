@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       ? `${path.basename(sourceFile, '.md')} · ${phase}`
       : phase
 
-    const sessionId = spawnSession({
+    const sessionId = await spawnSession({
       projectId,
       projectPath: project.path,
       label,

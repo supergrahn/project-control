@@ -143,14 +143,16 @@ export function isClaudeAvailable(): boolean {
   return getActiveProviders(db).length > 0
 }
 
-export function spawnSession(opts: SpawnOptions): string {
+export async function spawnSession(opts: SpawnOptions): Promise<string> {
   const db = getDb()
-  const provider = resolveProvider(db, {
+  const sessionId = randomUUID()
+  const provider = await resolveProvider(db, {
     projectId: opts.projectId,
     taskId: opts.taskId,
     agentId: opts.agentId,
+    phase: opts.phase as import('./db').SessionPhase,
+    sessionId,
   })
-  const sessionId = randomUUID()
 
   if (opts.agentId) {
     const agent = getAgent(db, opts.agentId)
@@ -548,14 +550,18 @@ Tools: list_sessions, read_artifact, read_progress, spawn_session, advance_phase
 When a session exits: read its artifacts → evaluate risk → call \`advance_phase\` or \`pause_session(reason)\` + \`propose_actions\`. Always call \`log_decision\` after every action.
 `.trim()
 
-export function spawnOrchestratorSession(opts: {
+export async function spawnOrchestratorSession(opts: {
   orchestratorId: string
   projectId: string
   projectPath: string
-}): string {
+}): Promise<string> {
   const sessionId = randomUUID()
   const db = getDb()
-  const provider = resolveProvider(db, { projectId: opts.projectId })
+  const provider = await resolveProvider(db, {
+    projectId: opts.projectId,
+    phase: 'orchestrator',
+    sessionId,
+  })
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   let secret: string
