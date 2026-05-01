@@ -47,15 +47,14 @@ describe('Sidebar', () => {
   it('renders Dashboard nav item', () => {
     render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Docs')).toBeInTheDocument()
   })
 
-  it('renders Pipeline section with phase labels (no emoji)', () => {
+  it('renders Active Sessions section with launcher', () => {
     render(<Sidebar projectId="p1" projectName="project-control" projectPath="/home/user/project-control" />, { wrapper })
-    expect(screen.getByText('Ideas')).toBeInTheDocument()
-    expect(screen.getByText('Specs')).toBeInTheDocument()
-    // No emoji characters in nav items
-    const pipeline = screen.getByText('Pipeline')
-    expect(pipeline.closest('div')?.textContent).not.toMatch(/[💡📐📋⚙️]/)
+    expect(screen.getByText('Active Sessions')).toBeInTheDocument()
+    expect(screen.getByText('No active sessions')).toBeInTheDocument()
+    expect(screen.getByLabelText('Start session')).toBeInTheDocument()
   })
 
   it('renders Add Project button', () => {

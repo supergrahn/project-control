@@ -224,7 +224,7 @@ export function spawnSession(opts: SpawnOptions): string {
 
   const args = buildArgs({
     systemPrompt,
-    userContext: opts.userContext,
+    userContext: fullContext,
     permissionMode: opts.permissionMode,
     sessionId,
     providerType: provider.type,
@@ -385,7 +385,7 @@ export function spawnSession(opts: SpawnOptions): string {
       const field = phaseToField[opts.phase]
       if (field && opts.outputPath) {
         if (fs.existsSync(opts.outputPath)) {
-          updateTask(getDb(), opts.taskId, { [field]: opts.outputPath })
+          updateTask(getDb(), opts.taskId, { [field]: `file://${opts.outputPath}` })
         }
       }
     }

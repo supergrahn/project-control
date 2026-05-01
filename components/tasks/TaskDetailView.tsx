@@ -6,6 +6,7 @@ import { patchTask } from '@/hooks/useTasks'
 import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
 import { SessionHistoryPanel } from '@/components/sessions/SessionHistoryPanel'
 import { PropertiesPanel } from '@/components/tasks/PropertiesPanel'
+import { STATUS_TO_DEFAULT_SESSION_PHASE } from '@/lib/taskPhaseConfig'
 
 type DrawerSection = 'artifacts' | 'sessions' | 'notes'
 
@@ -38,7 +39,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         projectId: task.project_id,
-        phase: task.status === 'done' ? 'develop' : task.status,
+        phase: STATUS_TO_DEFAULT_SESSION_PHASE[task.status],
         taskId: task.id,
         userContext: '',
         permissionMode: 'default',

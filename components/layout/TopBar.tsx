@@ -9,6 +9,7 @@ type Props = { projectId: string; projectName: string }
 
 const PAGE_LABELS: Record<string, string> = {
   ideas: 'Ideas',
+  docs: 'Docs',
   specs: 'Specs',
   plans: 'Plans',
   developing: 'Developing',

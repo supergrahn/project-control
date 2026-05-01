@@ -130,7 +130,15 @@ function SidebarWrapper() {
   const { selectedProject } = useProjectStore()
 
   if (!projectId || !selectedProject || selectedProject.id !== projectId) return null
-  return <Sidebar projectId={projectId} projectName={selectedProject.name} projectPath={selectedProject.path} />
+  return (
+    <Sidebar
+      projectId={projectId}
+      projectName={selectedProject.name}
+      projectPath={selectedProject.path}
+      specsDir={selectedProject.specs_dir}
+      plansDir={selectedProject.plans_dir}
+    />
+  )
 }
 
 function TopBarWrapper() {

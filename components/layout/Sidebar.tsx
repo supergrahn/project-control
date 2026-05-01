@@ -3,11 +3,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import useSWR from 'swr'
-import { useTasks } from '@/hooks/useTasks'
-import { useSessions } from '@/hooks/useSessions'
+import { Plus, Radio } from 'lucide-react'
+import { useSessions, type Session } from '@/hooks/useSessions'
+import { useSessionWindows } from '@/hooks/useSessionWindows'
 
-import { STATUS_TO_SESSION_PHASES } from '@/lib/taskPhaseConfig'
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
+import { StartSessionModal } from '@/components/sessions/StartSessionModal'
 import { fetcher } from '@/lib/fetcher'
 
 type GitInfo = { branch: string; lastCommit: string; uncommitted: number }
@@ -15,24 +16,24 @@ type Me = { name: string; initials: string }
 type Agent = { id: string; name: string; status: string }
 type Skill = { id: string; name: string; key: string }
 
-type Props = { projectId: string; projectName: string; projectPath: string }
-
-const PIPELINE_ITEMS = [
-  { label: 'Ideas',      status: 'idea'       as const, route: 'ideas' },
-  { label: 'Specs',      status: 'speccing'   as const, route: 'specs' },
-  { label: 'Plans',      status: 'planning'   as const, route: 'plans' },
-  { label: 'Developing', status: 'developing' as const, route: 'developing' },
-  { label: 'Done',       status: 'done'       as const, route: 'done' },
-]
+type Props = {
+  projectId: string
+  projectName: string
+  projectPath: string
+  specsDir?: string | null
+  plansDir?: string | null
+}
 
 export const DOT_COLORS = ['#5b9bd5', '#3a8c5c', '#8f77c9', '#c97e2a', '#c04040']
 
-export function Sidebar({ projectId, projectName, projectPath }: Props) {
+export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = null }: Props) {
   const pathname = usePathname()
   const [showAddProject, setShowAddProject] = useState(false)
+  const [showStartSession, setShowStartSession] = useState(false)
   const { data: git } = useSWR<GitInfo>(`/api/projects/${projectId}/git-info`, fetcher, { refreshInterval: 10000 })
   const [me, setMe] = useState<Me | null>(null)
   const { data: allSessions = [] } = useSessions({ status: 'active' })
+  const { openWindow } = useSessionWindows()
 
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
   const liveCount = activeSessions.length
@@ -63,6 +64,9 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
           >
             Dashboard
           </NavItem>
+          <NavItem href={`/projects/${projectId}/docs`} active={pathname === `/projects/${projectId}/docs`}>
+            Docs
+          </NavItem>
           <NavItem href={`/projects/${projectId}/inbox`} active={pathname === `/projects/${projectId}/inbox`}>
             Inbox
           </NavItem>
@@ -76,16 +80,37 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
 
         {/* Pipeline section */}
         <div className="px-2 py-1.5 flex-1 overflow-y-auto">
-          <SectionLabel>Pipeline</SectionLabel>
-          {PIPELINE_ITEMS.map(item => (
-            <PipelineNavItem
-              key={item.status}
-              projectId={projectId}
-              item={item}
-              active={pathname.includes(`/projects/${projectId}/${item.route}`)}
-              activeSessions={activeSessions}
-            />
-          ))}
+          <div className="mb-4">
+            <div className="flex items-center justify-between px-2 py-1 pt-1">
+              <span className="text-text-faint text-[10px] uppercase tracking-[0.5px]">Active Sessions</span>
+              {liveCount > 0 && (
+                <span className="text-[10px] text-accent-green font-semibold">{liveCount}</span>
+              )}
+            </div>
+            <div className="min-h-[128px] flex flex-col">
+              <div className="flex-1">
+                {activeSessions.map(session => (
+                  <ActiveSessionItem
+                    key={session.id}
+                    session={session}
+                    onOpen={() => openWindow(session)}
+                  />
+                ))}
+                {activeSessions.length === 0 && (
+                  <div className="px-2 py-3 text-[11px] text-text-faint">No active sessions</div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowStartSession(true)}
+                className="mt-1 w-full h-8 flex items-center justify-center rounded-[6px] border border-border-default bg-bg-secondary text-text-muted hover:text-text-primary hover:bg-bg-tertiary cursor-pointer"
+                aria-label="Start session"
+                title="Start session"
+              >
+                <Plus size={15} />
+              </button>
+            </div>
+          </div>
 
           {/* Agents section */}
           <div className="mt-4 pt-3 border-t border-border-default">
@@ -167,6 +192,15 @@ export function Sidebar({ projectId, projectName, projectPath }: Props) {
       </div>
 
       {showAddProject && <NewProjectWizard onClose={() => setShowAddProject(false)} />}
+      {showStartSession && (
+        <StartSessionModal
+          projectId={projectId}
+          projectPath={projectPath}
+          specsDir={specsDir}
+          plansDir={plansDir}
+          onClose={() => setShowStartSession(false)}
+        />
+      )}
     </>
   )
 }
@@ -190,29 +224,19 @@ function NavItem({ href, active, badge, badgeColor, children }: {
   )
 }
 
-function PipelineNavItem({ projectId, item, active, activeSessions }: {
-  projectId: string
-  item: typeof PIPELINE_ITEMS[number]
-  active: boolean
-  activeSessions: { phase: string }[]
-}) {
-  const { tasks } = useTasks(projectId, item.status)
-  const hasLive = activeSessions.some(s => (STATUS_TO_SESSION_PHASES[item.status] ?? []).includes(s.phase))
-
+function ActiveSessionItem({ session, onOpen }: { session: Session; onOpen: () => void }) {
   return (
-    <Link href={`/projects/${projectId}/${item.route}`} className="no-underline">
-      <div className={`flex items-center justify-between px-2 py-1.25 rounded mb-0.5 ${
-        active ? 'bg-bg-secondary' : 'bg-transparent'
-      }`}>
-        <span className={`text-[13px] font-semibold ${active ? 'text-text-primary' : 'text-text-secondary'}`}>{item.label}</span>
-        <span className="flex items-center gap-1">
-          {hasLive && <span className="w-1.25 h-1.25 rounded-full bg-accent-green inline-block" />}
-          <span style={{ background: tasks.length > 0 ? '#1a2530' : '#141618', color: tasks.length > 0 ? '#5b9bd5' : '#2e3338' }} className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold">
-            {tasks.length}
-          </span>
-        </span>
-      </div>
-    </Link>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[6px] mb-0.5 bg-transparent hover:bg-bg-secondary text-left cursor-pointer"
+    >
+      <Radio size={12} className="text-accent-green flex-shrink-0" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12px] font-semibold text-text-secondary truncate">{session.label}</span>
+        <span className="block text-[10px] text-text-faint truncate">{session.phase}</span>
+      </span>
+    </button>
   )
 }
 

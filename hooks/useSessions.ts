@@ -44,10 +44,13 @@ export function useLaunchSession() {
     mutationFn: (data: {
       projectId: string
       phase: string
-      sourceFile: string | null
+      sourceFile?: string | null
       userContext?: string
       permissionMode?: string
       correctionNote?: string
+      taskId?: string
+      outputPath?: string
+      agentId?: string
     }) =>
       fetch('/api/sessions', {
         method: 'POST',

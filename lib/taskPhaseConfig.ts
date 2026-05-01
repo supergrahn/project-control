@@ -18,3 +18,11 @@ export const STATUS_TO_SESSION_PHASES: Record<TaskStatus, string[]> = {
   developing: ['develop', 'orchestrator'],
   done:       [],
 }
+
+export const STATUS_TO_DEFAULT_SESSION_PHASE: Record<TaskStatus, 'brainstorm' | 'spec' | 'plan' | 'develop'> = {
+  idea:       'brainstorm',
+  speccing:   'spec',
+  planning:   'plan',
+  developing: 'develop',
+  done:       'develop',
+}

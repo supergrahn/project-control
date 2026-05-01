@@ -1,7 +1,24 @@
 import { NextResponse } from 'next/server'
+import fs from 'fs'
 import path from 'path'
 import { getDb, getActiveSessions, getAllSessions, getProject } from '@/lib/db'
+import { getTask } from '@/lib/db/tasks'
 import { spawnSession } from '@/lib/session-manager'
+import { generateOutputPath } from '@/lib/prompts'
+
+function stripFileUrl(value: string): string {
+  return value.startsWith('file://') ? value.slice(7) : value
+}
+
+function resolveProjectPath(projectPath: string, value: string): string {
+  return path.resolve(projectPath, stripFileUrl(value))
+}
+
+function isWithinProject(projectPath: string, candidate: string): boolean {
+  const resolvedProjectPath = path.resolve(projectPath)
+  const resolvedCandidate = path.resolve(candidate)
+  return resolvedCandidate === resolvedProjectPath || resolvedCandidate.startsWith(resolvedProjectPath + path.sep)
+}
 
 export function GET(req: Request) {
   const url = new URL(req.url)
@@ -26,7 +43,17 @@ export function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const { projectId, phase, sourceFile, userContext = '', permissionMode = 'default', correctionNote, agentId } = body
+  const {
+    projectId,
+    phase,
+    sourceFile,
+    userContext = '',
+    permissionMode = 'default',
+    correctionNote,
+    taskId,
+    outputPath,
+    agentId,
+  } = body
 
   if (!projectId || !phase) {
     return NextResponse.json({ error: 'projectId and phase required' }, { status: 400 })
@@ -35,31 +62,67 @@ export async function POST(req: Request) {
   const project = getProject(getDb(), projectId)
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
+  const task = typeof taskId === 'string' ? getTask(getDb(), taskId) : undefined
+  if (taskId !== undefined) {
+    if (typeof taskId !== 'string') {
+      return NextResponse.json({ error: 'taskId must be a string' }, { status: 400 })
+    }
+    if (!task || task.project_id !== projectId) {
+      return NextResponse.json({ error: 'task not found for project' }, { status: 404 })
+    }
+  }
+
+  let resolvedSourceFile: string | null = null
   if (sourceFile !== undefined && sourceFile !== null) {
     if (typeof sourceFile !== 'string') {
       return NextResponse.json({ error: 'sourceFile must be a string' }, { status: 400 })
     }
-    const resolvedSourceFile = path.resolve(project.path, sourceFile)
-    const resolvedProjectPath = path.resolve(project.path)
-    if (!resolvedSourceFile.startsWith(resolvedProjectPath + path.sep)) {
+    resolvedSourceFile = resolveProjectPath(project.path, sourceFile)
+    if (!isWithinProject(project.path, resolvedSourceFile)) {
       return NextResponse.json({ error: 'sourceFile must be within project path' }, { status: 400 })
+    }
+    if (!fs.existsSync(resolvedSourceFile)) {
+      return NextResponse.json({ error: 'sourceFile not found' }, { status: 404 })
     }
   }
 
+  let resolvedOutputPath: string | undefined
+  if (outputPath !== undefined && outputPath !== null) {
+    if (typeof outputPath !== 'string') {
+      return NextResponse.json({ error: 'outputPath must be a string' }, { status: 400 })
+    }
+    resolvedOutputPath = resolveProjectPath(project.path, outputPath)
+    if (!isWithinProject(project.path, resolvedOutputPath)) {
+      return NextResponse.json({ error: 'outputPath must be within project path' }, { status: 400 })
+    }
+  } else if (task && phase === 'spec' && project.specs_dir) {
+    resolvedOutputPath = generateOutputPath(path.resolve(project.path, project.specs_dir), task.title)
+  } else if (task && phase === 'plan' && project.plans_dir) {
+    resolvedOutputPath = generateOutputPath(path.resolve(project.path, project.plans_dir), task.title)
+  }
+
   try {
-    const label = sourceFile
-      ? `${path.basename(sourceFile, '.md')} · ${phase}`
-      : phase
+    if (resolvedOutputPath) {
+      fs.mkdirSync(path.dirname(resolvedOutputPath), { recursive: true })
+    }
+
+    const label = task
+      ? `${task.title} · ${phase}`
+      : resolvedSourceFile
+        ? `${path.basename(resolvedSourceFile, '.md')} · ${phase}`
+        : phase
 
     const sessionId = spawnSession({
       projectId,
       projectPath: project.path,
       label,
       phase,
-      sourceFile: sourceFile ?? null,
+      sourceFile: resolvedSourceFile,
       userContext,
       permissionMode,
       correctionNote: correctionNote ?? undefined,
+      taskId: taskId ?? undefined,
+      outputPath: resolvedOutputPath,
       agentId: agentId ?? undefined,
     })
 
