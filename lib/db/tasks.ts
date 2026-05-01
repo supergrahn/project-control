@@ -37,6 +37,9 @@ export type Task = {
   is_deleted: number   // 0 or 1; managed by sync service, not user-editable
   complexity: TaskComplexity | null
   complexity_overridden: number
+  prep_notes: string | null
+  prep_status: 'prepping' | 'ready' | 'failed' | null
+  prepped_at: string | null
   created_at: string
   updated_at: string
 }
@@ -248,5 +251,32 @@ export function setTaskComplexity(
   const now = new Date().toISOString()
   db.prepare('UPDATE tasks SET complexity = ?, complexity_overridden = ?, updated_at = ? WHERE id = ?')
     .run(complexity, overridden ? 1 : 0, now, id)
+  return getTask(db, id)!
+}
+
+export function setTaskPrep(
+  db: Database,
+  id: string,
+  input: {
+    status: 'prepping' | 'ready' | 'failed'
+    notes?: string | null
+    prepped_at?: string
+  },
+): Task {
+  const task = getTask(db, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+  const updates: string[] = ['prep_status = ?']
+  const values: unknown[] = [input.status]
+  if ('notes' in input) {
+    updates.push('prep_notes = ?')
+    values.push(input.notes)
+  }
+  if (input.prepped_at) {
+    updates.push('prepped_at = ?')
+    values.push(input.prepped_at)
+  }
+  updates.push('updated_at = ?')
+  values.push(new Date().toISOString(), id)
+  db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
   return getTask(db, id)!
 }

@@ -396,6 +396,9 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   runMigration(db, 58, 'sessions_user_context', `ALTER TABLE sessions ADD COLUMN user_context TEXT`, true)
   runMigration(db, 59, 'sessions_permission_mode', `ALTER TABLE sessions ADD COLUMN permission_mode TEXT`, true)
   runMigration(db, 60, 'sessions_correction_note', `ALTER TABLE sessions ADD COLUMN correction_note TEXT`, true)
+  runMigration(db, 61, 'tasks_prep_notes', `ALTER TABLE tasks ADD COLUMN prep_notes TEXT`, true)
+  runMigration(db, 62, 'tasks_prep_status', `ALTER TABLE tasks ADD COLUMN prep_status TEXT`, true)
+  runMigration(db, 63, 'tasks_prepped_at', `ALTER TABLE tasks ADD COLUMN prepped_at TEXT`, true)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
