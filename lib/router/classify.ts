@@ -27,9 +27,11 @@ export async function classifyComplexity(
     return 'normal'
   }
 
+  // Use the function-form replacer so user content containing $& / $1 / etc.
+  // is treated literally, not as a regex backreference.
   const prompt = COMPLEXITY_PROMPT
-    .replace('{title}', task.title)
-    .replace('{description}', task.notes ?? '')
+    .replace('{title}', () => task.title)
+    .replace('{description}', () => task.notes ?? '')
 
   let tag: Complexity = 'normal'
   try {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { randomUUID } from 'crypto'
 
 vi.mock('@/lib/db', async (importOriginal) => {
@@ -80,6 +80,26 @@ describe('classifyComplexity', () => {
     expect(out).toBe('hard')
     expect(getTask(getDb(), taskId)?.complexity).toBe('hard')
     expect(getTask(getDb(), taskId)?.complexity_overridden).toBe(0)
+    // Prompt construction sanity: the task title and notes substituted in.
+    expect(lc).toHaveBeenCalledTimes(1)
+    const promptArg = lc.mock.calls[0][1] as string
+    expect(promptArg).toContain('A long refactor')
+    expect(promptArg).toContain('cross-system')
+  })
+
+  it('treats $-prefixed sequences in title/notes as literal text', async () => {
+    // String.prototype.replace interprets $&, $1, etc. as backreferences when
+    // given a string replacement; we use the function-form replacer to avoid that.
+    const db = getDb()
+    const projectId = createProject(db, { name: 'P', path: '/tmp/p' })
+    const taskId = randomUUID()
+    createTask(db, { id: taskId, projectId, title: '$& and $1 markers', notes: 'literal $`' })
+    createProvider(db, { id: randomUUID(), name: 'L', type: 'ollama', command: 'ollama', config: null })
+    lc.mockResolvedValue('normal')
+    await classifyComplexity(db, taskId)
+    const promptArg = lc.mock.calls[0][1] as string
+    expect(promptArg).toContain('$& and $1 markers')
+    expect(promptArg).toContain('literal $`')
   })
 
   it('parses junk model output as "normal"', async () => {
