@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (existing) return NextResponse.json({ error: 'Orchestrator already active', orchestrator: existing }, { status: 409 })
 
   const id = randomUUID()
-  const sessionId = spawnOrchestratorSession({ orchestratorId: id, projectId, projectPath: project.path })
+  const sessionId = await spawnOrchestratorSession({ orchestratorId: id, projectId, projectPath: project.path })
 
   createOrchestrator(db, { id, project_id: projectId, session_id: sessionId, status: 'active', created_at: new Date().toISOString(), ended_at: null })
 

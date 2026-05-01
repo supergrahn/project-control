@@ -52,10 +52,10 @@ vi.mock('@/lib/db/sessionEvents', () => ({
 import { spawnSession } from '@/lib/session-manager'
 
 describe('spawnSession provider resolution', () => {
-  it('throws NO_PROVIDERS_CONFIGURED when no providers are configured', () => {
-    expect(() => spawnSession({
+  it('throws NO_PROVIDERS_CONFIGURED when no providers are configured', async () => {
+    await expect(spawnSession({
       projectId: 'proj-test', projectPath: '/tmp/test', label: 'test',
       phase: 'develop', sourceFile: null, userContext: '', permissionMode: 'default',
-    })).toThrow('NO_PROVIDERS_CONFIGURED')
+    })).rejects.toThrow('NO_PROVIDERS_CONFIGURED')
   })
 })

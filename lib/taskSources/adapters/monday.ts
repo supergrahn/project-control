@@ -9,12 +9,15 @@ function extractUserIds(value: string | null | undefined): string[] {
   if (!value) return []
 
   try {
-    const parsed = JSON.parse(value)
+    const parsed = JSON.parse(value) as unknown
     // Monday.com format: { personsAndTeams: [{ id, kind }] }
-    const persons = parsed?.personsAndTeams || (Array.isArray(parsed) ? parsed : [])
+    const persons: unknown[] =
+      (parsed && typeof parsed === 'object' && 'personsAndTeams' in parsed
+        ? (parsed as { personsAndTeams?: unknown[] }).personsAndTeams ?? []
+        : Array.isArray(parsed) ? parsed : [])
     return persons
-      .filter((item) => item && typeof item === 'object' && item.id)
-      .map((item) => String(item.id))
+      .filter((item): item is { id: unknown } => !!item && typeof item === 'object' && 'id' in item)
+      .map((item) => String((item as { id: unknown }).id))
   } catch {
     // If JSON parse fails, return empty array
   }

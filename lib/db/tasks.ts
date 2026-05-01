@@ -2,13 +2,15 @@ import type { Database } from 'better-sqlite3'
 import type { TaskStatus, TaskPriority } from '@/lib/types'
 export type { TaskStatus, TaskPriority } from '@/lib/types'
 
+export type TaskComplexity = 'trivial' | 'normal' | 'hard'
+
 // Lazy import to avoid potential circular dependency at module load time
 let logStatusChangeImpl: typeof import('./taskStatusLog')['logStatusChange'] | null = null
-function getLogStatusChange() {
+function getLogStatusChange(): typeof import('./taskStatusLog')['logStatusChange'] {
   if (!logStatusChangeImpl) {
     logStatusChangeImpl = require('./taskStatusLog').logStatusChange
   }
-  return logStatusChangeImpl
+  return logStatusChangeImpl!
 }
 
 export type Task = {
@@ -33,6 +35,8 @@ export type Task = {
   source_url: string | null
   source_meta: string | null
   is_deleted: number   // 0 or 1; managed by sync service, not user-editable
+  complexity: TaskComplexity | null
+  complexity_overridden: number
   created_at: string
   updated_at: string
 }
@@ -230,5 +234,19 @@ export function setTaskStatus(db: Database, id: string, status: TaskStatus): Tas
   if (!task) throw new Error(`Task ${id} not found`)
   const now = new Date().toISOString()
   db.prepare('UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id)
+  return getTask(db, id)!
+}
+
+export function setTaskComplexity(
+  db: Database,
+  id: string,
+  complexity: TaskComplexity,
+  overridden: boolean,
+): Task {
+  const task = getTask(db, id)
+  if (!task) throw new Error(`Task ${id} not found`)
+  const now = new Date().toISOString()
+  db.prepare('UPDATE tasks SET complexity = ?, complexity_overridden = ?, updated_at = ? WHERE id = ?')
+    .run(complexity, overridden ? 1 : 0, now, id)
   return getTask(db, id)!
 }

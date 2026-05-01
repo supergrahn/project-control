@@ -1,7 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SessionAgentCard } from '../dashboard/SessionAgentCard'
 import { SessionWindowProvider } from '@/hooks/useSessionWindows'
+
+vi.mock('@/hooks/useRouterDecision', () => ({
+  useRouterDecision: vi.fn(() => ({ data: { decision: null } })),
+}))
 
 const mockSession = {
   id: 'sess-1',
@@ -23,7 +28,12 @@ const mockOnStop = vi.fn()
 const mockOnOpenTerminal = vi.fn()
 
 function wrapper({ children }: { children: React.ReactNode }) {
-  return <SessionWindowProvider>{children}</SessionWindowProvider>
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return (
+    <QueryClientProvider client={qc}>
+      <SessionWindowProvider>{children}</SessionWindowProvider>
+    </QueryClientProvider>
+  )
 }
 
 describe('SessionAgentCard', () => {
@@ -116,5 +126,83 @@ describe('SessionAgentCard — todo progress pill', () => {
       { wrapper }
     )
     expect(screen.queryByText(/\d+ \/ \d+/)).not.toBeInTheDocument()
+  })
+})
+
+describe('SessionAgentCard — router integration', () => {
+  const decision = {
+    id: 'd1',
+    picked_provider: 'p-claude',
+    phase: 'develop',
+    complexity: 'normal',
+    score_breakdown: {
+      suitability: 0.9,
+      cost: 0.5,
+      success_rate_blended: 0.85,
+      n_observed: 0,
+      total: 1.62,
+      considered: [
+        { providerId: 'p-claude', providerName: 'Claude', score: 1.62 },
+        { providerId: 'p-codex', providerName: 'Codex', score: 1.40 },
+      ],
+    },
+  }
+
+  it('renders the via-router badge when an auto-router decision exists', async () => {
+    const { useRouterDecision } = await import('@/hooks/useRouterDecision')
+    vi.mocked(useRouterDecision).mockReturnValueOnce({ data: { decision } } as ReturnType<typeof useRouterDecision>)
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={[]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.getByText(/via router/i)).toBeInTheDocument()
+    // Considered list is rendered (visibility toggled by group hover, but DOM is present).
+    expect(screen.getByText('Claude')).toBeInTheDocument()
+    expect(screen.getByText('Codex')).toBeInTheDocument()
+  })
+
+  it('does not render the via-router badge for manual_retry decisions (no considered list)', async () => {
+    const { useRouterDecision } = await import('@/hooks/useRouterDecision')
+    // manual_retry decisions have no `considered` array on score_breakdown
+    const manual = {
+      ...decision,
+      score_breakdown: { ...decision.score_breakdown, considered: undefined },
+    }
+    vi.mocked(useRouterDecision).mockReturnValueOnce({
+      data: { decision: manual },
+    } as ReturnType<typeof useRouterDecision>)
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={[]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.queryByText(/via router/i)).not.toBeInTheDocument()
+  })
+
+  it('auto-opens the RouteRetryDialog when status is needs_route_retry and a decision is loaded', async () => {
+    const { useRouterDecision } = await import('@/hooks/useRouterDecision')
+    vi.mocked(useRouterDecision).mockReturnValueOnce({ data: { decision } } as ReturnType<typeof useRouterDecision>)
+    const failedSession = {
+      ...mockSession,
+      status: 'needs_route_retry',
+      exit_reason: 'adapter_spawn_failed: ENOENT claude',
+    }
+    render(
+      <SessionAgentCard session={failedSession} feedEntries={[]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.getByRole('dialog', { name: /session start failed/i })).toBeInTheDocument()
+    expect(screen.getByText(/adapter_spawn_failed/i)).toBeInTheDocument()
+    // Failed-route entry is hidden from alternatives, the other route is offered.
+    expect(screen.getByRole('button', { name: /Codex/ })).toBeInTheDocument()
+  })
+
+  it('does not open the dialog when the session is active', async () => {
+    const { useRouterDecision } = await import('@/hooks/useRouterDecision')
+    vi.mocked(useRouterDecision).mockReturnValueOnce({ data: { decision } } as ReturnType<typeof useRouterDecision>)
+    render(
+      <SessionAgentCard session={mockSession} feedEntries={[]} onStop={mockOnStop} onOpenTerminal={mockOnOpenTerminal} />,
+      { wrapper }
+    )
+    expect(screen.queryByRole('dialog', { name: /session start failed/i })).not.toBeInTheDocument()
   })
 })

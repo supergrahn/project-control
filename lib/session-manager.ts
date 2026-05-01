@@ -18,8 +18,9 @@ import { randomUUID } from 'crypto'
 import { execFileSync } from 'child_process'
 import { writeFrontmatter } from './frontmatter'
 import { resolveProvider } from './sessions/resolveProvider'
-import { getActiveProviders, getProviders, createProvider, type ProviderType } from './db/providers'
+import { getActiveProviders, getProviders, createProvider, getProvider, type ProviderType, type Provider } from './db/providers'
 import { getAdapter } from './sessions/adapters'
+import type { Database } from 'better-sqlite3'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 
 // --- Process maps (survive Next.js hot-reload via globalThis) ---
@@ -143,14 +144,52 @@ export function isClaudeAvailable(): boolean {
   return getActiveProviders(db).length > 0
 }
 
-export function spawnSession(opts: SpawnOptions): string {
+export async function spawnSession(opts: SpawnOptions): Promise<string> {
   const db = getDb()
-  const provider = resolveProvider(db, {
+  const sessionId = randomUUID()
+
+  // Resolve real path once and reuse for the concurrent-file check + session row.
+  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
+
+  // Block concurrent sessions on the same file BEFORE any writes.
+  if (canonical) {
+    const existing = getActiveSessionForFile(db, canonical)
+    if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
+  }
+
+  // Persist the session row BEFORE resolveProvider — pickRoute writes a
+  // routing_decisions row whose session_id FK requires this row to exist —
+  // and BEFORE the adapter spawn so that, if the adapter throws, we have a
+  // row to flip to 'needs_route_retry' for the UI to pick up.
+  // We persist userContext / permissionMode / correctionNote so that
+  // respawnSessionWithProvider can faithfully relaunch with the same inputs.
+  createSession(db, {
+    id: sessionId,
+    projectId: opts.projectId,
+    label: opts.label,
+    phase: opts.phase as import('./db').SessionPhase,
+    sourceFile: canonical,
+    taskId: opts.taskId,
+    outputPath: opts.outputPath,
+    agentId: opts.agentId,
+    userContext: opts.userContext,
+    permissionMode: opts.permissionMode,
+    correctionNote: opts.correctionNote,
+  })
+  logEvent(db, {
+    projectId: opts.projectId,
+    type: 'session_started',
+    summary: `Started ${opts.phase} session: ${opts.label}`,
+    severity: 'info',
+  })
+
+  const provider = await resolveProvider(db, {
     projectId: opts.projectId,
     taskId: opts.taskId,
     agentId: opts.agentId,
+    phase: opts.phase as import('./db').SessionPhase,
+    sessionId,
   })
-  const sessionId = randomUUID()
 
   if (opts.agentId) {
     const agent = getAgent(db, opts.agentId)
@@ -167,13 +206,41 @@ export function spawnSession(opts: SpawnOptions): string {
     }
   }
 
-  // Block concurrent sessions on the same file
-  if (opts.sourceFile) {
-    const canonical = fs.realpathSync(opts.sourceFile)
-    const existing = getActiveSessionForFile(db, canonical)
-    if (existing) throw new Error(`CONCURRENT_SESSION:${existing.id}`)
+  try {
+    await spawnAdapterFor(db, sessionId, provider, opts)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
+      .run(`adapter_spawn_failed: ${message}`, sessionId)
+    // Roll back the agent state we set above; the proc.on('close') cleanup at
+    // the bottom of spawnAdapterFor never fires for an early spawn failure.
+    if (opts.agentId) {
+      const project = getProject(db, opts.projectId)
+      if (project) { try { deleteInstructions(project, provider.type) } catch {} }
+      updateAgent(db, opts.agentId, { status: 'idle' })
+    }
+    throw err
   }
 
+  return sessionId
+}
+
+/**
+ * Spawn the provider's CLI binary for the given session row, wire up stdout/
+ * stderr/close handlers, and resolve once the child process has successfully
+ * started (or reject if the spawn itself failed). Shared by `spawnSession`
+ * (initial launch) and `respawnSessionWithProvider` (retry with a different
+ * provider).
+ *
+ * Pre-condition: the session row already exists in the DB. Caller is
+ * responsible for flipping `status = 'needs_route_retry'` on rejection.
+ */
+async function spawnAdapterFor(
+  db: Database,
+  sessionId: string,
+  provider: Provider,
+  opts: SpawnOptions,
+): Promise<void> {
   const contextPacks = listContextPacks(db, opts.projectId).map(p => ({ title: p.title, content: p.content }))
 
   // Assemble task context if taskId is provided
@@ -236,30 +303,18 @@ export function spawnSession(opts: SpawnOptions): string {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
-  const canonical = opts.sourceFile ? fs.realpathSync(opts.sourceFile) : null
-  try {
-    createSession(db, {
-      id: sessionId,
-      projectId: opts.projectId,
-      label: opts.label,
-      phase: opts.phase as import('./db').SessionPhase,
-      sourceFile: canonical,
-      taskId: opts.taskId,
-      outputPath: opts.outputPath,
-      agentId: opts.agentId,
-    })
-    logEvent(db, {
-      projectId: opts.projectId,
-      type: 'session_started',
-      summary: `Started ${opts.phase} session: ${opts.label}`,
-      severity: 'info',
-    })
-  } catch (err) {
-    try { proc.kill() } catch {}
-    throw err
-  }
+  // Wait for either successful spawn or an error before wiring the persistent
+  // handlers. This converts an async `proc.on('error')` ENOENT into a synchronous
+  // rejection that `spawnSession` can catch and mark `needs_route_retry`.
+  await new Promise<void>((resolve, reject) => {
+    const onSpawn = () => { proc.removeListener('error', onError); resolve() }
+    const onError = (err: Error) => { proc.removeListener('spawn', onSpawn); reject(err) }
+    proc.once('spawn', onSpawn)
+    proc.once('error', onError)
+  })
 
-  // Write session_id into source file frontmatter
+  // Write session_id into source file frontmatter (best effort — frontmatter
+  // is idempotent so replays during respawn don't corrupt anything).
   if (opts.sourceFile && (opts.phase as string) !== 'orchestrator') {
     try {
       const content = fs.readFileSync(opts.sourceFile, 'utf8')
@@ -274,7 +329,8 @@ export function spawnSession(opts: SpawnOptions): string {
   wsMap.set(sessionId, new Set())
   resetHangTimer(sessionId) // Start 5-minute hang detection
 
-  // Handle spawn failures (e.g. command not found)
+  // Late spawn errors (e.g. signal mid-stream) — the early await above already
+  // handles the synchronous ENOENT case.
   proc.on('error', (err) => {
     insertSessionEvent(db, sessionId, {
       type: 'error',
@@ -416,8 +472,6 @@ export function spawnSession(opts: SpawnOptions): string {
     })
     wsMap.delete(sessionId)
   })
-
-  return sessionId
 }
 
 export function killSession(sessionId: string): void {
@@ -548,14 +602,18 @@ Tools: list_sessions, read_artifact, read_progress, spawn_session, advance_phase
 When a session exits: read its artifacts → evaluate risk → call \`advance_phase\` or \`pause_session(reason)\` + \`propose_actions\`. Always call \`log_decision\` after every action.
 `.trim()
 
-export function spawnOrchestratorSession(opts: {
+export async function spawnOrchestratorSession(opts: {
   orchestratorId: string
   projectId: string
   projectPath: string
-}): string {
+}): Promise<string> {
   const sessionId = randomUUID()
   const db = getDb()
-  const provider = resolveProvider(db, { projectId: opts.projectId })
+  const provider = await resolveProvider(db, {
+    projectId: opts.projectId,
+    phase: 'orchestrator',
+    sessionId,
+  })
 
   const mcpPort = parseInt(process.env.ORCHESTRATOR_MCP_PORT ?? '3002', 10)
   let secret: string
@@ -649,4 +707,68 @@ export function spawnOrchestratorSession(opts: {
   })
 
   return sessionId
+}
+
+/**
+ * Respawn a session that was put into 'needs_route_retry' using a specific provider.
+ * The new routing_decisions row is written by the API handler before this call.
+ *
+ * Reuses the shared `spawnAdapterFor` helper so the wiring matches initial spawn.
+ * On failure, flips the session back to 'needs_route_retry' so the user can
+ * retry again with a different provider.
+ */
+export async function respawnSessionWithProvider(sessionId: string, providerId: string): Promise<void> {
+  const db = getDb()
+  const session = db.prepare('SELECT * FROM sessions WHERE id = ?').get(sessionId) as
+    | {
+        id: string
+        project_id: string
+        phase: import('./db').SessionPhase
+        task_id: string | null
+        label: string
+        source_file: string | null
+        agent_id: string | null
+        output_path: string | null
+        user_context: string | null
+        permission_mode: string | null
+        correction_note: string | null
+      }
+    | undefined
+  if (!session) throw new Error('session not found')
+
+  const provider = getProvider(db, providerId)
+  if (!provider) throw new Error('provider not found')
+
+  const project = getProject(db, session.project_id)
+  if (!project) throw new Error('project not found')
+
+  // Restore the original spawn options from the persisted session row so the
+  // retry runs with the same prompt, permission mode, and correction note as
+  // the failed attempt — not a hardcoded blank prompt at default permissions.
+  const opts: SpawnOptions = {
+    projectId: session.project_id,
+    projectPath: project.path,
+    label: session.label,
+    phase: session.phase as Phase,
+    sourceFile: session.source_file,
+    userContext: session.user_context ?? '',
+    permissionMode: (session.permission_mode as SpawnOptions['permissionMode']) ?? 'default',
+    correctionNote: session.correction_note ?? undefined,
+    taskId: session.task_id ?? undefined,
+    agentId: session.agent_id ?? undefined,
+    outputPath: session.output_path ?? undefined,
+  }
+
+  try {
+    await spawnAdapterFor(db, sessionId, provider, opts)
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    db.prepare(`UPDATE sessions SET status = 'needs_route_retry', exit_reason = ? WHERE id = ?`)
+      .run(`adapter_spawn_failed: ${message}`, sessionId)
+    if (opts.agentId) {
+      try { deleteInstructions(project, provider.type) } catch {}
+      updateAgent(db, opts.agentId, { status: 'idle' })
+    }
+    throw err
+  }
 }

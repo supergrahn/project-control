@@ -21,81 +21,81 @@ beforeEach(() => { db = initDb(':memory:') })
 afterEach(() => { db.close() })
 
 describe('resolveProvider', () => {
-  it('throws NO_PROVIDERS_CONFIGURED when no providers exist', () => {
+  it('throws NO_PROVIDERS_CONFIGURED when no providers exist', async () => {
     insertProject(db, 'proj-empty')
-    expect(() => resolveProvider(db, { projectId: 'proj-empty' })).toThrow('NO_PROVIDERS_CONFIGURED')
+    await expect(resolveProvider(db, { projectId: 'proj-empty', phase: 'develop' })).rejects.toThrow('NO_PROVIDERS_CONFIGURED')
   })
 
-  it('returns first active provider when no overrides', () => {
+  it('returns first active provider when no overrides', async () => {
     insertProject(db, 'proj-global')
     const p = createProvider(db, { id: 'global-1', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
-    expect(resolveProvider(db, { projectId: 'proj-global' }).id).toBe(p.id)
+    expect((await resolveProvider(db, { projectId: 'proj-global', phase: 'develop' })).id).toBe(p.id)
   })
 
-  it('skips inactive providers', () => {
+  it('skips inactive providers', async () => {
     insertProject(db, 'proj-inactive')
     createProvider(db, { id: 'off-1', name: 'Off', type: 'codex', command: 'codex', config: null })
     db.prepare('UPDATE providers SET is_active = 0 WHERE id = ?').run('off-1')
     const active = createProvider(db, { id: 'on-1', name: 'On', type: 'gemini', command: 'gemini', config: null })
-    expect(resolveProvider(db, { projectId: 'proj-inactive' }).id).toBe(active.id)
+    expect((await resolveProvider(db, { projectId: 'proj-inactive', phase: 'develop' })).id).toBe(active.id)
   })
 
-  it('throws when only inactive providers exist', () => {
+  it('throws when only inactive providers exist', async () => {
     insertProject(db, 'proj-all-off')
     createProvider(db, { id: 'x-1', name: 'X', type: 'ollama', command: 'ollama', config: null })
     db.prepare('UPDATE providers SET is_active = 0 WHERE id = ?').run('x-1')
-    expect(() => resolveProvider(db, { projectId: 'proj-all-off' })).toThrow('NO_PROVIDERS_CONFIGURED')
+    await expect(resolveProvider(db, { projectId: 'proj-all-off', phase: 'develop' })).rejects.toThrow('NO_PROVIDERS_CONFIGURED')
   })
 
-  it('uses project-level provider_id override', () => {
+  it('uses project-level provider_id override', async () => {
     const pp = createProvider(db, { id: 'pp-1', name: 'Project', type: 'codex', command: 'codex', config: null })
     createProvider(db, { id: 'g-1', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
     insertProject(db, 'proj-override', pp.id)
-    expect(resolveProvider(db, { projectId: 'proj-override' }).id).toBe(pp.id)
+    expect((await resolveProvider(db, { projectId: 'proj-override', phase: 'develop' })).id).toBe(pp.id)
   })
 
-  it('uses task-level provider_id over project-level', () => {
+  it('uses task-level provider_id over project-level', async () => {
     const pp = createProvider(db, { id: 'pp-2', name: 'Project', type: 'codex', command: 'codex', config: null })
     const tp = createProvider(db, { id: 'tp-1', name: 'Task', type: 'gemini', command: 'gemini', config: null })
     insertProject(db, 'proj-task', pp.id)
     insertTask(db, 'task-override', 'proj-task', tp.id)
-    expect(resolveProvider(db, { projectId: 'proj-task', taskId: 'task-override' }).id).toBe(tp.id)
+    expect((await resolveProvider(db, { projectId: 'proj-task', taskId: 'task-override', phase: 'develop' })).id).toBe(tp.id)
   })
 
-  it('falls back to project when task has no provider_id', () => {
+  it('falls back to project when task has no provider_id', async () => {
     const pp = createProvider(db, { id: 'pp-fb', name: 'ProjFB', type: 'codex', command: 'codex', config: null })
     createProvider(db, { id: 'g-fb', name: 'GlobalFB', type: 'claude', command: '/bin/claude', config: null })
     insertProject(db, 'proj-fb', pp.id)
     insertTask(db, 'task-no-prov', 'proj-fb', null)
-    expect(resolveProvider(db, { projectId: 'proj-fb', taskId: 'task-no-prov' }).id).toBe(pp.id)
+    expect((await resolveProvider(db, { projectId: 'proj-fb', taskId: 'task-no-prov', phase: 'develop' })).id).toBe(pp.id)
   })
 
-  it('throws PROJECT_NOT_FOUND when projectId does not exist', () => {
-    expect(() => resolveProvider(db, { projectId: 'ghost-project' })).toThrow('PROJECT_NOT_FOUND')
+  it('throws PROJECT_NOT_FOUND when projectId does not exist', async () => {
+    await expect(resolveProvider(db, { projectId: 'ghost-project', phase: 'develop' })).rejects.toThrow('PROJECT_NOT_FOUND')
   })
 
-  it('throws TASK_NOT_FOUND when taskId does not exist', () => {
+  it('throws TASK_NOT_FOUND when taskId does not exist', async () => {
     insertProject(db, 'proj-tnf')
-    expect(() => resolveProvider(db, { projectId: 'proj-tnf', taskId: 'ghost-task' })).toThrow('TASK_NOT_FOUND')
+    await expect(resolveProvider(db, { projectId: 'proj-tnf', taskId: 'ghost-task', phase: 'develop' })).rejects.toThrow('TASK_NOT_FOUND')
   })
 
-  it('throws TASK_NOT_FOUND when task belongs to a different project', () => {
+  it('throws TASK_NOT_FOUND when task belongs to a different project', async () => {
     insertProject(db, 'proj-a')
     insertProject(db, 'proj-b')
     const p = createProvider(db, { id: 'g-xproj', name: 'G', type: 'claude', command: '/bin/claude', config: null })
     insertTask(db, 'task-in-b', 'proj-b', p.id)
     // task-in-b belongs to proj-b, not proj-a
-    expect(() => resolveProvider(db, { projectId: 'proj-a', taskId: 'task-in-b' })).toThrow('TASK_NOT_FOUND')
+    await expect(resolveProvider(db, { projectId: 'proj-a', taskId: 'task-in-b', phase: 'develop' })).rejects.toThrow('TASK_NOT_FOUND')
   })
 
-  it('does not throw when agentId is given but agents table does not exist', () => {
+  it('does not throw when agentId is given but agents table does not exist', async () => {
     insertProject(db, 'proj-no-agents')
     const p = createProvider(db, { id: 'g-na', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
     // agents table doesn't exist in this DB — should fall through to global
-    expect(resolveProvider(db, { projectId: 'proj-no-agents', agentId: 'any-agent' }).id).toBe(p.id)
+    expect((await resolveProvider(db, { projectId: 'proj-no-agents', agentId: 'any-agent', phase: 'develop' })).id).toBe(p.id)
   })
 
-  it('uses agent-level provider_id when agents table exists', () => {
+  it('uses agent-level provider_id when agents table exists', async () => {
     const ap = createProvider(db, { id: 'ap-1', name: 'Agent Provider', type: 'gemini', command: 'gemini', config: null })
     createProvider(db, { id: 'gp-1', name: 'Global', type: 'claude', command: '/bin/claude', config: null })
     insertProject(db, 'proj-agent')
@@ -103,6 +103,6 @@ describe('resolveProvider', () => {
     const now = new Date().toISOString()
     db.prepare('INSERT INTO agents (id, project_id, provider_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
       .run('agent-1', 'proj-agent', ap.id, 'Test Agent', now, now)
-    expect(resolveProvider(db, { projectId: 'proj-agent', agentId: 'agent-1' }).id).toBe(ap.id)
+    expect((await resolveProvider(db, { projectId: 'proj-agent', agentId: 'agent-1', phase: 'develop' })).id).toBe(ap.id)
   })
 })

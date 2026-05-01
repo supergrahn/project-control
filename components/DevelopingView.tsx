@@ -53,7 +53,7 @@ export function DevelopingView({ onOpenSession }: Props) {
               onClick={() => setTab('active')}
               className={`px-3 py-1 rounded-l border ${tab === 'active' ? 'bg-bg-tertiary border-border-strong text-text-primary' : 'border-border-default text-text-muted hover:text-text-secondary'}`}
             >
-              Active {visibleActive.length > 0 && <span className="ml-1 text-xs text-accent-green">{visibleActive.length}</span>}
+              Active {visibleActive.filter((s) => s.status === 'active').length > 0 && <span className="ml-1 text-xs text-accent-green">{visibleActive.filter((s) => s.status === 'active').length}</span>}
             </button>
             <button
               onClick={() => setTab('history')}

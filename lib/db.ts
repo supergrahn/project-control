@@ -12,7 +12,7 @@ import type {
 // Re-export types for convenience
 export type { Orchestrator, OrchestratorDecision, SessionProposedAction, AutomationLevel, DecisionSeverity }
 
-export type SessionStatus = 'active' | 'ended' | 'paused'
+export type SessionStatus = 'active' | 'ended' | 'paused' | 'needs_route_retry'
 export type SessionPhase = 'brainstorm' | 'spec' | 'plan' | 'develop' | 'review' | 'orchestrator'
 
 export type Project = {
@@ -39,6 +39,9 @@ export type Session = {
   ended_at: string | null
   agent_id: string | null
   exit_reason: string | null
+  user_context: string | null
+  permission_mode: string | null
+  correction_note: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -351,6 +354,48 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   `)
   runMigration(db, 49, 'idx_task_comments_project', `CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`)
   runMigration(db, 50, 'tasks_is_deleted', `ALTER TABLE tasks ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0`, true)
+  // ── Smart Provider Router ────────────────────────────────────────────────
+  runMigration(db, 51, 'create_routing_decisions', `
+    CREATE TABLE IF NOT EXISTS routing_decisions (
+      id              TEXT PRIMARY KEY,
+      session_id      TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      task_id         TEXT REFERENCES tasks(id) ON DELETE SET NULL,
+      picked_provider TEXT NOT NULL REFERENCES providers(id),
+      phase           TEXT NOT NULL,
+      complexity      TEXT NOT NULL CHECK (complexity IN ('trivial','normal','hard')),
+      score_breakdown TEXT NOT NULL,
+      created_at      TEXT NOT NULL
+    )
+  `)
+  runMigration(db, 52, 'idx_routing_decisions_session_created', `CREATE INDEX IF NOT EXISTS idx_routing_decisions_session_created ON routing_decisions(session_id, created_at DESC)`)
+  runMigration(db, 53, 'create_routing_outcomes', `
+    CREATE TABLE IF NOT EXISTS routing_outcomes (
+      id          TEXT PRIMARY KEY,
+      decision_id TEXT NOT NULL REFERENCES routing_decisions(id) ON DELETE CASCADE,
+      outcome     TEXT NOT NULL CHECK (outcome IN ('success','failure','transient_error')),
+      created_at  TEXT NOT NULL
+    )
+  `)
+  runMigration(db, 54, 'idx_routing_outcomes_decision', `CREATE INDEX IF NOT EXISTS idx_routing_outcomes_decision ON routing_outcomes(decision_id)`)
+  runMigration(db, 55, 'create_routing_scores', `
+    CREATE TABLE IF NOT EXISTS routing_scores (
+      phase        TEXT NOT NULL,
+      complexity   TEXT NOT NULL CHECK (complexity IN ('trivial','normal','hard')),
+      provider_id  TEXT NOT NULL REFERENCES providers(id) ON DELETE CASCADE,
+      n_outcomes   INTEGER NOT NULL DEFAULT 0,
+      success_rate REAL NOT NULL DEFAULT 0,
+      updated_at   TEXT NOT NULL,
+      PRIMARY KEY (phase, complexity, provider_id)
+    )
+  `)
+  runMigration(db, 56, 'tasks_complexity', `ALTER TABLE tasks ADD COLUMN complexity TEXT`, true)
+  runMigration(db, 57, 'tasks_complexity_overridden', `ALTER TABLE tasks ADD COLUMN complexity_overridden INTEGER NOT NULL DEFAULT 0`, true)
+  // Persist spawn options on the session row so respawnSessionWithProvider
+  // can faithfully reconstruct the original launch instead of dropping the
+  // user's prompt and falling back to default permissions.
+  runMigration(db, 58, 'sessions_user_context', `ALTER TABLE sessions ADD COLUMN user_context TEXT`, true)
+  runMigration(db, 59, 'sessions_permission_mode', `ALTER TABLE sessions ADD COLUMN permission_mode TEXT`, true)
+  runMigration(db, 60, 'sessions_correction_note', `ALTER TABLE sessions ADD COLUMN correction_note TEXT`, true)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -452,17 +497,58 @@ export function createSession(db: Database.Database, data: {
   taskId?: string
   outputPath?: string
   agentId?: string
+  userContext?: string
+  permissionMode?: string
+  correctionNote?: string
 }): void {
-  db.prepare(`INSERT INTO sessions (id, project_id, label, phase, source_file, task_id, output_path, agent_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-    .run(data.id, data.projectId, data.label, data.phase, data.sourceFile, data.taskId ?? null, data.outputPath ?? null, data.agentId ?? null, new Date().toISOString())
+  db.prepare(
+    `INSERT INTO sessions
+       (id, project_id, label, phase, source_file, task_id, output_path, agent_id,
+        user_context, permission_mode, correction_note, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    data.id, data.projectId, data.label, data.phase, data.sourceFile,
+    data.taskId ?? null, data.outputPath ?? null, data.agentId ?? null,
+    data.userContext ?? null, data.permissionMode ?? null, data.correctionNote ?? null,
+    new Date().toISOString(),
+  )
 }
 
 export function getActiveSessions(db: Database.Database): Session[] {
   return db.prepare(`SELECT * FROM sessions WHERE status = 'active' ORDER BY created_at DESC`).all() as Session[]
 }
 
+/**
+ * Sessions the user still has "in flight" from their POV: actively running OR
+ * stuck awaiting a manual route retry after an adapter spawn failure. The UI
+ * surfaces these together so a failed-spawn session can show its retry dialog
+ * without disappearing into history.
+ */
+export function getInFlightSessions(db: Database.Database): Session[] {
+  return db
+    .prepare(
+      `SELECT * FROM sessions WHERE status IN ('active', 'needs_route_retry') ORDER BY created_at DESC`,
+    )
+    .all() as Session[]
+}
+
 export function getActiveSessionForFile(db: Database.Database, sourceFile: string): Session | undefined {
   return db.prepare(`SELECT * FROM sessions WHERE source_file = ? AND status = 'active'`).get(sourceFile) as Session | undefined
+}
+
+/**
+ * Most-recent session for a source file, regardless of status. Prefers an
+ * active session if one exists (for the case where a file is currently being
+ * worked on), then falls back to the most recently created session.
+ *
+ * Use this — not getActiveSessionForFile — when you need to attribute an
+ * after-the-fact event (e.g. an override decision filed after the session
+ * already ended) to the session it belongs to.
+ */
+export function getLatestSessionForFile(db: Database.Database, sourceFile: string): Session | undefined {
+  return db.prepare(
+    `SELECT * FROM sessions WHERE source_file = ? ORDER BY (status = 'active') DESC, created_at DESC LIMIT 1`,
+  ).get(sourceFile) as Session | undefined
 }
 
 export function endSession(db: Database.Database, id: string): void {

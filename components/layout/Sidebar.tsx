@@ -36,7 +36,9 @@ export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = nu
   const { openWindow } = useSessionWindows()
 
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
-  const liveCount = activeSessions.length
+  // The list includes needs_route_retry too — only count truly running sessions
+  // for the "live" badge so stuck sessions don't inflate the green chip.
+  const liveCount = activeSessions.filter(s => s.status === 'active').length
   const { data: agents = [] } = useSWR<Agent[]>(`/api/agents?projectId=${projectId}`, fetcher)
   const { data: skills = [] } = useSWR<Skill[]>(`/api/skills?projectId=${projectId}`, fetcher)
 

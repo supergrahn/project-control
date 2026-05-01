@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { getDb, getActiveSessions, getAllSessions, getProject } from '@/lib/db'
+import { getDb, getInFlightSessions, getAllSessions, getProject } from '@/lib/db'
 import { getTask } from '@/lib/db/tasks'
 import { spawnSession } from '@/lib/session-manager'
 import { generateOutputPath } from '@/lib/prompts'
@@ -38,7 +38,9 @@ export function GET(req: Request) {
     return NextResponse.json(sessions)
   }
   if (status === 'all') return NextResponse.json(getAllSessions(db, projectId))
-  return NextResponse.json(getActiveSessions(db))
+  // 'active' here includes sessions in `needs_route_retry` so the UI can show
+  // the route-retry dialog without the row disappearing into history.
+  return NextResponse.json(getInFlightSessions(db))
 }
 
 export async function POST(req: Request) {
@@ -112,7 +114,7 @@ export async function POST(req: Request) {
         ? `${path.basename(resolvedSourceFile, '.md')} · ${phase}`
         : phase
 
-    const sessionId = spawnSession({
+    const sessionId = await spawnSession({
       projectId,
       projectPath: project.path,
       label,

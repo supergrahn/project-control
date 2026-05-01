@@ -71,3 +71,10 @@ export function toggleProviderActive(db: Database, id: string): Provider {
   db.prepare('UPDATE providers SET is_active = ? WHERE id = ?').run(p.is_active === 1 ? 0 : 1, id)
   return getProvider(db, id)!
 }
+
+export function getDefaultLocalProvider(db: Database): Provider | null {
+  const row = db
+    .prepare(`SELECT * FROM providers WHERE is_active = 1 AND type = 'ollama' ORDER BY created_at ASC LIMIT 1`)
+    .get() as Provider | undefined
+  return row ?? null
+}

@@ -1,10 +1,11 @@
 // server/orchestrator-tools.ts
 import { randomUUID } from 'crypto'
 import {
-  getDb, getActiveSessions, getProject, listProjects,
+  getDb, getActiveSessions, getLatestSessionForFile, getProject, listProjects,
   createDecision, createProposedAction, getOrchestratorByProject,
 } from '../lib/db'
 import type { DecisionSeverity, ProposedActionType } from '../lib/orchestrator-types'
+import { onPhaseAdvanced, onOverrideDecision } from './orchestrator-watcher'
 import fs from 'fs'
 import path from 'path'
 
@@ -57,6 +58,12 @@ export async function advancePhase(sessionId: string): Promise<void> {
   // In project-control, "advance" means the orchestrator decides what to do next
   // This is a placeholder — actual logic depends on the pipeline state
   console.log(`[orchestrator] advance_phase called for session ${sessionId} (phase: ${session.phase})`)
+  // Router learning: a successful phase advance is a positive outcome for the
+  // most recent routing decision attached to this session.
+  // IMPORTANT: when advancePhase grows a real durable phase-update write, this
+  // hook MUST stay AFTER it — firing before persistence would record successes
+  // for advances that may then fail to commit.
+  onPhaseAdvanced(db, sessionId)
 }
 
 export async function pauseSession(sessionId: string, reason: string): Promise<void> {
@@ -100,7 +107,8 @@ export async function logDecision(input: {
   detail?: string | null
   severity: DecisionSeverity
 }): Promise<void> {
-  createDecision(getDb(), {
+  const db = getDb()
+  createDecision(db, {
     id: randomUUID(),
     orchestrator_id: input.orchestrator_id,
     project_id: input.project_id,
@@ -110,6 +118,17 @@ export async function logDecision(input: {
     severity: input.severity,
     created_at: new Date().toISOString(),
   })
+  // Router learning: an override decision means the orchestrator had to step
+  // in and correct the picked provider's work — that's a negative outcome for
+  // the most recent routing decision on the affected session. We resolve the
+  // session via source_file using getLatestSessionForFile (NOT
+  // getActiveSessionForFile) because most overrides are filed AFTER the session
+  // has ended; gating on status='active' would silently drop the failure
+  // signal in the common case and bias scores toward optimism.
+  if (input.severity === 'override' && input.source_file) {
+    const session = getLatestSessionForFile(db, input.source_file)
+    if (session) onOverrideDecision(db, session.id)
+  }
 }
 
 export async function sendNotification(channel: string, message: string): Promise<void> {
