@@ -52,9 +52,23 @@ export async function resolveProvider(db: Database, opts: ResolveProviderOpts): 
     if (p && p.is_active === 1) return p
   }
 
-  // 4. Smart router (replaces "first active" fallback) — wired in Task 10.
-  const active = getActiveProviders(db)
-  if (active.length > 0) return active[0]
-
-  throw new Error('NO_PROVIDERS_CONFIGURED')
+  // 4. Smart router replaces the static "first active" fallback.
+  if (!opts.sessionId) {
+    // No sessionId means the caller cannot persist a decision (e.g. an early
+    // exploratory call with no session yet). Fall back to first-active so we
+    // never break those paths.
+    const active = getActiveProviders(db)
+    if (active.length > 0) return active[0]
+    throw new Error('NO_PROVIDERS_CONFIGURED')
+  }
+  const { pickRoute } = await import('@/lib/router')
+  const decision = await pickRoute(db, {
+    projectId: opts.projectId,
+    sessionId: opts.sessionId,
+    taskId: opts.taskId,
+    phase: opts.phase,
+  })
+  const picked = getProvider(db, decision.picked_provider)
+  if (!picked) throw new Error('NO_PROVIDERS_CONFIGURED')
+  return picked
 }
