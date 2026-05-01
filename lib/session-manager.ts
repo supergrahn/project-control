@@ -656,3 +656,16 @@ export async function spawnOrchestratorSession(opts: {
 
   return sessionId
 }
+
+/**
+ * Respawn a session that was put into 'needs_route_retry' using a specific provider.
+ * The new routing_decisions row is written by the API handler before this call.
+ *
+ * For Task 12 this is a shim that throws — Task 14 replaces it with the real
+ * implementation that factors out spawnSession's adapter-spawn step. Endpoint
+ * tests mock this function so the throw is never hit.
+ */
+export async function respawnSessionWithProvider(sessionId: string, providerId: string): Promise<void> {
+  const _unused = { sessionId, providerId }
+  throw new Error('respawnSessionWithProvider: implementation TODO — Task 14')
+}
