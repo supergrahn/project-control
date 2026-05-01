@@ -11,9 +11,20 @@ export async function GET(
   const task = getTask(db, id)
   if (!task) return NextResponse.json({ error: 'task not found' }, { status: 404 })
 
+  // Defensive: corrupt persisted JSON shouldn't 500 the inspection endpoint.
+  // setTaskPrep is the only writer and uses JSON.stringify, so this branch
+  // is only reachable via direct DB tampering — but better safe.
+  let notes: unknown = null
+  if (task.prep_notes) {
+    try {
+      notes = JSON.parse(task.prep_notes)
+    } catch {
+      notes = null
+    }
+  }
   return NextResponse.json({
     status: task.prep_status,
-    notes: task.prep_notes ? JSON.parse(task.prep_notes) : null,
+    notes,
     prepped_at: task.prepped_at,
   })
 }
