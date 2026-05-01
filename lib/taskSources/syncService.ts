@@ -4,6 +4,7 @@ import { getTaskSourceConfig, listTaskSourceConfigs } from '@/lib/db/taskSourceC
 import { getTaskSourceAdapter } from '@/lib/taskSources/adapters'
 import { createTask, updateTask } from '@/lib/db/tasks'
 import type { Task } from '@/lib/db/tasks'
+import { prepareTask } from '@/lib/prep/prepareTask'
 
 export type SyncResult = {
   created: number
@@ -43,6 +44,8 @@ export async function syncProjectSource(
         const mappedPriority = adapter.mapPriority(ext.priority)
 
         if (existing) {
+          const titleChanged = existing.title !== ext.title
+          const descChanged = (existing.idea_file ?? '') !== (ext.description ?? '')
           updateTask(db, existing.id, {
             title: ext.title,
             priority: mappedPriority,
@@ -52,6 +55,9 @@ export async function syncProjectSource(
             source_meta: JSON.stringify(ext.meta),
             status: mappedStatus,
           })
+          if (titleChanged || descChanged) {
+            void prepareTask(db, existing.id)
+          }
           updated++
         } else {
           const softDeleted = db.prepare(
@@ -69,6 +75,7 @@ export async function syncProjectSource(
               source_meta: JSON.stringify(ext.meta),
               idea_file: ext.description,
             })
+            void prepareTask(db, softDeleted.id)
             updated++
           } else {
             const task = createTask(db, {
@@ -86,6 +93,7 @@ export async function syncProjectSource(
               idea_file: ext.description,
               status: mappedStatus,
             })
+            void prepareTask(db, task.id)
             created++
           }
         }
