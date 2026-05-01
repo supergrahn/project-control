@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import type { Components } from 'react-markdown'
 import { useDocsTree, type DocsTreeNode } from '@/hooks/useDocs'
+import { DocActionModal, type DocActionPhase } from '@/components/docs/DocActionModal'
 
 const markdownComponents: Components = {
   h1: ({ children }) => <h1 className="text-2xl font-bold text-text-primary mt-0 mb-4 leading-tight">{children}</h1>,
@@ -58,8 +59,9 @@ const NO_SELECTION_PATH = '__none__'
 
 export default function DocsPage() {
   const { projectId } = useParams<{ projectId: string }>()
-  const { data, isLoading, isError } = useDocsTree(projectId)
+  const { data, isLoading, isError, refetch } = useDocsTree(projectId)
   const [selected, setSelected] = useState<DocsTreeNode | null>(null)
+  const [actionPhase, setActionPhase] = useState<DocActionPhase | null>(null)
 
   const nodes = data?.nodes ?? []
   const counts = useMemo(() => countAll(nodes), [nodes])
@@ -123,15 +125,23 @@ export default function DocsPage() {
         <div className="bg-bg-primary border border-border-default rounded-[8px] min-h-0 overflow-hidden">
           {selected ? (
             <div className="h-full flex flex-col">
-              <div className="px-5 py-4 border-b border-border-default">
-                <div className="flex items-center gap-2 min-w-0">
-                  {selected.type === 'folder'
-                    ? <FolderOpen size={16} className="text-accent-blue flex-shrink-0" />
-                    : <FileText size={16} className="text-text-secondary flex-shrink-0" />
-                  }
-                  <h2 className="text-text-primary text-base font-semibold truncate">{selected.name}</h2>
+              <div className="px-5 py-4 border-b border-border-default flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {selected.type === 'folder'
+                      ? <FolderOpen size={16} className="text-accent-blue flex-shrink-0" />
+                      : <FileText size={16} className="text-text-secondary flex-shrink-0" />
+                    }
+                    <h2 className="text-text-primary text-base font-semibold truncate">{selected.name}</h2>
+                  </div>
+                  <div className="text-text-faint text-xs mt-1 font-mono">{selected.relativePath}</div>
                 </div>
-                <div className="text-text-faint text-xs mt-1 font-mono">{selected.relativePath}</div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <DocActionButton label="Brainstorm" onClick={() => setActionPhase('brainstorm')} />
+                  <DocActionButton label="Make spec" onClick={() => setActionPhase('spec')} />
+                  <DocActionButton label="Make plan" onClick={() => setActionPhase('plan')} />
+                  <DocActionButton label="Develop" onClick={() => setActionPhase('develop')} />
+                </div>
               </div>
               {selected.type === 'file' && /\.mdx?$/i.test(selected.name) ? (
                 <div className="flex-1 overflow-y-auto px-7 py-6">
@@ -157,7 +167,30 @@ export default function DocsPage() {
           )}
         </div>
       </div>
+      {actionPhase && selected && (
+        <DocActionModal
+          open
+          projectId={projectId}
+          phase={actionPhase}
+          sourceFile={selected.relativePath}
+          sourceName={selected.name}
+          onClose={() => setActionPhase(null)}
+          onStarted={() => { void refetch() }}
+        />
+      )}
     </div>
+  )
+}
+
+function DocActionButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-[6px] px-2.5 py-1 text-[12px] bg-bg-secondary text-text-secondary border border-border-default hover:bg-bg-tertiary hover:text-text-primary"
+    >
+      {label}
+    </button>
   )
 }
 
