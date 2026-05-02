@@ -37,11 +37,13 @@ export type Session = {
   status: SessionStatus
   created_at: string
   ended_at: string | null
+  task_id: string | null
   agent_id: string | null
   exit_reason: string | null
   user_context: string | null
   permission_mode: string | null
   correction_note: string | null
+  summary: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -399,6 +401,7 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   runMigration(db, 61, 'tasks_prep_notes', `ALTER TABLE tasks ADD COLUMN prep_notes TEXT`, true)
   runMigration(db, 62, 'tasks_prep_status', `ALTER TABLE tasks ADD COLUMN prep_status TEXT`, true)
   runMigration(db, 63, 'tasks_prepped_at', `ALTER TABLE tasks ADD COLUMN prepped_at TEXT`, true)
+  runMigration(db, 64, 'sessions_summary', `ALTER TABLE sessions ADD COLUMN summary TEXT`, true)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

@@ -6,10 +6,13 @@ export type Session = {
   label: string
   phase: string
   source_file: string | null
+  task_id?: string | null
+  agent_id?: string | null
   status: string
   created_at: string
   ended_at: string | null
   exit_reason?: string | null
+  summary?: string | null
 }
 
 export function useSessions(opts?: { status?: 'active' | 'all'; projectId?: string }) {
