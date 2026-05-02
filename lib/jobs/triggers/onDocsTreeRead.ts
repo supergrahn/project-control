@@ -3,6 +3,7 @@ import type { Database } from 'better-sqlite3'
 import { enqueueJob } from '@/lib/jobs/runner'
 import { getDefaultLocalProvider } from '@/lib/db/providers'
 import { getLocalEmbeddingModel } from '@/lib/router/localEmbed'
+import { getLocalModelName } from '@/lib/router/localComplete'
 
 type FileNode = { type: 'file'; relativePath: string; content?: string }
 type FolderNode = { type: 'folder'; children?: Array<FileNode | FolderNode> }
@@ -34,6 +35,7 @@ export function onDocsTreeRead(db: Database, projectId: string, nodes: Node[]): 
   // that were embedded with a different model and re-enqueue them.
   const provider = getDefaultLocalProvider(db)
   const activeModel = provider ? getLocalEmbeddingModel(provider) : null
+  const activeChatModel = provider ? getLocalModelName(provider) : null
   if (!activeModel) return // no provider configured → no point enqueuing embed jobs
 
   walk(nodes, (file) => {
@@ -55,12 +57,16 @@ export function onDocsTreeRead(db: Database, projectId: string, nodes: Node[]): 
       )
     }
 
-    // Critique enqueue: only specs/plans
+    // Critique enqueue: only specs/plans. Stale on content_hash OR chat-model drift.
     if (kind === 'spec' || kind === 'plan') {
       const existingCritic = db
-        .prepare(`SELECT content_hash FROM critic_findings WHERE project_id = ? AND kind = ? AND ref = ?`)
-        .get(projectId, kind, file.relativePath) as { content_hash: string } | undefined
-      if (!existingCritic || existingCritic.content_hash !== hash) {
+        .prepare(`SELECT content_hash, findings FROM critic_findings WHERE project_id = ? AND kind = ? AND ref = ?`)
+        .get(projectId, kind, file.relativePath) as { content_hash: string; findings: string } | undefined
+      let existingModel: string | null = null
+      if (existingCritic) {
+        try { existingModel = (JSON.parse(existingCritic.findings) as { model?: string }).model ?? null } catch {}
+      }
+      if (!existingCritic || existingCritic.content_hash !== hash || (activeChatModel && existingModel !== activeChatModel)) {
         const jobKind = kind === 'spec' ? 'critique_spec' : 'critique_plan'
         enqueueJob(
           db,
