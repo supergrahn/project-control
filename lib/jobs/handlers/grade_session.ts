@@ -34,8 +34,8 @@ export async function handleGradeSession(db: Database, payload: GradeSessionPayl
     return
   }
 
-  const session = db.prepare(`SELECT id, summary, phase, task_id FROM sessions WHERE id = ?`).get(payload.session_id) as
-    { id: string; summary: string | null; phase: string; task_id: string | null } | undefined
+  const session = db.prepare(`SELECT id, project_id, summary, phase, task_id FROM sessions WHERE id = ?`).get(payload.session_id) as
+    { id: string; project_id: string; summary: string | null; phase: string; task_id: string | null } | undefined
   if (!session || !session.summary || !session.task_id) {
     console.warn(`[grade_session] missing session/summary/task_id for ${payload.session_id}`)
     return
@@ -45,7 +45,23 @@ export async function handleGradeSession(db: Database, payload: GradeSessionPayl
     { title: string; idea_file: string | null } | undefined
   if (!task) return
 
-  const goal = task.idea_file?.replace(/^file:\/\//, '') ?? '(no description)'
+  // `idea_file` is dual-use: external-task sync stores the description as raw text;
+  // native tasks store `file://<path>`. For native, read the file content; otherwise use the value as the goal.
+  let goal = '(no description)'
+  if (task.idea_file) {
+    if (task.idea_file.startsWith('file://')) {
+      const project = db.prepare(`SELECT path FROM projects WHERE id = ?`).get(session.project_id) as { path: string } | undefined
+      if (project) {
+        const filePath = task.idea_file.replace(/^file:\/\//, '')
+        try {
+          const fs = await import('fs')
+          goal = fs.readFileSync(filePath.startsWith('/') ? filePath : `${project.path}/${filePath}`, 'utf8')
+        } catch { /* file gone — keep default */ }
+      }
+    } else {
+      goal = task.idea_file  // external-task description, already raw text
+    }
+  }
   const prompt = PROMPT(task.title, goal, session.phase, session.summary)
 
   const raw = await localComplete(provider, prompt, { maxTokens: 200, timeoutMs: 30_000 })
