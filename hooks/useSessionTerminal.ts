@@ -77,7 +77,7 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
         ws.send(JSON.stringify({ type: 'attach', sessionId }))
       }
 
-      ws.onerror = () => setErrorEnded(true)
+      ws.onerror = () => { if (!cancelled) setErrorEnded(true) }
 
       ws.onmessage = (e) => {
         try {

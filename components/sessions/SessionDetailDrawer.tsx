@@ -40,15 +40,20 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
     if (idx === -1) onClose()
   }, [idx, onClose])
 
+  // Stable keyboard listener: read fresh state from refs so we don't add/remove
+  // the global keydown handler on every parent render.
+  const stateRef = useRef({ onClose, onNavigate, hasPrev, hasNext, idx, sessions })
+  stateRef.current = { onClose, onNavigate, hasPrev, hasNext, idx, sessions }
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') { onClose(); return }
-      if (e.key === 'ArrowLeft' && hasPrev) onNavigate(sessions[idx - 1])
-      if (e.key === 'ArrowRight' && hasNext) onNavigate(sessions[idx + 1])
+      const s = stateRef.current
+      if (e.key === 'Escape') { s.onClose(); return }
+      if (e.key === 'ArrowLeft' && s.hasPrev) s.onNavigate(s.sessions[s.idx - 1])
+      if (e.key === 'ArrowRight' && s.hasNext) s.onNavigate(s.sessions[s.idx + 1])
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, onNavigate, hasPrev, hasNext, idx, sessions])
+  }, [])
 
   return (
     <>
