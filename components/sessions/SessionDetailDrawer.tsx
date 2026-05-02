@@ -167,6 +167,9 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
           retryAfter={retryAfter}
         />
 
+        {/* Next-actions block (extracted by local LLM after the session ends) */}
+        <NextActionsSection nextActions={session.next_actions ?? null} />
+
         {/* Terminal */}
         <div className="relative flex-1 min-h-0 bg-bg-base">
           <div ref={containerRef} className="absolute inset-0 p-2" />
@@ -176,5 +179,74 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
         </div>
       </div>
     </>
+  )
+}
+
+type NextActionsPayload = {
+  next_actions?: string[]
+  open_questions?: string[]
+  files_touched?: Array<{ path: string; change: string }>
+  extracted_at?: string
+  model?: string
+}
+
+function NextActionsSection({ nextActions }: { nextActions: string | null }) {
+  if (!nextActions) return null
+  let parsed: NextActionsPayload | null = null
+  try {
+    parsed = JSON.parse(nextActions) as NextActionsPayload
+  } catch {
+    return null
+  }
+  if (!parsed) return null
+
+  const hasNext = (parsed.next_actions?.length ?? 0) > 0
+  const hasQuestions = (parsed.open_questions?.length ?? 0) > 0
+  const hasFiles = (parsed.files_touched?.length ?? 0) > 0
+  if (!hasNext && !hasQuestions && !hasFiles) return null
+
+  return (
+    <div className="border-b border-border-default px-4 py-3 shrink-0">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary mb-2">
+        Next
+        {parsed.model && (
+          <span className="text-text-faint normal-case font-normal"> · extracted by {parsed.model}</span>
+        )}
+      </div>
+      {hasNext && (
+        <ul className="text-xs text-text-primary mb-3 space-y-1">
+          {parsed.next_actions!.map((a, i) => (
+            <li key={i}>• {a}</li>
+          ))}
+        </ul>
+      )}
+      {hasQuestions && (
+        <>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary mb-1.5">
+            Open questions
+          </div>
+          <ul className="text-xs text-text-primary mb-3 space-y-1">
+            {parsed.open_questions!.map((q, i) => (
+              <li key={i}>• {q}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {hasFiles && (
+        <>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary mb-1.5">
+            Files touched
+          </div>
+          <ul className="text-xs font-mono text-text-primary space-y-0.5">
+            {parsed.files_touched!.map((f, i) => (
+              <li key={i}>
+                <span className="text-accent-blue">{f.path}</span>{' '}
+                <span className="text-text-muted">— {f.change}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   )
 }
