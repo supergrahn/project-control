@@ -1,22 +1,13 @@
 import type { Provider } from '@/lib/db/providers'
+import {
+  parseLocalProviderConfig as parseConfig,
+  DEFAULT_BASE_URL,
+  DEFAULT_MODEL,
+} from './providerConfig'
 
 export type LocalCompleteOpts = {
   maxTokens: number
   timeoutMs: number
-}
-
-type ParsedConfig = { baseUrl?: string; model?: string }
-
-const DEFAULT_BASE_URL = 'http://localhost:11434/v1'
-const DEFAULT_MODEL = 'llama3'
-
-function parseConfig(provider: Provider): ParsedConfig {
-  if (!provider.config) return {}
-  try {
-    return JSON.parse(provider.config) as ParsedConfig
-  } catch {
-    return {}
-  }
 }
 
 /**
@@ -25,8 +16,7 @@ function parseConfig(provider: Provider): ParsedConfig {
  * forcing every caller of `localComplete` to also unpack the response shape.
  */
 export function getLocalModelName(provider: Provider): string {
-  const cfg = parseConfig(provider)
-  return cfg.model ?? DEFAULT_MODEL
+  return parseConfig(provider).model ?? DEFAULT_MODEL
 }
 
 export async function localComplete(
