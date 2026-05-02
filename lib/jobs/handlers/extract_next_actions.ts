@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import { localComplete } from '@/lib/router/localComplete'
+import { localComplete, getLocalModelName } from '@/lib/router/localComplete'
 import { getDefaultLocalProvider } from '@/lib/db/providers'
 import { getTasksByProject } from '@/lib/db/tasks'
 import { taskMatchesPath } from '@/lib/prep/taskMatchesPath'
@@ -41,16 +41,21 @@ export async function handleExtractNextActions(db: Database, payload: ExtractNex
 
   const raw = await localComplete(provider, PROMPT(session.summary), { maxTokens: 1000, timeoutMs: 20_000 })
   const parsed = JSON.parse(raw) as {
-    next_actions?: string[]
-    open_questions?: string[]
-    files_touched?: Array<{ path: string; change: string }>
+    next_actions?: unknown
+    open_questions?: unknown
+    files_touched?: unknown
   }
+  // Defensive: the LLM may emit non-array values for these fields. Drop anything
+  // that doesn't match the expected shape rather than letting downstream UI
+  // .map() over a string and render character-by-character.
   const result = {
-    next_actions: parsed.next_actions ?? [],
-    open_questions: parsed.open_questions ?? [],
-    files_touched: parsed.files_touched ?? [],
+    next_actions: Array.isArray(parsed.next_actions) ? parsed.next_actions.filter((x): x is string => typeof x === 'string') : [],
+    open_questions: Array.isArray(parsed.open_questions) ? parsed.open_questions.filter((x): x is string => typeof x === 'string') : [],
+    files_touched: Array.isArray(parsed.files_touched)
+      ? parsed.files_touched.filter((x): x is { path: string; change: string } => x != null && typeof x === 'object' && typeof (x as { path?: unknown }).path === 'string' && typeof (x as { change?: unknown }).change === 'string')
+      : [],
     extracted_at: new Date().toISOString(),
-    model: 'local',
+    model: getLocalModelName(provider),
   }
 
   db.prepare(`UPDATE sessions SET next_actions = ? WHERE id = ?`)
