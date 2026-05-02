@@ -9,6 +9,8 @@ import type { Components } from 'react-markdown'
 import { useDocsTree, type DocsTreeNode } from '@/hooks/useDocs'
 import { DocActionModal, type DocActionPhase } from '@/components/docs/DocActionModal'
 import { DocSessionsPanel } from '@/components/docs/DocSessionsPanel'
+import { CriticFindingsPanel } from '@/components/docs/CriticFindingsPanel'
+import { sha256Hex } from '@/lib/util/sha256'
 
 const markdownComponents: Components = {
   h1: ({ children }) => <h1 className="text-2xl font-bold text-text-primary mt-0 mb-4 leading-tight">{children}</h1>,
@@ -73,8 +75,33 @@ function DocsPageContent() {
   const { data, isLoading, isError } = useDocsTree(projectId)
   const [selected, setSelected] = useState<DocsTreeNode | null>(null)
   const [actionPhase, setActionPhase] = useState<DocActionPhase | null>(null)
+  const [contentHash, setContentHash] = useState<string>('')
 
   const nodes = data?.nodes ?? []
+
+  // Recompute the SHA-256 hash whenever the selected file's content changes so
+  // the critic findings panel can flag staleness without each panel re-hashing
+  // on its own. Web Crypto is async — we wait for it before passing the hash
+  // down. crypto.subtle isn't available during SSR, so we guard for it; the
+  // panel renders nothing when the hash is empty.
+  useEffect(() => {
+    let cancelled = false
+    if (selected?.type !== 'file' || !selected.content || typeof crypto === 'undefined' || !crypto.subtle) {
+      setContentHash('')
+      return
+    }
+    sha256Hex(selected.content).then((h) => {
+      if (!cancelled) setContentHash(h)
+    }).catch(() => {
+      if (!cancelled) setContentHash('')
+    })
+    return () => { cancelled = true }
+  }, [selected])
+
+  const isCritiqueable = selected?.type === 'file' && (
+    selected.relativePath.startsWith('docs/superpowers/specs/') ||
+    selected.relativePath.startsWith('docs/superpowers/plans/')
+  )
 
   useEffect(() => {
     if (!fileQueryParam || !data) return
@@ -173,6 +200,13 @@ function DocsPageContent() {
               </div>
               {selected.type === 'file' && /\.mdx?$/i.test(selected.name) ? (
                 <div className="flex-1 overflow-y-auto px-7 py-6">
+                  {isCritiqueable && (
+                    <CriticFindingsPanel
+                      projectId={projectId}
+                      docRef={selected.relativePath}
+                      currentHash={contentHash}
+                    />
+                  )}
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>
                     {selected.content ?? ''}
                   </ReactMarkdown>
