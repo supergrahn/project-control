@@ -1,13 +1,16 @@
 'use client'
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { X, ChevronLeft, ChevronRight, ExternalLink, Square } from 'lucide-react'
 import type { Session } from '@/hooks/useSessions'
 import { useKillSession } from '@/hooks/useSessions'
 import { useProjects } from '@/hooks/useProjects'
+import { useTasks } from '@/hooks/useTasks'
 import { useSessionWindows } from '@/hooks/useSessionWindows'
 import { useSessionTerminal } from '@/hooks/useSessionTerminal'
 import { SessionStatusBanner } from '@/components/sessions/SessionStatusBanner'
 import { PHASE_INITIALS } from '@/lib/sessionPhaseConfig'
+import { getSessionOriginator } from '@/lib/sessions/originator'
 
 type Props = {
   session: Session
@@ -20,7 +23,11 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
   const containerRef = useRef<HTMLDivElement>(null)
   const closeBtnRef = useRef<HTMLButtonElement>(null)
   const { data: projects = [] } = useProjects()
-  const projectName = projects.find(p => p.id === session.project_id)?.name ?? session.project_id
+  const project = projects.find(p => p.id === session.project_id)
+  const projectName = project?.name ?? session.project_id
+  const projectPath = project?.path
+  const { tasks: allTasks = [] } = useTasks(session.project_id)
+  const originator = getSessionOriginator(session, { tasks: allTasks, projectPath })
   const killSession = useKillSession()
   const { openWindow } = useSessionWindows()
   const isActive = !session.ended_at
@@ -109,6 +116,28 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
             </span>
           </div>
           <div className="text-text-muted text-[11px] mt-1">{session.phase}</div>
+        </div>
+
+        {/* Originator: "From X" line */}
+        <div className="px-4 py-1 text-[11px] text-text-muted border-b border-border-default shrink-0">
+          {originator.kind === 'task' && (
+            <>
+              From <Link href={originator.task.href} className="text-accent-blue hover:underline">{originator.task.label}</Link>
+              {originator.doc && (
+                <> via <Link href={originator.doc.href} className="text-accent-blue hover:underline">{originator.doc.label}</Link></>
+              )}
+              {' '}<ExternalLink className="inline w-3 h-3" />
+            </>
+          )}
+          {originator.kind === 'doc' && (
+            <>From <Link href={originator.doc.href} className="text-accent-blue hover:underline">{originator.doc.label}</Link> <ExternalLink className="inline w-3 h-3" /></>
+          )}
+          {originator.kind === 'agent' && (
+            <>From <Link href={originator.agent.href} className="text-accent-blue hover:underline">{originator.agent.label}</Link> <ExternalLink className="inline w-3 h-3" /></>
+          )}
+          {originator.kind === 'standalone' && (
+            <span className="text-text-faint">From standalone</span>
+          )}
         </div>
 
         {/* Row 3: actions */}

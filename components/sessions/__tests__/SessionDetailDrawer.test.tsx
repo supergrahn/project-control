@@ -15,7 +15,10 @@ vi.mock('@/hooks/useSessionWindows', () => ({
   useSessionWindows: () => ({ openWindow: openWindowSpy }),
 }))
 vi.mock('@/hooks/useProjects', () => ({
-  useProjects: () => ({ data: [{ id: 'proj-1', name: 'My Project' }] }),
+  useProjects: () => ({ data: [{ id: 'proj-1', name: 'My Project', path: '/home/user/myproject' }] }),
+}))
+vi.mock('@/hooks/useTasks', () => ({
+  useTasks: () => ({ tasks: [{ id: 'task-1', title: 'Build feature' }], isLoading: false, error: null }),
 }))
 vi.mock('@/hooks/useSessionTerminal', () => ({
   useSessionTerminal: () => ({
@@ -107,5 +110,50 @@ describe('SessionDetailDrawer', () => {
     expect(backdrop).toBeTruthy()
     fireEvent.click(backdrop!)
     expect(onClose).toHaveBeenCalled()
+  })
+
+  it('renders "From <task>" link for task originator', () => {
+    wrap(<SessionDetailDrawer
+      session={{ ...baseSession, task_id: 'task-1' }}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    // Both the session label and task title are "Build feature"; pick the anchor specifically.
+    const link = screen.getByRole('link', { name: /Build feature/i })
+    expect(link).toHaveAttribute('href', '/projects/proj-1/tasks/task-1')
+  })
+
+  it('renders task + doc when both task_id and source_file set', () => {
+    wrap(<SessionDetailDrawer
+      session={{ ...baseSession, task_id: 'task-1', source_file: '/home/user/myproject/specs/foo.md' }}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    expect(screen.getByText(/via/)).toBeInTheDocument()
+    expect(screen.getByText('foo.md')).toBeInTheDocument()
+  })
+
+  it('renders "From <doc>" link for doc-only originator', () => {
+    wrap(<SessionDetailDrawer
+      session={{ ...baseSession, source_file: '/home/user/myproject/docs/intro.md' }}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    const link = screen.getByText('intro.md').closest('a')
+    expect(link?.getAttribute('href')).toContain('/projects/proj-1/docs?file=')
+  })
+
+  it('renders "From standalone" without link for standalone session', () => {
+    wrap(<SessionDetailDrawer
+      session={baseSession}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    expect(screen.getByText(/standalone/i)).toBeInTheDocument()
+  })
+
+  it('renders "From Agent" link for agent originator', () => {
+    wrap(<SessionDetailDrawer
+      session={{ ...baseSession, agent_id: 'agent-1' }}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    const link = screen.getByRole('link', { name: /Agent/i })
+    expect(link).toHaveAttribute('href', '/projects/proj-1/agents/agent-1')
   })
 })

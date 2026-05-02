@@ -1,6 +1,6 @@
 'use client'
-import { useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { FileText, Folder, FolderOpen } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -8,6 +8,7 @@ import rehypeHighlight from 'rehype-highlight'
 import type { Components } from 'react-markdown'
 import { useDocsTree, type DocsTreeNode } from '@/hooks/useDocs'
 import { DocActionModal, type DocActionPhase } from '@/components/docs/DocActionModal'
+import { DocSessionsPanel } from '@/components/docs/DocSessionsPanel'
 
 const markdownComponents: Components = {
   h1: ({ children }) => <h1 className="text-2xl font-bold text-text-primary mt-0 mb-4 leading-tight">{children}</h1>,
@@ -58,12 +59,39 @@ function formatDate(iso: string): string {
 const NO_SELECTION_PATH = '__none__'
 
 export default function DocsPage() {
+  return (
+    <Suspense fallback={<div className="text-text-secondary text-sm">Loading docs...</div>}>
+      <DocsPageContent />
+    </Suspense>
+  )
+}
+
+function DocsPageContent() {
   const { projectId } = useParams<{ projectId: string }>()
+  const searchParams = useSearchParams()
+  const fileQueryParam = searchParams.get('file')
   const { data, isLoading, isError } = useDocsTree(projectId)
   const [selected, setSelected] = useState<DocsTreeNode | null>(null)
   const [actionPhase, setActionPhase] = useState<DocActionPhase | null>(null)
 
   const nodes = data?.nodes ?? []
+
+  useEffect(() => {
+    if (!fileQueryParam || !data) return
+    function findFile(treeNodes: DocsTreeNode[]): DocsTreeNode | null {
+      for (const node of treeNodes) {
+        if (node.type === 'file' && node.relativePath === fileQueryParam) return node
+        if (node.children) {
+          const hit = findFile(node.children)
+          if (hit) return hit
+        }
+      }
+      return null
+    }
+    const match = findFile(data.nodes)
+    if (match) setSelected(match)
+  }, [fileQueryParam, data])
+
   const counts = useMemo(() => countAll(nodes), [nodes])
   const headerFolder = selected?.type === 'folder' ? selected : null
 
@@ -148,6 +176,7 @@ export default function DocsPage() {
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]} components={markdownComponents}>
                     {selected.content ?? ''}
                   </ReactMarkdown>
+                  <DocSessionsPanel projectId={projectId} relativePath={selected.relativePath} />
                 </div>
               ) : (
                 <div className="p-5 grid grid-cols-2 gap-3 text-sm">

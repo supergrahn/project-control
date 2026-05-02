@@ -11,7 +11,11 @@ vi.mock('@/hooks/useSessions', async (importOriginal) => {
 })
 
 vi.mock('@/hooks/useProjects', () => ({
-  useProjects: () => ({ data: [{ id: 'proj-1', name: 'My Project' }] }),
+  useProjects: () => ({ data: [{ id: 'proj-1', name: 'My Project', path: '/home/user/myproject' }] }),
+}))
+
+vi.mock('@/hooks/useTasks', () => ({
+  useTasks: () => ({ tasks: [{ id: 'task-1', title: 'Build feature' }], isLoading: false, error: null }),
 }))
 
 function wrap(ui: React.ReactElement) {
@@ -65,5 +69,20 @@ describe('SessionGridCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /stop/i }))
     expect(killMutate).toHaveBeenCalledWith('sess-1')
     expect(parentClick).not.toHaveBeenCalled()
+  })
+
+  it('renders "from <task>" segment for task originator', () => {
+    wrap(<SessionGridCard session={{ ...baseSession, task_id: 'task-1' }} />)
+    expect(screen.getByText(/from Build feature/i)).toBeInTheDocument()
+  })
+
+  it('renders "from <doc>" segment for doc originator', () => {
+    wrap(<SessionGridCard session={{ ...baseSession, source_file: '/home/user/myproject/specs/foo.md' }} />)
+    expect(screen.getByText(/from foo.md/i)).toBeInTheDocument()
+  })
+
+  it('omits originator segment for standalone session', () => {
+    wrap(<SessionGridCard session={baseSession} />)
+    expect(screen.queryByText(/from /i)).not.toBeInTheDocument()
   })
 })

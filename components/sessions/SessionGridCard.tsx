@@ -3,13 +3,24 @@ import { formatDistanceToNow } from 'date-fns'
 import type { Session } from '@/hooks/useSessions'
 import { useKillSession } from '@/hooks/useSessions'
 import { useProjects } from '@/hooks/useProjects'
+import { useTasks } from '@/hooks/useTasks'
 import { PHASE_INITIALS } from '@/lib/sessionPhaseConfig'
+import { getSessionOriginator } from '@/lib/sessions/originator'
 
 type Props = { session: Session }
 
 export function SessionGridCard({ session }: Props) {
   const { data: projects = [] } = useProjects()
-  const projectName = projects.find(p => p.id === session.project_id)?.name ?? session.project_id
+  const project = projects.find(p => p.id === session.project_id)
+  const projectName = project?.name ?? session.project_id
+  const projectPath = project?.path
+  const { tasks: allTasks = [] } = useTasks(session.project_id)
+  const originator = getSessionOriginator(session, { tasks: allTasks, projectPath })
+  let originatorLabel: string | null = null
+  if (originator.kind === 'task') originatorLabel = originator.task.label
+  else if (originator.kind === 'doc') originatorLabel = originator.doc.label
+  else if (originator.kind === 'agent') originatorLabel = originator.agent.label
+  // 'standalone' → null, segment omitted
   const killSession = useKillSession()
   const isActive = !session.ended_at
   const initials = PHASE_INITIALS[session.phase] ?? session.phase.slice(0, 2).toUpperCase()
@@ -38,6 +49,12 @@ export function SessionGridCard({ session }: Props) {
           <span>started {startedRel}</span>
           <span className="mx-1.5 text-text-faint">·</span>
           <span>{session.phase}</span>
+          {originatorLabel && (
+            <>
+              <span className="mx-1.5 text-text-faint">·</span>
+              <span>from {originatorLabel}</span>
+            </>
+          )}
           {endedRel && (
             <>
               <span className="mx-1.5 text-text-faint">·</span>
