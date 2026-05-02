@@ -41,10 +41,10 @@ export function recordOutcome(db: Database, opts: RecordOutcomeOpts): void {
     )
     .get(decision.phase, decision.complexity, decision.picked_provider) as ScoreRow | undefined
 
-  const isSuccess = outcome === 'success'
+  const score = outcome === 'success' ? 1 : outcome === 'partial' ? 0.5 : 0
   const newN  = (existing?.n_outcomes ?? 0) + 1
   const sumPrev = (existing?.success_rate ?? 0) * (existing?.n_outcomes ?? 0)
-  const newRate = (sumPrev + (isSuccess ? 1 : 0)) / newN
+  const newRate = (sumPrev + score) / newN
 
   if (existing) {
     db.prepare(

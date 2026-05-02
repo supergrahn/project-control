@@ -13,6 +13,10 @@ export type Session = {
   ended_at: string | null
   exit_reason?: string | null
   summary?: string | null
+  grade?: string | null
+  grade_reason?: string | null
+  graded_at?: string | null
+  next_actions?: string | null
 }
 
 export function useSessions(opts?: { status?: 'active' | 'all'; projectId?: string }) {

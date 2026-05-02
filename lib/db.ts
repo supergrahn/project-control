@@ -44,6 +44,10 @@ export type Session = {
   permission_mode: string | null
   correction_note: string | null
   summary: string | null
+  grade: string | null
+  grade_reason: string | null
+  graded_at: string | null
+  next_actions: string | null
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'project-control.db')
@@ -402,6 +406,68 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   runMigration(db, 62, 'tasks_prep_status', `ALTER TABLE tasks ADD COLUMN prep_status TEXT`, true)
   runMigration(db, 63, 'tasks_prepped_at', `ALTER TABLE tasks ADD COLUMN prepped_at TEXT`, true)
   runMigration(db, 64, 'sessions_summary', `ALTER TABLE sessions ADD COLUMN summary TEXT`, true)
+  runMigration(db, 65, 'create_pending_jobs', `
+    CREATE TABLE IF NOT EXISTS pending_jobs (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind         TEXT    NOT NULL,
+      payload      TEXT    NOT NULL,
+      dedup_key    TEXT,
+      state        TEXT    NOT NULL DEFAULT 'pending',
+      attempts     INTEGER NOT NULL DEFAULT 0,
+      last_error   TEXT,
+      scheduled_at TEXT    NOT NULL,
+      started_at   TEXT,
+      finished_at  TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pending_jobs_state_scheduled ON pending_jobs(state, scheduled_at);
+    CREATE INDEX IF NOT EXISTS idx_pending_jobs_dedup_pending ON pending_jobs(dedup_key) WHERE state = 'pending';
+  `)
+  runMigration(db, 66, 'create_embeddings', `
+    CREATE TABLE IF NOT EXISTS embeddings (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id   TEXT    NOT NULL REFERENCES projects(id),
+      kind         TEXT    NOT NULL,
+      ref          TEXT    NOT NULL,
+      content_hash TEXT    NOT NULL,
+      vector       BLOB    NOT NULL,
+      dim          INTEGER NOT NULL,
+      model        TEXT    NOT NULL,
+      updated_at   TEXT    NOT NULL,
+      UNIQUE(project_id, kind, ref)
+    );
+    CREATE INDEX IF NOT EXISTS idx_embeddings_project_kind ON embeddings(project_id, kind);
+  `)
+  runMigration(db, 67, 'sessions_grade', `ALTER TABLE sessions ADD COLUMN grade TEXT`, true)
+  runMigration(db, 68, 'sessions_grade_reason', `ALTER TABLE sessions ADD COLUMN grade_reason TEXT`, true)
+  runMigration(db, 69, 'sessions_graded_at', `ALTER TABLE sessions ADD COLUMN graded_at TEXT`, true)
+  runMigration(db, 70, 'sessions_next_actions', `ALTER TABLE sessions ADD COLUMN next_actions TEXT`, true)
+  runMigration(db, 71, 'create_critic_findings', `
+    CREATE TABLE IF NOT EXISTS critic_findings (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id   TEXT    NOT NULL REFERENCES projects(id),
+      kind         TEXT    NOT NULL,
+      ref          TEXT    NOT NULL,
+      content_hash TEXT    NOT NULL,
+      findings     TEXT    NOT NULL,
+      created_at   TEXT    NOT NULL,
+      UNIQUE(project_id, kind, ref)
+    );
+  `)
+  // Recreate routing_outcomes to widen CHECK constraint to include 'partial'.
+  // SQLite cannot ALTER a CHECK constraint in place; we copy to a new table.
+  runMigration(db, 72, 'routing_outcomes_allow_partial', `
+    CREATE TABLE routing_outcomes_new (
+      id          TEXT PRIMARY KEY,
+      decision_id TEXT NOT NULL REFERENCES routing_decisions(id) ON DELETE CASCADE,
+      outcome     TEXT NOT NULL CHECK (outcome IN ('success','failure','partial','transient_error')),
+      created_at  TEXT NOT NULL
+    );
+    INSERT INTO routing_outcomes_new (id, decision_id, outcome, created_at)
+      SELECT id, decision_id, outcome, created_at FROM routing_outcomes;
+    DROP TABLE routing_outcomes;
+    ALTER TABLE routing_outcomes_new RENAME TO routing_outcomes;
+    CREATE INDEX IF NOT EXISTS idx_routing_outcomes_decision ON routing_outcomes(decision_id);
+  `)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

@@ -69,6 +69,16 @@ describe('recordOutcome', () => {
     expect((score as any).success_rate).toBeCloseTo(2 / 3, 6)
   })
 
+  it('partial outcome adds 0.5 to success rate', () => {
+    const db = getDb()
+    createProvider(db, { id: 'p1', name: 'C', type: 'claude', command: 'c', config: null })
+    const decisionId = seedDecision({ provider_id: 'p1' })
+    recordOutcome(db, { decisionId, outcome: 'partial' })
+    const score = db.prepare(`SELECT * FROM routing_scores WHERE provider_id='p1'`).get()
+    expect((score as any).n_outcomes).toBe(1)
+    expect((score as any).success_rate).toBeCloseTo(0.5, 6)
+  })
+
   it('transient_error does not change n_outcomes or success_rate', () => {
     const db = getDb()
     createProvider(db, { id: 'p1', name: 'C', type: 'claude', command: 'c', config: null })
