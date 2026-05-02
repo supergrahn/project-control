@@ -118,7 +118,6 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
             <button
               onClick={() => { killSession.mutate(session.id); onClose() }}
               className="flex items-center gap-1 bg-transparent border border-accent-red text-accent-red rounded px-2.5 py-1 text-xs hover:opacity-80"
-              style={{ borderColor: '#c0404044' }}
             >
               <Square className="w-3 h-3" /> Stop
             </button>
