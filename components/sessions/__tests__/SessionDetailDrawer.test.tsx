@@ -147,4 +147,13 @@ describe('SessionDetailDrawer', () => {
     />)
     expect(screen.getByText(/standalone/i)).toBeInTheDocument()
   })
+
+  it('renders "From Agent" link for agent originator', () => {
+    wrap(<SessionDetailDrawer
+      session={{ ...baseSession, agent_id: 'agent-1' }}
+      sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()}
+    />)
+    const link = screen.getByRole('link', { name: /Agent/i })
+    expect(link).toHaveAttribute('href', '/projects/proj-1/agents/agent-1')
+  })
 })
