@@ -32,7 +32,11 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
   const [sessionProvider, setSessionProvider] = useState<string | undefined>()
   const [retryAfter, setRetryAfter] = useState<number | undefined>()
   const [errorEnded, setErrorEnded] = useState(false)
-  const [hasOpened, setHasOpened] = useState(false)
+  // True only after we've received a `status` message from the server. Until then,
+  // termStatus stays `'connecting'` even after WS open — preserving the original
+  // FloatingSessionWindow behavior where the green dot didn't appear until the
+  // server confirmed the session state.
+  const [hasReceivedStatus, setHasReceivedStatus] = useState(false)
 
   const termRef = useRef<any>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -42,7 +46,7 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
     if (!enabled || !containerRef.current) return
     let cancelled = false
     setErrorEnded(false)
-    setHasOpened(false)
+    setHasReceivedStatus(false)
 
     async function init() {
       const { Terminal } = await import('@xterm/xterm')
@@ -70,7 +74,6 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
       wsRef.current = ws
 
       ws.onopen = () => {
-        setHasOpened(true)
         ws.send(JSON.stringify({ type: 'attach', sessionId }))
       }
 
@@ -86,6 +89,7 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
             setSessionMessage(msg.message)
             setSessionProvider(msg.provider)
             setRetryAfter(msg.retryAfter)
+            setHasReceivedStatus(true)
           }
         } catch {}
       }
@@ -116,10 +120,10 @@ export function useSessionTerminal({ sessionId, containerRef, enabled }: Opts): 
     }
   }, [sessionId, enabled, containerRef])
 
-  // Derived termStatus: errorEnded > sessionState mapping
+  // Derived termStatus: errorEnded > hasReceivedStatus gate > sessionState mapping
   const termStatus: TermStatus = errorEnded
     ? 'ended'
-    : !hasOpened
+    : !hasReceivedStatus
       ? 'connecting'
       : deriveTermStatus(sessionState)
 
