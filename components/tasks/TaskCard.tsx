@@ -4,6 +4,7 @@ import type { Task } from '@/lib/db/tasks'
 import type { TaskStatus } from '@/lib/types'
 import { PHASE_CONFIG, STATUS_ORDER } from '@/lib/taskPhaseConfig'
 import { deleteTask } from '@/hooks/useTasks'
+import { DedupHint } from '@/components/tasks/DedupHint'
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: '#5a6370', medium: '#5b9bd5', high: '#c97e2a', urgent: '#c04040',
@@ -75,8 +76,13 @@ export function TaskCard({ task, activeSessionId, onOpen, onAction }: Props) {
       </div>
 
       {/* Title */}
-      <div className="text-text-primary text-[13px] font-semibold mb-2 leading-[1.4]">
+      <div className="text-text-primary text-[13px] font-semibold mb-1 leading-[1.4]">
         {task.title.charAt(0).toUpperCase() + task.title.slice(1)}
+      </div>
+
+      {/* Dedup hint — shown only when an embedding match crosses the cosine threshold */}
+      <div className="mb-2">
+        <DedupHint projectId={task.project_id} taskId={task.id} />
       </div>
 
       {/* Priority chip */}
