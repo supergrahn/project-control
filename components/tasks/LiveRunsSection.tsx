@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSessionWindows } from '@/hooks/useSessionWindows'
+import { useRouter } from 'next/navigation'
 import { SessionInput } from './SessionInput'
 import { SessionStatusBanner, type SessionState } from '@/components/sessions/SessionStatusBanner'
 
@@ -53,7 +53,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
   const lineCounter = useRef(0)
   const onTodosRef = useRef(onTodos)
   useEffect(() => { onTodosRef.current = onTodos })
-  const { openWindow } = useSessionWindows()
+  const router = useRouter()
   const wsRef = useRef<WebSocket | null>(null)
 
   // Fetch active session on mount
@@ -157,16 +157,7 @@ export function LiveRunsSection({ taskId, onTodos }: Props) {
 
   function handleOpenTerminal() {
     if (!activeSession) return
-    openWindow({
-      id: activeSession.id,
-      project_id: activeSession.project_id,
-      label: activeSession.label,
-      phase: activeSession.phase,
-      source_file: null,
-      status: activeSession.status,
-      created_at: activeSession.created_at,
-      ended_at: activeSession.ended_at,
-    })
+    router.push('/sessions?selected=' + activeSession.id)
   }
 
   function handleSendInput(text: string) {

@@ -1,11 +1,10 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
 import useSWR from 'swr'
 import { Plus, Radio } from 'lucide-react'
 import { useSessions, type Session } from '@/hooks/useSessions'
-import { useSessionWindows } from '@/hooks/useSessionWindows'
 
 import { NewProjectWizard } from '@/components/projects/NewProjectWizard'
 import { StartSessionModal } from '@/components/sessions/StartSessionModal'
@@ -27,13 +26,13 @@ type Props = {
 export const DOT_COLORS = ['#5b9bd5', '#3a8c5c', '#8f77c9', '#c97e2a', '#c04040']
 
 export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = null }: Props) {
+  const router = useRouter()
   const pathname = usePathname()
   const [showAddProject, setShowAddProject] = useState(false)
   const [showStartSession, setShowStartSession] = useState(false)
   const { data: git } = useSWR<GitInfo>(`/api/projects/${projectId}/git-info`, fetcher, { refreshInterval: 10000 })
   const [me, setMe] = useState<Me | null>(null)
   const { data: allSessions = [] } = useSessions({ status: 'active' })
-  const { openWindow } = useSessionWindows()
 
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
   // The list includes needs_route_retry too — only count truly running sessions
@@ -92,11 +91,15 @@ export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = nu
             <div className="min-h-[128px] flex flex-col">
               <div className="flex-1">
                 {activeSessions.map(session => (
-                  <ActiveSessionItem
-                    key={session.id}
-                    session={session}
-                    onOpen={() => openWindow(session)}
-                  />
+                  <SelectedSessionHighlightIndicator key={session.id} sessionId={session.id}>
+                    {(isSelected) => (
+                      <ActiveSessionItem
+                        session={session}
+                        onOpen={() => router.push('/sessions?selected=' + session.id)}
+                        isSelected={isSelected}
+                      />
+                    )}
+                  </SelectedSessionHighlightIndicator>
                 ))}
                 {activeSessions.length === 0 && (
                   <div className="px-2 py-3 text-[11px] text-text-faint">No active sessions</div>
@@ -226,12 +229,14 @@ function NavItem({ href, active, badge, badgeColor, children }: {
   )
 }
 
-function ActiveSessionItem({ session, onOpen }: { session: Session; onOpen: () => void }) {
+function ActiveSessionItem({ session, onOpen, isSelected = false }: { session: Session; onOpen: () => void; isSelected?: boolean }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-[6px] mb-0.5 bg-transparent hover:bg-bg-secondary text-left cursor-pointer"
+      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-[6px] mb-0.5 hover:bg-bg-secondary text-left cursor-pointer ${
+        isSelected ? 'bg-bg-tertiary' : 'bg-transparent'
+      }`}
     >
       <Radio size={12} className="text-accent-green flex-shrink-0" />
       <span className="min-w-0 flex-1">
@@ -240,6 +245,21 @@ function ActiveSessionItem({ session, onOpen }: { session: Session; onOpen: () =
       </span>
     </button>
   )
+}
+
+function SelectedSessionHighlightIndicator({ sessionId, children }: { sessionId: string; children: (isSelected: boolean) => React.ReactNode }) {
+  const pathname = usePathname()
+  return (
+    <Suspense fallback={children(false)}>
+      <SelectedSessionInner pathname={pathname} sessionId={sessionId}>{children}</SelectedSessionInner>
+    </Suspense>
+  )
+}
+
+function SelectedSessionInner({ pathname, sessionId, children }: { pathname: string; sessionId: string; children: (isSelected: boolean) => React.ReactNode }) {
+  const searchParams = useSearchParams()
+  const selected = pathname === '/sessions' ? searchParams?.get('selected') : null
+  return <>{children(selected === sessionId)}</>
 }
 
 function Row({ label, value, valueColor, mono }: { label: string; value: string; valueColor?: string; mono?: boolean }) {
