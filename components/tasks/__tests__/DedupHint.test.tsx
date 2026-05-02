@@ -35,14 +35,15 @@ describe('DedupHint', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders the hint when score >= 0.85 and links to the similar task', async () => {
+  it('renders inert hint with score percentage when score >= 0.85', async () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify([{ kind: 'task', ref: 'task-B-12345678', score: 0.91 }]), { status: 200 }),
     )
     wrap(<DedupHint projectId="proj-1" taskId="task-A" />)
-    const link = await screen.findByRole('link', { name: /similar to/i })
-    expect(link).toHaveAttribute('href', '/projects/proj-1/tasks?selected=task-B-12345678')
-    expect(link.textContent).toContain('task-B-1')
+    const hint = await screen.findByText(/similar to another task/i)
+    expect(hint.tagName).toBe('SPAN')  // not an anchor — internal tasks have no deep-link target
+    expect(hint.textContent).toContain('91%')
+    expect(hint.getAttribute('title')).toContain('task-B-12345678')
   })
 
   it('respects a lower custom threshold', async () => {
@@ -50,7 +51,7 @@ describe('DedupHint', () => {
       new Response(JSON.stringify([{ kind: 'task', ref: 'task-B', score: 0.7 }]), { status: 200 }),
     )
     wrap(<DedupHint projectId="proj-1" taskId="task-A" threshold={0.6} />)
-    expect(await screen.findByRole('link', { name: /similar to/i })).toBeInTheDocument()
+    expect(await screen.findByText(/similar to another task/i)).toBeInTheDocument()
   })
 
   it('POSTs kind=task with resultKinds=[task] and limit=1', async () => {

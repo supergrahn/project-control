@@ -32,9 +32,11 @@ const fetcher = async (key: [string, string, string]): Promise<SimilarMatch[]> =
 
 /**
  * "Similar to" sublabel for a task card. Renders only when the top match for
- * the given task crosses the cosine threshold; otherwise the component
- * returns null and occupies no space. Pure suggestion — clicking navigates
- * to the similar task but performs no merge.
+ * the given task crosses the cosine threshold; otherwise returns null. Inert
+ * (no link) — internal tasks live across `/ideas`/`/specs`/`/plans`/`/developing`/`/done`
+ * with local selection state, so a deep-link target doesn't exist. The hint's
+ * value is the signal itself: "this task may duplicate another in your project".
+ * The user navigates via the existing pipeline UI.
  */
 export function DedupHint({ projectId, taskId, threshold = 0.85 }: Props) {
   const { data } = useSWR<SimilarMatch[]>(
@@ -45,12 +47,11 @@ export function DedupHint({ projectId, taskId, threshold = 0.85 }: Props) {
   const top = data?.[0]
   if (!top || top.score < threshold) return null
   return (
-    <a
-      href={`/projects/${projectId}/tasks?selected=${top.ref}`}
-      onClick={(e) => e.stopPropagation()}
-      className="text-[10px] text-text-muted hover:text-accent-blue inline-block"
+    <span
+      className="text-[10px] text-text-muted inline-block"
+      title={`Cosine similarity ${(top.score * 100).toFixed(0)}% — possible duplicate of task ${top.ref}`}
     >
-      ↪ similar to: {top.ref.slice(0, 8)}
-    </a>
+      ↪ similar to another task ({(top.score * 100).toFixed(0)}%)
+    </span>
   )
 }
