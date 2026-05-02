@@ -1,18 +1,17 @@
 'use client'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useSessions } from '@/hooks/useSessions'
 import { useTasks } from '@/hooks/useTasks'
 import { useOrchestratorFeed } from '@/hooks/useOrchestratorFeed'
-import { useSessionWindows } from '@/hooks/useSessionWindows'
 import { stopSession } from '@/lib/sessionActions'
 import { SessionAgentCard } from '@/components/dashboard/SessionAgentCard'
 import { ActivityPanel } from '@/components/dashboard/ActivityPanel'
 
 export default function DashboardPage() {
   const { projectId } = useParams<{ projectId: string }>()
+  const router = useRouter()
   const { data: allSessions = [] } = useSessions({ status: 'active' })
   const { tasks } = useTasks(projectId)
-  const { openWindow } = useSessionWindows()
 
   // Filter to this project only (the API doesn't filter active sessions by projectId)
   const activeSessions = allSessions.filter(s => s.project_id === projectId)
@@ -54,7 +53,7 @@ export default function DashboardPage() {
                     session={session}
                     feedEntries={sessionFeed}
                     onStop={() => stopSession(session.id)}
-                    onOpenTerminal={() => openWindow(session)}
+                    onOpenTerminal={() => router.push('/sessions?selected=' + session.id)}
                   />
                 )
               })}

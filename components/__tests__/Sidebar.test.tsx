@@ -22,7 +22,8 @@ vi.mock('@/hooks/useProjects', () => ({
 }))
 vi.mock('next/navigation', () => ({
   usePathname: () => '/projects/p1',
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 global.fetch = vi.fn().mockImplementation((url: string) => {
   if (url.includes('/api/me')) return Promise.resolve({ ok: true, json: async () => ({ name: 'Test User', initials: 'TU' }) })

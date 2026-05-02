@@ -3,6 +3,13 @@ import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
 import { SessionWindowProvider } from '@/hooks/useSessionWindows'
 
+const pushSpy = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushSpy, replace: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => '/',
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 global.fetch = vi.fn()
 
 class MockWebSocket {
