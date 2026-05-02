@@ -9,11 +9,32 @@ import { PHASE_INITIALS } from '@/lib/sessionPhaseConfig'
 
 type Props = { projectId: string; relativePath: string }
 
+type SimilarMatch = { kind: string; ref: string; score: number }
+
 export function DocSessionsPanel({ projectId, relativePath }: Props) {
   const router = useRouter()
   const { data: sessions = [], isLoading } = useSWR<Session[]>(
     `/api/projects/${projectId}/docs/sessions?file=${encodeURIComponent(relativePath)}`,
     fetcher,
+  )
+
+  // Embedding-based "related sessions from elsewhere" — returns [] until the
+  // doc has been embedded (background job), at which point similar sessions
+  // surface on next render. POST is required so the body can describe both
+  // the source kind/ref and the target resultKinds without URL bloat.
+  const { data: similar = [] } = useSWR<SimilarMatch[]>(
+    `/api/projects/${projectId}/embeddings/similar:doc:${relativePath}`,
+    () =>
+      fetch(`/api/projects/${projectId}/embeddings/similar`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          kind: 'doc',
+          ref: relativePath,
+          resultKinds: ['session_summary'],
+          limit: 5,
+        }),
+      }).then((r) => (r.ok ? r.json() : [])),
   )
 
   if (isLoading) return null
@@ -22,6 +43,7 @@ export function DocSessionsPanel({ projectId, relativePath }: Props) {
       <div className="mt-8 pt-6 border-t border-border-default">
         <h3 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-3">Sessions</h3>
         <p className="text-xs text-text-muted">No sessions yet for this doc.</p>
+        <SimilarSessionsList similar={similar} />
       </div>
     )
   }
@@ -34,6 +56,31 @@ export function DocSessionsPanel({ projectId, relativePath }: Props) {
           <SessionCard key={s.id} session={s} onOpen={() => router.push('/sessions?selected=' + s.id)} />
         ))}
       </div>
+      <SimilarSessionsList similar={similar} />
+    </div>
+  )
+}
+
+function SimilarSessionsList({ similar }: { similar: SimilarMatch[] }) {
+  if (similar.length === 0) return null
+  return (
+    <div className="mt-6 pt-4 border-t border-border-default">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-text-secondary mb-2">
+        Related sessions from elsewhere
+      </h4>
+      <ul className="text-xs space-y-1">
+        {similar.map((m) => (
+          <li key={`${m.kind}:${m.ref}`}>
+            <a
+              className="text-accent-blue hover:underline"
+              href={`/sessions?selected=${m.ref}`}
+            >
+              session {m.ref.slice(0, 8)}
+            </a>
+            <span className="text-text-muted ml-2">({Math.round(m.score * 100)}% match)</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
