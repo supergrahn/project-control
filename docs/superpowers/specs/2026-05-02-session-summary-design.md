@@ -74,7 +74,7 @@ const lastAssistant = db.prepare(`
   WHERE session_id = ?
     AND role = 'assistant'
     AND content IS NOT NULL
-    AND TRIM(content) != ''
+    AND TRIM(content, X'20090A0D') != ''
   ORDER BY id DESC LIMIT 1
 `).get(sessionId) as { content: string } | undefined
 if (lastAssistant?.content) {
@@ -82,7 +82,7 @@ if (lastAssistant?.content) {
 }
 ```
 
-The `TRIM(content) != ''` predicate skips whitespace-only or single-newline content that adapters may emit at the tail of streamed output.
+The `TRIM(content, X'20090A0D') != ''` predicate skips whitespace-only or single-newline content that adapters may emit at the tail of streamed output. The custom charset `X'20090A0D'` (space, tab, LF, CR) is required because SQLite's default `TRIM(x)` strips only ASCII space (0x20).
 
 This is a **synchronous, single-query operation** — no LLM call, no async I/O, no failure path that affects the rest of the shutdown sequence. Wrap in a try/catch that logs and continues so that any DB hiccup never blocks the rest of session-end:
 
@@ -103,7 +103,7 @@ try {
 Edge cases:
 - **Killed before any output**: no assistant rows exist → `summary` stays NULL.
 - **Erroring providers** that emit an error message in stderr only: still NULL.
-- **Tool-only final turn** (assistant emits a tool_use without text): the `content` is empty/whitespace, so it's skipped by the `TRIM(content) != ''` filter — we walk back to the last non-empty assistant message. Acceptable: any meaningful summary is upstream of trailing tool calls.
+- **Tool-only final turn** (assistant emits a tool_use without text): the `content` is empty/whitespace, so it's skipped by the `TRIM(content, X'20090A0D') != ''` filter — we walk back to the last non-empty assistant message. Acceptable: any meaningful summary is upstream of trailing tool calls.
 - **Very long final messages**: stored as-is. SQLite has no practical limit; the assistant rarely emits more than a few KB. If a wrap-up grows very large (10–20KB markdown is realistic for a long Claude Code session), the docs/task panels truncate display to 3 lines via CSS `line-clamp` and an inline "Show more" toggle that expands the full text. Storage is not truncated.
 
 #### Side effects on existing code
@@ -329,7 +329,7 @@ getSessionOriginator(session, { tasks })
 |----------|----------|
 | Session killed before any assistant output | `summary` stays NULL; UI shows "No final message captured." |
 | DB error during summary capture | try/catch logs warning; rest of session-end proceeds normally; `summary` stays NULL |
-| Agent's final message is empty/whitespace | `TRIM(content) != ''` filter skips it; walks back to prior non-empty assistant message |
+| Agent's final message is empty/whitespace | `TRIM(content, X'20090A0D') != ''` filter skips it; walks back to prior non-empty assistant message |
 | `source_file` references a doc that was deleted | API still returns the session row with that `source_file`. Docs panel never renders for a deleted doc (selection is impossible). Drawer's "From X" link → 404 from docs page if clicked, but that's acceptable (orphan) — could show "From <deleted-doc.md>" with no link, but we accept the broken link as low-priority |
 | `task_id` references a deleted task | Originator helper falls through to "Task <truncated id>" label with the link. Click → task page 404. Same acceptance as above |
 | Same session shown in both docs panel AND task panel | Possible if a session was started with both `source_file` AND `task_id` (typical for spec/plan-phase sessions). Both surfaces show it — that's correct. Drawer renders "From <task> via <doc.md> ↗" with both links so the user can navigate either direction |
