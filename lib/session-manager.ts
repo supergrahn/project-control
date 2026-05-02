@@ -23,6 +23,7 @@ import { getActiveProviders, getProviders, createProvider, getProvider, type Pro
 import { getAdapter } from './sessions/adapters'
 import type { Database } from 'better-sqlite3'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
+import { captureSessionSummary } from './sessions/captureSummary'
 
 // --- Process maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -455,6 +456,8 @@ async function spawnAdapterFor(
     getDb().prepare('UPDATE sessions SET exit_reason = ? WHERE id = ?').run(exitReason, sessionId)
 
     endSession(getDb(), sessionId)
+    // Capture last assistant message as summary BEFORE flushSessionEvents deletes events
+    captureSessionSummary(getDb(), sessionId)
     if (opts.agentId) {
       const project = getProject(getDb(), opts.projectId)
       if (project) {
