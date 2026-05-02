@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getDb } from '@/lib/db'
 import { listScores } from '@/lib/router'
+import { listGradedOutcomes } from '@/lib/router/gradedOutcomes'
 
 // Always render fresh from the DB — never cache. Without this, Next.js may
 // attempt to statically render at build time, calling getDb() in an
@@ -15,11 +16,49 @@ export const dynamic = 'force-dynamic'
 export default async function DebugRouterPage() {
   if (process.env.ENABLE_DEBUG_PAGES !== '1') notFound()
 
-  const scores = listScores(getDb())
+  const db = getDb()
+  const scores = listScores(db)
+  const gradedOutcomes = listGradedOutcomes(db)
 
   return (
     <div className="p-6">
       <h1 className="text-lg font-semibold text-text-primary mb-4">Router scores</h1>
+
+      <h2 className="text-sm font-semibold text-text-primary mt-2 mb-3">Graded outcomes per provider</h2>
+      {gradedOutcomes.length === 0 ? (
+        <div className="text-text-muted text-sm mb-6">
+          No graded sessions yet — graded outcomes appear once sessions with a task ID complete and the grader job runs.
+        </div>
+      ) : (
+        <table className="w-full text-sm mb-6" aria-label="Graded outcomes per provider">
+          <thead className="text-text-muted text-xs">
+            <tr>
+              <th className="text-left p-2">Provider</th>
+              <th className="text-right p-2">Graded</th>
+              <th className="text-right p-2">Success</th>
+              <th className="text-right p-2">Partial</th>
+              <th className="text-right p-2">Fail</th>
+              <th className="text-right p-2">Success %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gradedOutcomes.map((r) => (
+              <tr key={r.provider} className="border-t border-border-default">
+                <td className="p-2 text-text-primary">{r.provider}</td>
+                <td className="p-2 text-right text-text-primary">{r.graded}</td>
+                <td className="p-2 text-right text-accent-green">{r.success}</td>
+                <td className="p-2 text-right text-accent-orange">{r.partial}</td>
+                <td className="p-2 text-right text-accent-red">{r.fail}</td>
+                <td className="p-2 text-right text-text-primary">
+                  {r.success_percent === null ? '—' : `${r.success_percent.toFixed(1)}%`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <h2 className="text-sm font-semibold text-text-primary mt-6 mb-3">Per-cell observation scores</h2>
       {scores.length === 0 ? (
         <div className="text-text-muted text-sm">
           No observations yet — defaults are still in effect for every cell.

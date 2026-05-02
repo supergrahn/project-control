@@ -156,4 +156,36 @@ describe('SessionDetailDrawer', () => {
     const link = screen.getByRole('link', { name: /Agent/i })
     expect(link).toHaveAttribute('href', '/projects/proj-1/agents/agent-1')
   })
+
+  it('renders Next section when session.next_actions is set', () => {
+    const sessionWithNext: Session = {
+      ...baseSession,
+      next_actions: JSON.stringify({
+        next_actions: ['add tests', 'document'],
+        open_questions: ['CSRF?'],
+        files_touched: [{ path: 'lib/auth.ts', change: 'fixed redirect loop' }],
+        extracted_at: '2026-05-02T10:00:00Z',
+        model: 'qwen-3.6:9b',
+      }),
+    }
+    wrap(<SessionDetailDrawer session={sessionWithNext} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.getByText(/add tests/)).toBeInTheDocument()
+    expect(screen.getByText(/document/)).toBeInTheDocument()
+    expect(screen.getByText(/CSRF/)).toBeInTheDocument()
+    expect(screen.getByText('lib/auth.ts')).toBeInTheDocument()
+    expect(screen.getByText(/fixed redirect loop/)).toBeInTheDocument()
+    expect(screen.getByText(/extracted by qwen-3\.6:9b/)).toBeInTheDocument()
+  })
+
+  it('omits Next section when session.next_actions is null', () => {
+    wrap(<SessionDetailDrawer session={baseSession} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.queryByText(/^Next$/)).not.toBeInTheDocument()
+  })
+
+  it('renders Next section silently ignoring malformed JSON', () => {
+    const bad: Session = { ...baseSession, next_actions: '{not-json' }
+    wrap(<SessionDetailDrawer session={bad} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    // Drawer still renders without crashing; no Next heading appears.
+    expect(screen.queryByText(/^Next$/)).not.toBeInTheDocument()
+  })
 })

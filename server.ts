@@ -6,6 +6,10 @@ import { handleWebSocket } from './lib/session-manager'
 import { startOrchestratorMcp } from './server/orchestrator-mcp'
 import { startOrchestratorWatcher } from './server/orchestrator-watcher'
 import { startAllPolling, stopAllPolling } from './lib/taskSources/pollManager'
+import { startScheduler } from './lib/jobs/runner'
+import { registerAllHandlers } from './lib/jobs/registerAll'
+import { JOB_CONFIG } from './lib/jobs/config'
+import { getDb } from './lib/db'
 
 const dev = process.env.NODE_ENV !== 'production'
 const app = next({ dev, turbo: dev })
@@ -33,8 +37,23 @@ app.prepare().then(() => {
     }
   })
 
+  // Reflective-workflow scheduler: register handlers and start the tick loop.
+  // Skipped under tests; guarded by a globalThis singleton so HMR/dev reloads
+  // don't double-start it.
+  let schedulerHandle: { stop: () => void } | null = null
+  if (process.env.VITEST !== 'true' && process.env.NODE_ENV !== 'test') {
+    const g = globalThis as unknown as { __reflectiveSchedulerStarted?: boolean }
+    if (!g.__reflectiveSchedulerStarted) {
+      g.__reflectiveSchedulerStarted = true
+      registerAllHandlers()
+      schedulerHandle = startScheduler({ ...JOB_CONFIG, getDb })
+      console.log('[jobs] scheduler started')
+    }
+  }
+
   const shutdown = () => {
     stopAllPolling()
+    schedulerHandle?.stop()
     process.exit(0)
   }
   process.on('SIGTERM', shutdown)

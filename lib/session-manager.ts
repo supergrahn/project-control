@@ -24,6 +24,7 @@ import { getAdapter } from './sessions/adapters'
 import type { Database } from 'better-sqlite3'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 import { captureSessionSummary } from './sessions/captureSummary'
+import { enqueueJob } from '@/lib/jobs/runner'
 
 // --- Process maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -458,6 +459,26 @@ async function spawnAdapterFor(
     endSession(getDb(), sessionId)
     // Capture last assistant message as summary BEFORE flushSessionEvents deletes events
     captureSessionSummary(getDb(), sessionId)
+
+    // Reflective workflow: enqueue grade + extract jobs (handlers run in scheduler).
+    // - extract_next_actions runs whenever a summary was captured (useful even for
+    //   doc/standalone sessions).
+    // - grade_session only runs when we have both a summary and an associated task,
+    //   since the router success-rate update needs the task linkage.
+    try {
+      const sessionRow = getDb()
+        .prepare(`SELECT summary, task_id FROM sessions WHERE id = ?`)
+        .get(sessionId) as { summary: string | null; task_id: string | null } | undefined
+      if (sessionRow?.summary) {
+        enqueueJob(getDb(), 'extract_next_actions', { session_id: sessionId }, { dedupKey: `extract_next_actions:${sessionId}` })
+      }
+      if (sessionRow?.task_id && sessionRow.summary) {
+        enqueueJob(getDb(), 'grade_session', { session_id: sessionId }, { dedupKey: `grade_session:${sessionId}` })
+      }
+    } catch (e) {
+      console.warn('[session-end triggers]', e)
+    }
+
     if (opts.agentId) {
       const project = getProject(getDb(), opts.projectId)
       if (project) {

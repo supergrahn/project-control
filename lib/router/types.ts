@@ -5,7 +5,7 @@ import type { TaskComplexity } from '@/lib/db/tasks'
 // Single source of truth for complexity lives in lib/db/tasks (the column owner).
 // Router code uses the local alias `Complexity` for ergonomics.
 export type Complexity = TaskComplexity
-export type Outcome = 'success' | 'failure' | 'transient_error'
+export type Outcome = 'success' | 'failure' | 'partial' | 'transient_error'
 
 export type ScoreBreakdown = {
   suitability: number
