@@ -47,20 +47,34 @@ export async function runOneBatch(
   if (load > opts.loadAverageMax) return { ran: 0, skipped: 'idle' }
 
   const now = new Date().toISOString()
-  const claimed = db.prepare(
-    `SELECT id, kind, payload, attempts FROM pending_jobs
-     WHERE state = 'pending' AND scheduled_at <= ?
-     ORDER BY scheduled_at ASC LIMIT ?`
-  ).all(now, opts.batchSize) as Array<{ id: number; kind: JobKind; payload: string; attempts: number }>
+
+  // Atomic claim: select + UPDATE wrapped in a transaction with a state='pending'
+  // guard in the WHERE so two overlapping ticks can't double-claim the same row.
+  const claimed = db.transaction(() => {
+    const rows = db.prepare(
+      `SELECT id, kind, payload, attempts FROM pending_jobs
+       WHERE state = 'pending' AND scheduled_at <= ?
+       ORDER BY scheduled_at ASC LIMIT ?`
+    ).all(now, opts.batchSize) as Array<{ id: number; kind: JobKind; payload: string; attempts: number }>
+    if (rows.length === 0) return []
+    const ids = rows.map(c => c.id)
+    const placeholders = ids.map(() => '?').join(',')
+    const result = db.prepare(
+      `UPDATE pending_jobs SET state = 'running', started_at = ?
+       WHERE id IN (${placeholders}) AND state = 'pending'`
+    ).run(now, ...ids)
+    // If any row was already claimed by a parallel transaction, drop it from this batch.
+    if (result.changes !== rows.length) {
+      const stillRunning = db.prepare(
+        `SELECT id FROM pending_jobs WHERE id IN (${placeholders}) AND state = 'running' AND started_at = ?`
+      ).all(...ids, now) as Array<{ id: number }>
+      const claimedSet = new Set(stillRunning.map(r => r.id))
+      return rows.filter(r => claimedSet.has(r.id))
+    }
+    return rows
+  })()
 
   if (claimed.length === 0) return { ran: 0, skipped: 'none' }
-
-  // Mark as running
-  const ids = claimed.map(c => c.id)
-  const placeholders = ids.map(() => '?').join(',')
-  db.prepare(
-    `UPDATE pending_jobs SET state = 'running', started_at = ? WHERE id IN (${placeholders})`
-  ).run(now, ...ids)
 
   // Dispatch in parallel
   await Promise.all(claimed.map(async (job) => {
