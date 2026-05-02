@@ -56,7 +56,6 @@ export function SessionGridCard({ session }: Props) {
               killSession.mutate(session.id)
             }}
             className="bg-transparent border border-accent-red text-accent-red rounded-md px-3 py-1 text-xs cursor-pointer hover:opacity-80"
-            style={{ borderColor: '#c0404044' }}
           >
             Stop
           </button>

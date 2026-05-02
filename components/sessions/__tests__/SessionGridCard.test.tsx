@@ -38,13 +38,11 @@ describe('SessionGridCard', () => {
     expect(screen.getByText(/developing/i)).toBeInTheDocument()
   })
 
-  it('falls back to project_id when project not found', () => {
-    vi.doMock('@/hooks/useProjects', () => ({
-      useProjects: () => ({ data: [] }),
-    }))
-    // Re-import to pick up new mock — easier: just test with a missing project
-    wrap(<SessionGridCard session={{ ...baseSession, project_id: 'missing-id' }} />)
-    // The fallback will be either 'missing-id' (component-determined) — verify after impl
+  it('falls back to project_id when project not found in useProjects()', () => {
+    // The top-level useProjects mock returns only proj-1; rendering with a different
+    // project_id exercises the `?? session.project_id` fallback.
+    wrap(<SessionGridCard session={{ ...baseSession, project_id: 'unknown-proj' }} />)
+    expect(screen.getByText('unknown-proj')).toBeInTheDocument()
   })
 
   it('shows Stop button only for active sessions', () => {
