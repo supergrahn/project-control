@@ -4,7 +4,7 @@ import { createTask, updateTask } from '@/lib/db/tasks'
 import { randomUUID } from 'crypto'
 import type { Database } from 'better-sqlite3'
 
-vi.mock('@/lib/router/localComplete', () => ({ localComplete: vi.fn() }))
+vi.mock('@/lib/router/localComplete', () => ({ localComplete: vi.fn(), getLocalModelName: () => 'mock-model' }))
 vi.mock('@/lib/db/providers', async (orig) => {
   const actual = await orig<typeof import('@/lib/db/providers')>()
   return { ...actual, getDefaultLocalProvider: () => ({ id: 'p', name: 'L', type: 'ollama', command: '', config: '{}', is_active: 1, created_at: '' }) }

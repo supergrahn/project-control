@@ -9,7 +9,7 @@ import { handleExtractNextActions } from '@/lib/jobs/handlers/extract_next_actio
 import { handleRefreshPrep } from '@/lib/jobs/handlers/refresh_prep'
 import type { Database } from 'better-sqlite3'
 
-vi.mock('@/lib/router/localComplete', () => ({ localComplete: vi.fn() }))
+vi.mock('@/lib/router/localComplete', () => ({ localComplete: vi.fn(), getLocalModelName: () => 'mock-model' }))
 vi.mock('@/lib/db/providers', async (orig) => {
   const actual = await orig<typeof import('@/lib/db/providers')>()
   return {
