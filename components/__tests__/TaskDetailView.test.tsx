@@ -17,6 +17,9 @@ vi.mock('@/components/tasks/LiveRunsSection', () => ({
     </div>
   ),
 }))
+vi.mock('@/components/tasks/PastSessionsSection', () => ({
+  PastSessionsSection: () => <div data-testid="past-sessions" />,
+}))
 vi.mock('@/components/tasks/PropertiesPanel', () => ({
   PropertiesPanel: () => <div data-testid="properties-panel" />,
 }))

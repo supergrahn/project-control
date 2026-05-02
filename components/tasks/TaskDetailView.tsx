@@ -4,6 +4,7 @@ import type { Task } from '@/lib/db/tasks'
 import type { Agent } from '@/lib/db/agents'
 import { patchTask } from '@/hooks/useTasks'
 import { LiveRunsSection } from '@/components/tasks/LiveRunsSection'
+import { PastSessionsSection } from '@/components/tasks/PastSessionsSection'
 import { SessionHistoryPanel } from '@/components/sessions/SessionHistoryPanel'
 import { PropertiesPanel } from '@/components/tasks/PropertiesPanel'
 import { STATUS_TO_DEFAULT_SESSION_PHASE } from '@/lib/taskPhaseConfig'
@@ -116,6 +117,7 @@ export function TaskDetailView({ task, activeSessionId, onOpenDrawer }: Props) {
 
         {/* Live runs */}
         <LiveRunsSection taskId={task.id} onTodos={setTodos} />
+        <PastSessionsSection projectId={task.project_id} taskId={task.id} />
 
         {/* Agent Tasks checklist */}
         {todos.length > 0 && (
