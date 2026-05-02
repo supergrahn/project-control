@@ -623,7 +623,7 @@ Saved as `docs/superpowers/specs/2026-05-02-reflective-workflow-smoke.md`:
 
 ### Migration & rollout notes
 
-- 7 additive migrations (65–71). All idempotent.
+- 7 additive migrations (65–71) plus migration 72 (rebuild `routing_outcomes` to widen its CHECK constraint to include `'partial'`). All idempotent. Migration 72 was discovered during implementation — `routing_outcomes.outcome` was created by migration 53 with `CHECK (outcome IN ('success','failure','transient_error'))`, and SQLite has no `ALTER ... DROP CONSTRAINT`, so a CREATE-NEW / INSERT SELECT / DROP / RENAME rebuild is required for the `'partial'` outcome to be insertable.
 - 1 new dependency-shaped concept: an embedding model loaded into the user's local stack. Documented in the smoke doc; if the user's llama.cpp doesn't have an embedding model, the embed handler errors and the affected UIs gracefully degrade.
 - Background work (the scheduler) starts automatically with `server.ts`. No CLI changes.
 - Existing tests must continue to pass; the scheduler does NOT auto-start in tests (gated by `process.env.VITEST === 'true' || process.env.NODE_ENV === 'test'`).
