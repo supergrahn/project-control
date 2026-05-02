@@ -1,5 +1,7 @@
 import type { Database } from 'better-sqlite3'
+import { createHash } from 'crypto'
 import type { TaskStatus, TaskPriority } from '@/lib/types'
+import { enqueueJob } from '@/lib/jobs/runner'
 export type { TaskStatus, TaskPriority } from '@/lib/types'
 
 export type TaskComplexity = 'trivial' | 'normal' | 'hard'
@@ -71,6 +73,23 @@ export function createTask(db: Database, input: CreateTaskInput): Task {
     now,
     now,
   )
+
+  // Reflective workflow: enqueue an embed job so this task participates in the
+  // semantic index (idea_file is empty at create-time but the title alone is
+  // enough seed; updates re-enqueue when title/idea_file changes).
+  try {
+    const content = `${input.title}\n`
+    const hash = createHash('sha256').update(content).digest('hex')
+    enqueueJob(
+      db,
+      'embed',
+      { project_id: input.projectId, kind: 'task', ref: input.id, content_hash: hash },
+      { dedupKey: `embed:${input.projectId}:task:${input.id}` },
+    )
+  } catch (e) {
+    console.warn('[task embed trigger]', e)
+  }
+
   return getTask(db, input.id)!
 }
 
@@ -153,6 +172,29 @@ export function updateTask(db: Database, id: string, input: UpdateTaskInput): Ta
       logStatusChange(db, id, oldTask.status, input.status as TaskStatus, 'sync')
     } catch (e) {
       // Silently ignore logging errors - they shouldn't break the update
+    }
+  }
+
+  // Reflective workflow: enqueue a re-embed when the title or idea_file changes
+  // (the only fields that materially affect the task's semantic content).
+  if ('title' in input || 'idea_file' in input) {
+    try {
+      const updated = db
+        .prepare(`SELECT title, idea_file, project_id FROM tasks WHERE id = ?`)
+        .get(id) as { title: string; idea_file: string | null; project_id: string } | undefined
+      if (updated) {
+        const desc = updated.idea_file?.replace(/^file:\/\//, '') ?? ''
+        const content = `${updated.title}\n${desc}`
+        const hash = createHash('sha256').update(content).digest('hex')
+        enqueueJob(
+          db,
+          'embed',
+          { project_id: updated.project_id, kind: 'task', ref: id, content_hash: hash },
+          { dedupKey: `embed:${updated.project_id}:task:${id}` },
+        )
+      }
+    } catch (e) {
+      console.warn('[task embed trigger]', e)
     }
   }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import { getDb, getProject } from '@/lib/db'
+import { onDocsTreeRead } from '@/lib/jobs/triggers/onDocsTreeRead'
 
 type DocsTreeNode = {
   type: 'folder' | 'file'
@@ -115,6 +116,17 @@ export async function GET(
       if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
       return a.name.localeCompare(b.name)
     })
+
+  // Reflective-workflow: enqueue embed + critique jobs lazily based on what's
+  // in the tree. Run after the response is constructed via setImmediate so
+  // the user-facing request isn't blocked.
+  setImmediate(() => {
+    try {
+      onDocsTreeRead(getDb(), id, nodes)
+    } catch (e) {
+      console.warn('[docs trigger]', e)
+    }
+  })
 
   return NextResponse.json({ nodes })
 }
