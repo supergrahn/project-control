@@ -157,7 +157,7 @@ Existing route at `app/api/briefing/route.ts` is extended to:
 2. Pass `projectId` through to the five aggregators (existing `tryResolve` wrapper preserved)
 3. Read the snapshot row for this scope (`scope_key = projectId ?? '__all__'`)
 4. Compute `snapshotStale` — `true` if no snapshot OR `generated_at` older than 18 hours OR section_signature differs from current
-5. If `snapshotStale` is true, lazy-enqueue a `briefing_synthesize` job (deduped via dedup_key)
+5. If `snapshotStale` is true, lazy-enqueue a `briefing_synthesize` job with **dedup_key `briefing_synthesize:${scope}:${today}`** — the same key used by the morning pre-warm. This deliberately collapses pre-warm and lazy enqueue into one job per scope per day. Material-change events use distinct suffixed keys (`:gradechange`, `:criticchange`) so they can fire on top of the daily pre-warm/lazy. Multi-tab concurrent loads all hit the same dedup key and only the first enqueues real work.
 6. Return `{ openNextActions, criticFlagged, topTasks, recentFailures, duplicateTasks, snapshot, snapshotStale, generatedAt }` where `snapshot` is `{ narrative, priorityActions, generatedAt, model }` or `null`
 
 Side-effect of lazy-enqueue is intentional: visiting the page during the day refreshes the narrative if signal has materially changed. Dedup_key prevents duplicate work.
@@ -191,7 +191,14 @@ Then calls `spawnSession`:
 - `userContext`: the marker block above
 - `label`: `Fix critic finding: <category>`
 
-Returns 400 if id isn't an integer, 404 if finding doesn't exist, 400 if kind is neither spec nor plan, 400 if the (category, message, severity) trio doesn't match any stored issue, 409 if a concurrent session collides on the source_file (delegates to `spawnSession`'s existing `CONCURRENT_SESSION:` throw, translated to 409 in the route — same pattern as `/api/sessions/[id]/continue`).
+**Validation order (route must enforce in this order so errors are deterministic):**
+1. `parseInt(id, 10)` → 400 if `NaN`
+2. Body must include non-empty `category`, `message`, `severity`; reject 400 if any is missing or empty string
+3. `severity` must be `'critical'` or `'high'`; reject 400 otherwise
+4. SELECT finding → 404 if missing
+5. `kind` must be `'spec'` or `'plan'`; reject 400 otherwise
+6. Trio `(category, message, severity)` must match an entry in the parsed `findings.issues` array; reject 400 otherwise
+7. Spawn session → 409 on `CONCURRENT_SESSION:` throw (same pattern as `/api/sessions/[id]/continue`)
 
 **Aggregator change consequence:** the existing `criticFlagged.ts` aggregator must be updated to include `cf.id AS finding_id` in the SELECT and propagate it to the `BriefingCriticFlag` type (new field `findingId: number`). The UI sends `findingId + (severity, category, message)` to the route. Add `findingId: number` to `BriefingCriticFlag` in `lib/briefing/types.ts`.
 
@@ -405,7 +412,7 @@ The existing `BriefingPage` (in `components/briefing/BriefingPage.tsx`) is exten
 
 ### `POST /api/briefing/refresh?scope=<id?>`
 
-Tiny route. Reads `scope` (defaults to `__all__`), enqueues a `briefing_synthesize` job for that scope with a dedup_key including a `force-{timestamp}` suffix so it bypasses the daily dedup. Returns 202 with `{ ok: true }`. The page revalidates the SWR fetch on click.
+Tiny route. Reads `scope` (defaults to `__all__`), enqueues a `briefing_synthesize` job for that scope with **dedup_key `briefing_synthesize:${scope}:${today}:force`** (fixed `:force` suffix, NOT a per-click timestamp). This collapses button-spam within the same day to a single job. The button itself is also disabled in the UI from click until SWR's next successful refetch returns a new `generated_at`, so the user can't fire a second click before the first completes anyway — but the fixed dedup key is the correctness guarantee. Returns 202 with `{ ok: true }`.
 
 ### Section action wiring
 
@@ -460,9 +467,23 @@ For mid-day mid-conversation immediate effect, the lazy enqueue on `GET /api/bri
   - Filters out priority_actions with invalid sectionKey / unknown refId
   - UPSERT replaces existing snapshot row
 
+### Pure helpers (in same test file or split out)
+- `parseBriefingJson` direct tests:
+  - Returns null for plain bad JSON
+  - Salvages JSON when wrapped in prose (extracts first `{` to last `}` substring)
+  - Returns null when narrative is missing or not a string
+  - Returns null when priority_actions is not an array
+  - Filters individual priority_actions that fail validation but keeps valid ones
+  - Caps to 6 items
+- `sectionSignature` direct tests:
+  - Same item set in different array orders produces the same hash (the JS `.sort()` calls inside the function guarantee this)
+  - Different item sets produce different hashes
+  - Empty sections produce a stable hash
+
 ### Scheduler trigger
 - `lib/jobs/triggers/__tests__/briefingPreWarm.test.ts`:
-  - No-op outside 5-6am window
+  - **No-op when `process.env.VITEST === 'true'`** (regression guard for the env-gate)
+  - No-op outside 5-6am window (set hour via `vi.setSystemTime`)
   - Enqueues per-project + `__all__` jobs at 5am when no snapshot exists
   - Skips scopes with snapshot generated today
   - Idempotent (second call within same tick doesn't enqueue duplicates due to dedup_key)
@@ -495,7 +516,7 @@ Both are idempotent CREATE-IF-NOT-EXISTS. No CHECK widening needed.
 - **Local LLM JSON brittleness** — defensive parsing handles malformed output via fallback empty narrative. Smoke test should confirm the fallback path renders the live grid as expected.
 - **LLM latency** — synthesis can take 10-30s on a CPU-only machine. UI handles via Synthesizing… state; user can scroll the live grid while waiting.
 - **5-6am hour window assumes local time** — uses `new Date().getHours()` which honors the server's TZ. If the server is UTC and the user is e.g. PST, the briefing will run at 9-10pm PST. A future improvement is per-user-timezone, but for v1 the user can adjust the window in code.
-- **Scope key collision** — `'__all__'` is a sentinel string. We must ensure no project ever has id `'__all__'`. Adding a sanity check at synthesis time costs nothing but adds defensive depth.
+- **Scope key collision** — `'__all__'` is a sentinel string. To prevent collision with a real project id, **add a guard in `app/api/projects/route.ts` (POST handler) that rejects 400 if the incoming project id equals `'__all__'`**. Also add a defensive guard at the top of the `briefing_synthesize` handler: if `payload.scope === '__all__'` AND `projectId !== undefined` (i.e. somehow both are set) abort with a warning. The route guard is the primary protection; the handler guard is defense-in-depth.
 - **Snapshot retention** — UPSERT-only means we lose history. If a user wants to compare yesterday's vs today's narrative, they can't. Out of scope; explicit non-goal above.
 - **Material-change cascade** — every session graded `no` and every critical finding enqueues a synthesis job. With dedup keyed on `(scope, date)`, this is bounded to 1 job per scope per day. If we later want immediate per-event refresh, switch to a finer dedup_key.
 
