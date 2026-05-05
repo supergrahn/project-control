@@ -4,6 +4,7 @@ import { handleGradeSession } from './handlers/grade_session'
 import { handleExtractNextActions } from './handlers/extract_next_actions'
 import { handleRefreshPrep } from './handlers/refresh_prep'
 import { handleCritique } from './handlers/critique'
+import { handleBriefingSynthesize } from './handlers/briefing_synthesize'
 
 /**
  * Register all reflective-workflow handlers on the runner. Idempotent (the
@@ -21,4 +22,5 @@ export function registerAllHandlers(): void {
   registerHandler('critique_plan', (db, payload) =>
     handleCritique(db, { ...(payload as Record<string, unknown>), kind: 'plan' } as never),
   )
+  registerHandler('briefing_synthesize', handleBriefingSynthesize as never)
 }

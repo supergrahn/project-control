@@ -8,6 +8,7 @@ export type JobKind =
   | 'critique_spec'
   | 'critique_plan'
   | 'refresh_prep'
+  | 'briefing_synthesize'
 
 export type JobHandler = (db: Database, payload: unknown) => Promise<void>
 
