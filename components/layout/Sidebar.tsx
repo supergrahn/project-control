@@ -55,6 +55,14 @@ export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = nu
           </div>
         </div>
 
+        {/* Global nav */}
+        <div className="px-2 pt-2 pb-1">
+          <SectionLabel>Global</SectionLabel>
+          <NavItem href="/briefing" active={pathname === '/briefing'}>
+            Briefing
+          </NavItem>
+        </div>
+
         {/* Primary nav */}
         <div className="px-2 pt-2 pb-1">
           <NavItem
