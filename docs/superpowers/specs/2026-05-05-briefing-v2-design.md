@@ -192,7 +192,7 @@ Then calls `spawnSession`:
 - `label`: `Fix critic finding: <category>`
 
 **Validation order (route must enforce in this order so errors are deterministic):**
-0. `await req.json().catch(() => null)` — if body parse fails (missing Content-Type, empty body, malformed JSON), reject 400 "invalid JSON body"
+0. `const body = await req.json().catch(() => null)` — if `body === null` OR `typeof body !== 'object'`, return 400 "invalid JSON body". This early-return is required BEFORE any destructuring; a fresh route handler that reads `const { category } = body` against a null `body` will throw a TypeError instead of returning 400.
 1. `parseInt(id, 10)` → 400 if `NaN`
 2. Body must include non-empty `category`, `message`, `severity`; reject 400 if any is missing or empty string
 3. `severity` must be `'critical'` or `'high'`; reject 400 otherwise
@@ -406,7 +406,26 @@ If the user does not have the dev server running between 5-6am, the briefing sim
 The existing `BriefingPage` (in `components/briefing/BriefingPage.tsx`) is extended with:
 
 1. **`ProjectPicker`** at the top — dropdown listing all projects + an "All projects" item. URL-driven via search params (`?projectId=`). Reads from a small `useProjects()` hook (already exists in `@/hooks/useProjects`).
-2. **`BriefingHero`** above the existing grid — renders the snapshot's narrative + priority actions list. If `snapshot` is `null` AND `snapshotStale` is true, shows "Synthesizing morning briefing…" with a small spinner and **temporarily lowers the SWR `refreshInterval` to 5_000ms** while in this state (passed to `useBriefing` via a state-derived option). When the snapshot lands the interval reverts to the default 60_000ms. This way the user sees the narrative within seconds of the LLM finishing instead of waiting up to a minute. If `snapshot` exists, shows narrative + actions + footer "Generated 4h ago by llama3 · Refresh now". The "Refresh now" button kicks an immediate synthesis via `POST /api/briefing/refresh?scope=...` and then disables itself until SWR returns a snapshot with a newer `generated_at`.
+2. **`BriefingHero`** above the existing grid — renders the snapshot's narrative + priority actions list. If `snapshot` is `null` AND `snapshotStale` is true, shows "Synthesizing morning briefing…" with a small spinner. If `snapshot` exists, shows narrative + actions + footer "Generated 4h ago by llama3 · Refresh now". The "Refresh now" button kicks an immediate synthesis via `POST /api/briefing/refresh?scope=...` and then disables itself until SWR returns a snapshot with a newer `generated_at`.
+
+   **`useBriefing` hook signature (extended):**
+   ```ts
+   // hooks/useBriefing.ts
+   export function useBriefing(projectId?: string) {
+     const url = projectId ? `/api/briefing?projectId=${projectId}` : '/api/briefing'
+     return useSWR<BriefingResponse>(url, fetcher, {
+       refreshInterval: (latest: BriefingResponse | undefined) => {
+         // Faster polling while waiting for the synthesis job to land:
+         // null snapshot + stale → 5s; otherwise default 60s
+         if (latest && latest.snapshot === null && latest.snapshotStale) return 5_000
+         return 60_000
+       },
+       revalidateOnFocus: true,
+     })
+   }
+   ```
+
+   This uses SWR's function form for `refreshInterval` (introduced in SWR 2.x) so the hook itself owns the polling-rate decision based on the most recent fetch result. No caller-side state management. `BriefingPage` calls `useBriefing(projectId)` where `projectId` is read from URL search params via `useSearchParams()`. The hook is the single source of truth for the polling interval.
 
    **Stale `refId` in priority actions:** between synthesis and render, items can be deleted (a session was killed, a task archived, etc.). The hero resolves each `priorityAction.refId` against the live section data returned by the same GET response. Entries whose `refId` is no longer present in the corresponding section silently drop out of the rendered list. The same-day dedup_key prevents thrashing the LLM to regenerate immediately; the next day's pre-warm or a material-change event will fix it.
 3. The existing 5-section grid is unchanged structurally but each section component receives one additional prop: an action handler (Continue / Fix / Start / Dismiss). The action button is rendered inline next to the existing item content.
