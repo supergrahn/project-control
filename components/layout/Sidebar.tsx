@@ -61,6 +61,9 @@ export function Sidebar({ projectId, projectPath, specsDir = null, plansDir = nu
           <NavItem href="/briefing" active={pathname === '/briefing'}>
             Briefing
           </NavItem>
+          <NavItem href="/tasks" active={pathname === '/tasks'}>
+            Tasks
+          </NavItem>
         </div>
 
         {/* Primary nav */}
