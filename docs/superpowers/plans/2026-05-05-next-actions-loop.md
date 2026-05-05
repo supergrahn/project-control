@@ -246,11 +246,16 @@ git commit -m "feat(next-actions-loop): renderer + idempotent injection helper"
 
 - [ ] **Step 1: Write failing tests**
 
+**Schema reminder for fixtures (verified against `lib/db.ts`):**
+- `projects (id, name, path, created_at TEXT NOT NULL, ...)` — no `status` column at base; ignore status
+- `sessions (id, project_id, label, phase, status DEFAULT 'active', source_file?, created_at TEXT NOT NULL, ended_at TEXT?, task_id?, next_actions?, summary?, ...)` — only `created_at` and `ended_at`, both ISO TEXT, **not** numeric `started_at`
+- Use ISO date strings for both timestamp columns; relative ordering via lexical comparison works for ISO 8601
+
 ```ts
 // lib/sessions/__tests__/findPriorSession.test.ts
 import { describe, it, expect, beforeEach } from 'vitest'
-import Database from 'better-sqlite3'
-import { runMigrations } from '@/lib/db'
+import { initDb } from '@/lib/db'
+import type Database from 'better-sqlite3'
 import { findPriorSessionWithNextActions } from '../findPriorSession'
 
 function nextActionsJson(next_actions: string[], open_questions: string[] = []): string {
@@ -264,8 +269,8 @@ function nextActionsJson(next_actions: string[], open_questions: string[] = []):
 }
 
 function insertProject(db: Database.Database, id: string) {
-  db.prepare(`INSERT INTO projects (id, name, path, status, created_at) VALUES (?, ?, ?, 'active', strftime('%s','now')*1000)`)
-    .run(id, id, `/tmp/${id}`)
+  db.prepare(`INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)`)
+    .run(id, id, `/tmp/${id}`, new Date().toISOString())
 }
 
 function insertSession(db: Database.Database, opts: {
@@ -275,13 +280,13 @@ function insertSession(db: Database.Database, opts: {
   taskId?: string | null
   sourceFile?: string | null
   nextActions?: string | null
-  endedAt?: number | null
-  startedAt?: number
+  createdAt?: string
+  endedAt?: string | null
 }) {
-  const startedAt = opts.startedAt ?? Date.now()
+  const createdAt = opts.createdAt ?? new Date().toISOString()
   db.prepare(`INSERT INTO sessions
-    (id, project_id, label, phase, status, source_file, task_id, next_actions, started_at, ended_at, created_at)
-    VALUES (?, ?, ?, 'spec', ?, ?, ?, ?, ?, ?, ?)`).run(
+    (id, project_id, label, phase, status, source_file, task_id, next_actions, created_at, ended_at)
+    VALUES (?, ?, ?, 'spec', ?, ?, ?, ?, ?, ?)`).run(
     opts.id,
     opts.projectId,
     `label-${opts.id}`,
@@ -289,18 +294,16 @@ function insertSession(db: Database.Database, opts: {
     opts.sourceFile ?? null,
     opts.taskId ?? null,
     opts.nextActions ?? null,
-    startedAt,
-    opts.endedAt ?? startedAt + 1000,
-    startedAt,
+    createdAt,
+    opts.endedAt ?? null,
   )
 }
 
 describe('findPriorSessionWithNextActions', () => {
-  let db: Database.Database
+  let db: ReturnType<typeof initDb>
 
   beforeEach(() => {
-    db = new Database(':memory:')
-    runMigrations(db)
+    db = initDb(':memory:')
     insertProject(db, 'p1')
   })
 
@@ -339,20 +342,22 @@ describe('findPriorSessionWithNextActions', () => {
   })
 
   it('walks past most-recent ended session if its arrays are empty', () => {
-    insertSession(db, { id: 's-old', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['has-action']), startedAt: 1000, endedAt: 2000 })
-    insertSession(db, { id: 's-new', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson([], []), startedAt: 3000, endedAt: 4000 })
+    insertSession(db, { id: 's-old', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['has-action']), createdAt: '2026-01-01T00:00:00.000Z', endedAt: '2026-01-01T00:01:00.000Z' })
+    insertSession(db, { id: 's-new', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson([], []), createdAt: '2026-01-02T00:00:00.000Z', endedAt: '2026-01-02T00:01:00.000Z' })
     const found = findPriorSessionWithNextActions(db, { taskId: 't1' })
     expect(found?.id).toBe('s-old')
   })
 
   it('orders by ended_at DESC (most recent first)', () => {
-    insertSession(db, { id: 's-old', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['a']), startedAt: 1000, endedAt: 2000 })
-    insertSession(db, { id: 's-new', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['b']), startedAt: 3000, endedAt: 4000 })
+    insertSession(db, { id: 's-old', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['a']), createdAt: '2026-01-01T00:00:00.000Z', endedAt: '2026-01-01T00:01:00.000Z' })
+    insertSession(db, { id: 's-new', projectId: 'p1', taskId: 't1', nextActions: nextActionsJson(['b']), createdAt: '2026-01-02T00:00:00.000Z', endedAt: '2026-01-02T00:01:00.000Z' })
     const found = findPriorSessionWithNextActions(db, { taskId: 't1' })
     expect(found?.id).toBe('s-new')
   })
 })
 ```
+
+NOTE on excludeSessionId: an earlier draft of the spec listed an "excludes self via excludeSessionId" test. That parameter was removed because self-match is impossible — the calling session row is always `status='active'` at lookup time and the filter excludes that status. The spec text was updated to reflect this; do not add an `excludeSessionId` param to the helper.
 
 - [ ] **Step 2: Run tests, expect FAIL**
 
@@ -381,9 +386,13 @@ export function findPriorSessionWithNextActions(db: Database, lookup: PriorSessi
   } else {
     return null
   }
+  // ORDER: ended_at DESC NULLS LAST then created_at DESC. ISO 8601 strings sort
+  // lexicographically the same as chronologically, so a plain DESC works. NULLs
+  // last so a session that ended cleanly outranks one with no ended_at (e.g.
+  // an interrupted session that is no longer 'active' but has no end timestamp).
   const rows = db
     .prepare(
-      `SELECT * FROM sessions WHERE ${conditions.join(' AND ')} ORDER BY ended_at DESC, started_at DESC LIMIT 5`,
+      `SELECT * FROM sessions WHERE ${conditions.join(' AND ')} ORDER BY ended_at IS NULL, ended_at DESC, created_at DESC LIMIT 5`,
     )
     .all(...params) as Session[]
   for (const row of rows) {
@@ -414,182 +423,163 @@ git commit -m "feat(next-actions-loop): findPriorSessionWithNextActions helper"
 - Modify: `lib/session-manager.ts:174-260` (the `spawnSession` function — adds 5 lines after the existing `prepUserContext` call at ~line 191)
 - Create: `lib/__tests__/session-manager-next-actions.test.ts`
 
-- [ ] **Step 1: Write failing integration tests**
+- [ ] **Step 1: Read the canonical mock setup**
 
-The test file pattern follows existing tests in `lib/__tests__/`. Use real `Database` (in-memory) + mock the adapter spawn so we can inspect the persisted user_context without launching a real CLI.
+Read: `lib/__tests__/session-manager-provider.test.ts` lines 1-50. This is the established pattern this test must follow:
+- Mock `child_process` so `spawn` returns an EventEmitter
+- Mock `@/lib/db` with `actual.initDb(':memory:')` seeded inside the factory; export a `getDb: () => db` override along with selective overrides for `createSession`, `endSession`, `getActiveSessionForFile`, `getProject`, `listContextPacks`
+- Mock `@/lib/events`, `@/lib/prompts`, `@/lib/db/tasks`, `@/lib/git`, `@/lib/frontmatter`, `@/lib/db/sessionEvents`
+
+The new test file extends that pattern by:
+- NOT stubbing `getActiveSessionForFile` (or stubbing it conditionally) so the carry-forward query against the real seeded DB works
+- Inserting prior session rows directly via `db.prepare(...)` inside each test
+- Asserting `db.prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId)` after spawn
+
+The reason `getDb` must be seeded INSIDE the mock factory (not via a `let testDb` referenced from outside): Vitest hoists `vi.mock` calls above all module-scope statements, so a closure over an outer `let` variable will read `undefined` when the factory runs at hoist time.
+
+- [ ] **Step 2: Write failing integration tests**
+
+Schema fixtures (verified against `lib/db.ts`):
+- `projects(id, name, path, created_at TEXT)` — no `status` column at base
+- `providers(id, name TEXT NOT NULL, type, command, config?, is_active INTEGER DEFAULT 1, created_at TEXT)` — required: `id`, `name`, `type`, `command`, `created_at`. `is_active` defaults to 1
+- `sessions(id, project_id, label, phase, status DEFAULT 'active', source_file?, created_at TEXT NOT NULL, ended_at?, task_id?, summary?, next_actions?, user_context?, permission_mode?, ...)` — `created_at` is ISO TEXT, NOT a numeric `started_at`
+- `tasks(id, project_id, title, status DEFAULT 'idea', idea_file?, created_at TEXT, updated_at TEXT, prep_notes?, ...)` — there is **no `description` column**; `idea_file` is the closest analogue. `prep_notes` is a TEXT column added in migration 61
+
+Skeleton (adapt to the canonical pattern):
 
 ```ts
 // lib/__tests__/session-manager-next-actions.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import Database from 'better-sqlite3'
-import { runMigrations } from '@/lib/db'
+import { describe, it, expect, vi } from 'vitest'
 
-// Mock CLI spawn so the test never touches real binaries
-vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process')
+vi.mock('child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('child_process')>()
   return {
     ...actual,
     spawn: vi.fn(() => {
-      const ee = new (require('events').EventEmitter)()
-      // Async emit so awaiters see the listener attached
-      setImmediate(() => ee.emit('spawn'))
-      return Object.assign(ee, {
-        stdout: new (require('events').EventEmitter)(),
-        stderr: new (require('events').EventEmitter)(),
-        stdin: { write: vi.fn(), end: vi.fn() },
-        kill: vi.fn(),
-      })
+      const { EventEmitter } = require('events')
+      const proc = new EventEmitter()
+      proc.stdin = { writable: true, write: vi.fn() }
+      proc.stdout = new EventEmitter()
+      proc.stderr = new EventEmitter()
+      proc.kill = vi.fn()
+      proc.stdout.on = vi.fn()
+      proc.stderr.on = vi.fn()
+      // Resolve the spawn promise so the awaiter sees a successful spawn
+      setImmediate(() => proc.emit('spawn'))
+      return proc
     }),
   }
 })
 
-vi.mock('@/lib/db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/db')>('@/lib/db')
-  return actual
+vi.mock('@/lib/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/db')>()
+  const db = actual.initDb(':memory:')
+  // Seed project + provider so spawnSession's resolveProvider succeeds
+  db.prepare(`INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)`)
+    .run('p1', 'Test', '/tmp', new Date().toISOString())
+  db.prepare(`INSERT INTO providers (id, name, type, command, is_active, created_at) VALUES (?, ?, 'claude', '/bin/echo', 1, ?)`)
+    .run('pr1', 'mock', new Date().toISOString())
+  return {
+    ...actual,
+    getDb: () => db,
+    // Pass-throughs that bind to the seeded DB. We do NOT stub these to vi.fn,
+    // because the carry-forward needs real reads/writes against `sessions`.
+  }
 })
 
-let testDb: Database.Database
-
-vi.mock('@/lib/db/connection', () => ({
-  getDb: () => testDb,
+vi.mock('@/lib/events', () => ({ logEvent: vi.fn() }))
+vi.mock('@/lib/prompts', () => ({
+  buildArgs: vi.fn(() => []),
+  buildSessionContext: vi.fn(() => ''),
+  buildTaskContext: vi.fn(() => ''),
+}))
+vi.mock('@/lib/db/tasks', () => ({ getTask: vi.fn(() => undefined), updateTask: vi.fn() }))
+vi.mock('@/lib/git', () => ({ getGitHistory: vi.fn(() => '') }))
+vi.mock('@/lib/frontmatter', () => ({ writeFrontmatter: vi.fn((c: string) => c) }))
+vi.mock('@/lib/db/sessionEvents', () => ({
+  insertSessionEvent: vi.fn(),
+  getSessionEvents: vi.fn(() => []),
+  flushSessionEvents: vi.fn(),
 }))
 
+import { getDb } from '@/lib/db'
 import { spawnSession } from '@/lib/session-manager'
 
-function nextActionsJson(next_actions: string[]): string {
+function nextActionsJson(next_actions: string[], open_questions: string[] = []) {
   return JSON.stringify({
     next_actions,
-    open_questions: [],
+    open_questions,
     files_touched: [],
     extracted_at: new Date().toISOString(),
     model: 'llama3',
   })
 }
 
-function insertProject(db: Database.Database, id: string) {
-  db.prepare(
-    `INSERT INTO projects (id, name, path, status, created_at) VALUES (?, ?, ?, 'active', strftime('%s','now')*1000)`,
-  ).run(id, id, '/tmp')
+function insertPriorSession(opts: { id?: string; taskId?: string | null; sourceFile?: string | null; nextActions?: string | null; summary?: string | null }) {
+  const db = getDb()
+  db.prepare(`INSERT INTO sessions
+    (id, project_id, label, phase, status, source_file, task_id, summary, next_actions, created_at, ended_at)
+    VALUES (?, 'p1', 'Prior label', 'spec', 'ended', ?, ?, ?, ?, ?, ?)`).run(
+      opts.id ?? 'prior',
+      opts.sourceFile ?? null,
+      opts.taskId ?? null,
+      opts.summary ?? 'prior summary',
+      opts.nextActions ?? nextActionsJson(['follow up X']),
+      '2026-01-01T00:00:00.000Z',
+      '2026-01-01T00:01:00.000Z',
+  )
 }
 
-function insertProvider(db: Database.Database, id: string) {
-  db.prepare(
-    `INSERT INTO providers (id, type, command, label, version_label, status, created_at)
-     VALUES (?, 'claude', '/bin/echo', ?, 'mock', 'active', strftime('%s','now')*1000)`,
-  ).run(id, id)
-}
-
-function insertPriorSession(db: Database.Database, opts: { taskId?: string; sourceFile?: string }) {
-  db.prepare(
-    `INSERT INTO sessions
-     (id, project_id, label, phase, status, source_file, task_id, summary, next_actions, started_at, ended_at, created_at)
-     VALUES ('prior', 'p1', 'Prior label', 'spec', 'ended', ?, ?, 'prior summary', ?, 1, 2, 1)`,
-  ).run(opts.sourceFile ?? null, opts.taskId ?? null, nextActionsJson(['follow up X']))
+const baseOpts = {
+  projectId: 'p1',
+  projectPath: '/tmp',
+  phase: 'spec' as const,
+  sourceFile: null,
+  agentId: null,
+  permissionMode: 'default' as const,
+  correctionNote: null,
+  outputPath: null,
 }
 
 describe('spawnSession next-actions carry-forward', () => {
-  beforeEach(() => {
-    testDb = new Database(':memory:')
-    runMigrations(testDb)
-    insertProject(testDb, 'p1')
-    insertProvider(testDb, 'pr1')
-  })
-
   it('injects prior next_actions when spawning for same taskId', async () => {
-    insertPriorSession(testDb, { taskId: 't1' })
-    const newId = await spawnSession({
-      projectId: 'p1',
-      projectPath: '/tmp',
-      label: 'New session',
-      phase: 'spec',
-      sourceFile: null,
-      taskId: 't1',
-      agentId: null,
-      userContext: 'do the thing',
-      permissionMode: 'default',
-      correctionNote: null,
-      outputPath: null,
-    })
-    const row = testDb.prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
+    insertPriorSession({ taskId: 't1' })
+    const newId = await spawnSession({ ...baseOpts, label: 'New', taskId: 't1', userContext: 'do the thing' })
+    const row = getDb().prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
     expect(row.user_context).toContain('<!-- next-actions:auto -->')
     expect(row.user_context).toContain('follow up X')
     expect(row.user_context).toContain('do the thing')
   })
 
   it('does not inject when no prior session has next_actions', async () => {
-    const newId = await spawnSession({
-      projectId: 'p1',
-      projectPath: '/tmp',
-      label: 'New session',
-      phase: 'spec',
-      sourceFile: null,
-      taskId: 't1',
-      agentId: null,
-      userContext: 'do the thing',
-      permissionMode: 'default',
-      correctionNote: null,
-      outputPath: null,
-    })
-    const row = testDb.prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
+    // Use a fresh task id so no prior is found in this DB instance
+    const newId = await spawnSession({ ...baseOpts, label: 'New', taskId: 't-fresh', userContext: 'do the thing' })
+    const row = getDb().prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
     expect(row.user_context).not.toContain('<!-- next-actions:auto -->')
     expect(row.user_context).toContain('do the thing')
   })
 
-  it('next-actions block precedes prep block when both apply', async () => {
-    insertPriorSession(testDb, { taskId: 't1' })
-    // Insert a task with prep_notes so prepUserContext also fires
-    testDb.prepare(
-      `INSERT INTO tasks (id, project_id, title, description, prep_notes, status, created_at, updated_at)
-       VALUES ('t1', 'p1', 'Title', 'Desc', ?, 'idea', 1, 1)`,
-    ).run(JSON.stringify({ summary: 'task summary', files: [] }))
-    const newId = await spawnSession({
-      projectId: 'p1',
-      projectPath: '/tmp',
-      label: 'New session',
-      phase: 'spec',
-      sourceFile: null,
-      taskId: 't1',
-      agentId: null,
-      userContext: 'original',
-      permissionMode: 'default',
-      correctionNote: null,
-      outputPath: null,
-    })
-    const row = testDb.prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
-    const naIdx = row.user_context.indexOf('<!-- next-actions:auto -->')
-    const prepIdx = row.user_context.indexOf('<!-- prep:auto -->')
-    const origIdx = row.user_context.indexOf('original')
-    expect(naIdx).toBeGreaterThanOrEqual(0)
-    expect(prepIdx).toBeGreaterThan(naIdx)
-    expect(origIdx).toBeGreaterThan(prepIdx)
+  it('does not inject when prior session has empty arrays', async () => {
+    insertPriorSession({ id: 'prior-empty', taskId: 't-empty', nextActions: nextActionsJson([], []) })
+    const newId = await spawnSession({ ...baseOpts, label: 'New', taskId: 't-empty', userContext: 'do' })
+    const row = getDb().prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
+    expect(row.user_context).not.toContain('<!-- next-actions:auto -->')
   })
 
-  it('does not inject when prior session has empty arrays', async () => {
-    testDb.prepare(
-      `INSERT INTO sessions
-       (id, project_id, label, phase, status, task_id, summary, next_actions, started_at, ended_at, created_at)
-       VALUES ('prior', 'p1', 'l', 'spec', 'ended', 't1', 'summary', ?, 1, 2, 1)`,
-    ).run(JSON.stringify({ next_actions: [], open_questions: [], files_touched: [], extracted_at: 'x', model: 'm' }))
-    const newId = await spawnSession({
-      projectId: 'p1',
-      projectPath: '/tmp',
-      label: 'New session',
-      phase: 'spec',
-      sourceFile: null,
-      taskId: 't1',
-      agentId: null,
-      userContext: 'do',
-      permissionMode: 'default',
-      correctionNote: null,
-      outputPath: null,
-    })
-    const row = testDb.prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
-    expect(row.user_context).not.toContain('<!-- next-actions:auto -->')
+  it('matches by source_file', async () => {
+    insertPriorSession({ id: 'prior-file', sourceFile: '/tmp/a.md' })
+    const newId = await spawnSession({ ...baseOpts, label: 'New', sourceFile: '/tmp/a.md', taskId: null, userContext: '' })
+    const row = getDb().prepare('SELECT user_context FROM sessions WHERE id = ?').get(newId) as { user_context: string }
+    expect(row.user_context).toContain('<!-- next-actions:auto -->')
   })
 })
 ```
 
-NOTE: The canonical mock pattern lives in `lib/__tests__/session-manager-provider.test.ts` (lines 1-50). It mocks `child_process.spawn` plus `@/lib/db` (using `actual.initDb(':memory:')` then exporting overrides), plus `@/lib/events`, `@/lib/prompts`, `@/lib/db/tasks`, `@/lib/git`, `@/lib/frontmatter`, `@/lib/db/sessionEvents`. Adapt that pattern instead of the snippet above — the snippet exists to communicate intent, not the exact wiring. `getDb` is sourced from `lib/db.ts` directly (no `connection.ts`).
+Notes for the implementer:
+- The seeded DB persists ACROSS tests within this file (same module scope). If isolation is needed, add `beforeEach(() => getDb().exec('DELETE FROM sessions'))` and re-seed projects/providers if a previous test deleted them. The simpler path: use unique task_ids and session ids per test (as shown above) so no two tests collide.
+- Skip the prep+next-actions-ordering test for now. It would require seeding a task with prep_notes and not stubbing `getTask`. Add it only if the simpler tests above are not sufficient evidence of correctness.
+- `spawnSession` calls `resolveProvider` which reads providers from the DB. The seeded `providers` row covers it.
+- `spawnSession` calls `fs.realpathSync(opts.sourceFile)` if `sourceFile` is non-null. The 4th test uses `/tmp/a.md` — ensure that path exists or that `realpathSync` is mocked. Simplest: `fs.writeFileSync('/tmp/a.md', '')` in a `beforeAll`. If realpathSync resolves differently than the literal path, the carry-forward query will miss; assert against the resolved path or use a path the test creates.
 
 - [ ] **Step 2: Run tests, expect FAIL**
 
@@ -656,17 +646,20 @@ git commit -m "feat(next-actions-loop): inject prior next_actions in spawnSessio
 
 - [ ] **Step 1: Write failing API tests**
 
+Schema reminder (verified): the projects table has no `status` column at base; sessions has `created_at` (TEXT NOT NULL ISO) and no numeric `started_at`. Seed both with ISO strings.
+
 ```ts
 // app/api/sessions/[id]/__tests__/continue.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import Database from 'better-sqlite3'
-import { runMigrations } from '@/lib/db'
+import { describe, it, expect, vi } from 'vitest'
 
-let testDb: Database.Database
-
-vi.mock('@/lib/db', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/db')>('@/lib/db')
-  return { ...actual, getDb: () => testDb }
+// Seed the in-memory DB INSIDE the mock factory so we don't depend on
+// `let` initialization — vi.mock is hoisted above module-scope statements.
+vi.mock('@/lib/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/db')>()
+  const db = actual.initDb(':memory:')
+  db.prepare(`INSERT INTO projects (id, name, path, created_at) VALUES (?, ?, ?, ?)`)
+    .run('p1', 'Test', '/tmp', new Date().toISOString())
+  return { ...actual, getDb: () => db }
 })
 
 const spawnSessionMock = vi.fn(async () => 'new-session-id')
@@ -674,70 +667,71 @@ vi.mock('@/lib/session-manager', () => ({
   spawnSession: spawnSessionMock,
 }))
 
+import { getDb } from '@/lib/db'
 import { POST } from '../route'
 
-function makeRequest(_id: string) {
-  // We don't actually use the request body in v1 — just pass an empty Request
-  return new Request('http://test/api/sessions/x/continue', { method: 'POST' })
+function clearSessions() {
+  getDb().prepare('DELETE FROM sessions').run()
 }
 
-function insertProject(db: Database.Database) {
-  db.prepare(`INSERT INTO projects (id, name, path, status, created_at) VALUES ('p1', 'p1', '/tmp', 'active', 1)`).run()
-}
-
-function insertSession(db: Database.Database, opts: {
+function insertSession(opts: {
   id: string
   status?: string
   taskId?: string | null
   sourceFile?: string | null
   label?: string | null
 }) {
-  db.prepare(
-    `INSERT INTO sessions (id, project_id, label, phase, status, source_file, task_id, started_at, created_at)
-     VALUES (?, 'p1', ?, 'spec', ?, ?, ?, 1, 1)`,
-  ).run(opts.id, opts.label ?? `lbl-${opts.id}`, opts.status ?? 'ended', opts.sourceFile ?? null, opts.taskId ?? null)
+  // sessions.label is NOT NULL — pass an empty string when caller wants null label
+  // semantics so the route's "(unlabeled)" / "session" fallback path can be exercised.
+  const labelValue = opts.label === null ? '' : (opts.label ?? `lbl-${opts.id}`)
+  getDb().prepare(
+    `INSERT INTO sessions (id, project_id, label, phase, status, source_file, task_id, created_at)
+     VALUES (?, 'p1', ?, 'spec', ?, ?, ?, ?)`,
+  ).run(opts.id, labelValue, opts.status ?? 'ended', opts.sourceFile ?? null, opts.taskId ?? null, new Date().toISOString())
+}
+
+function makeRequest() {
+  return new Request('http://test/api/sessions/x/continue', { method: 'POST' })
 }
 
 describe('POST /api/sessions/[id]/continue', () => {
   beforeEach(() => {
-    testDb = new Database(':memory:')
-    runMigrations(testDb)
-    insertProject(testDb)
-    spawnSessionMock.mockClear()
+    clearSessions()
+    spawnSessionMock.mockReset()
     spawnSessionMock.mockResolvedValue('new-session-id')
   })
 
   it('returns 404 when session not found', async () => {
-    const res = await POST(makeRequest('x'), { params: Promise.resolve({ id: 'missing' }) })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 'missing' }) })
     expect(res.status).toBe(404)
   })
 
   it('returns 400 when source has no originator', async () => {
-    insertSession(testDb, { id: 's1' }) // no taskId, no sourceFile
-    const res = await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+    insertSession({ id: 's1' })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(res.status).toBe(400)
   })
 
   it('returns 409 when active session exists for same task_id', async () => {
-    insertSession(testDb, { id: 's1', taskId: 't1', status: 'ended' })
-    insertSession(testDb, { id: 's-active', taskId: 't1', status: 'active' })
-    const res = await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+    insertSession({ id: 's1', taskId: 't1', status: 'ended' })
+    insertSession({ id: 's-active', taskId: 't1', status: 'active' })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(res.status).toBe(409)
     expect(spawnSessionMock).not.toHaveBeenCalled()
   })
 
   it('returns 409 when spawnSession throws CONCURRENT_SESSION (source_file collision)', async () => {
-    insertSession(testDb, { id: 's1', sourceFile: '/tmp/a.md', status: 'ended' })
+    insertSession({ id: 's1', sourceFile: '/tmp/a.md', status: 'ended' })
     spawnSessionMock.mockRejectedValue(new Error('CONCURRENT_SESSION:already-running'))
-    const res = await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(res.status).toBe(409)
     const body = await res.json()
     expect(body.existingId).toBe('already-running')
   })
 
   it('200 with new sessionId on success and "Continuation:" prefix on label', async () => {
-    insertSession(testDb, { id: 's1', taskId: 't1', label: 'Original', status: 'ended' })
-    const res = await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+    insertSession({ id: 's1', taskId: 't1', label: 'Original', status: 'ended' })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.sessionId).toBe('new-session-id')
@@ -745,18 +739,20 @@ describe('POST /api/sessions/[id]/continue', () => {
   })
 
   it('does not double-prefix labels that already start with "Continuation: "', async () => {
-    insertSession(testDb, { id: 's1', taskId: 't1', label: 'Continuation: Original', status: 'ended' })
-    await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+    insertSession({ id: 's1', taskId: 't1', label: 'Continuation: Original', status: 'ended' })
+    await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(spawnSessionMock).toHaveBeenCalledWith(expect.objectContaining({ label: 'Continuation: Original' }))
   })
 
-  it('falls back when label is null/empty', async () => {
-    insertSession(testDb, { id: 's1', taskId: 't1', label: null, status: 'ended' })
-    await POST(makeRequest('s1'), { params: Promise.resolve({ id: 's1' }) })
+  it('falls back when label is empty', async () => {
+    insertSession({ id: 's1', taskId: 't1', label: null, status: 'ended' })
+    await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(spawnSessionMock).toHaveBeenCalledWith(expect.objectContaining({ label: 'Continuation: session' }))
   })
 })
 ```
+
+Schema note: `sessions.label TEXT NOT NULL` so we cannot insert a true SQL NULL — use an empty string when testing the fallback path. The route's truthy check (`source.label || 'session'`) handles both empty string and null identically.
 
 - [ ] **Step 2: Run tests, expect FAIL**
 
@@ -852,26 +848,48 @@ git commit -m "feat(next-actions-loop): POST /api/sessions/[id]/continue"
 - Modify: `components/sessions/SessionDetailDrawer.tsx` (existing `NextActionsSection`)
 - Modify: `components/sessions/__tests__/SessionDetailDrawer.test.tsx`
 
-- [ ] **Step 1: Read the existing component**
+- [ ] **Step 1: Read the existing component + test**
 
-Read: `components/sessions/SessionDetailDrawer.tsx` lines 165-230 (the `NextActionsSection`)
-Read: `components/sessions/__tests__/SessionDetailDrawer.test.tsx` lines 155-200 (existing next_actions tests)
+Read: `components/sessions/SessionDetailDrawer.tsx` (find `NextActionsSection` — currently lines around 186-228 of the file). Note that `Session` type is imported from `@/hooks/useSessions`, not `@/lib/db`.
 
-Verify the section receives `session` (or `nextActions` string) and uses existing UI tokens. The new button must use the same token classes — refer to other primary action buttons in the codebase (e.g. `bg-bg-elevated text-text-primary border border-border-default rounded px-3 py-1 hover:bg-bg-hover`).
+Read: `components/sessions/__tests__/SessionDetailDrawer.test.tsx` lines 1-50 (mock setup, `baseSession`, `wrap()` helper) and lines around 155-200 (existing next_actions tests). Note the established conventions:
+- Component is rendered via `wrap(<SessionDetailDrawer session={...} sessions={...} onClose={vi.fn()} onNavigate={vi.fn()} />)`
+- `next/navigation` is **not** currently mocked — the new tests must add this mock at the top of the file
+- All hooks are mocked at module top level via `vi.mock(...)` factories
 
-- [ ] **Step 2: Write failing tests**
+For new button styling, use existing UI tokens. Find a similar primary action button (e.g. inside `LiveRunsSection.tsx`, `RightDrawer.tsx`, or `SessionInput.tsx`) and copy its class string verbatim — do NOT invent token names.
+
+- [ ] **Step 2: Add `next/navigation` mock to the existing test file**
+
+At the top of the file, alongside the other `vi.mock` blocks (around line 32):
+
+```ts
+const pushSpy = vi.fn()
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushSpy }),
+}))
+```
+
+And reset between tests:
+```ts
+beforeEach(() => { killMutate.mockClear(); openWindowSpy.mockClear(); pushSpy.mockClear() })
+```
+
+- [ ] **Step 3: Write failing tests**
 
 Append to `components/sessions/__tests__/SessionDetailDrawer.test.tsx`:
 
-```ts
+```tsx
 describe('NextActionsSection Continue button', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ sessionId: 'new-id' }), { status: 200 }),
     )
   })
 
-  afterEach(() => { vi.restoreAllMocks() })
+  afterEach(() => { fetchSpy.mockRestore() })
 
   function withNextActions(extra: Partial<Session> = {}): Session {
     return {
@@ -884,62 +902,54 @@ describe('NextActionsSection Continue button', () => {
         model: 'm',
       }),
       ...extra,
-    }
+    } as Session
   }
 
-  it('renders Continue button when session has next_actions and an originator (task_id)', () => {
-    render(<SessionDetailDrawer session={withNextActions({ task_id: 't1' })} {...rest} />)
+  it('renders Continue button when next_actions and task_id are present', () => {
+    wrap(<SessionDetailDrawer session={withNextActions({ task_id: 't1' })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
   })
 
-  it('renders Continue button when session has next_actions and an originator (source_file)', () => {
-    render(<SessionDetailDrawer session={withNextActions({ source_file: '/tmp/a.md' })} {...rest} />)
+  it('renders Continue button when next_actions and source_file are present', () => {
+    wrap(<SessionDetailDrawer session={withNextActions({ source_file: '/tmp/a.md' })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
   })
 
   it('hides Continue button when session has no originator', () => {
-    render(<SessionDetailDrawer session={withNextActions({ task_id: null, source_file: null })} {...rest} />)
+    wrap(<SessionDetailDrawer session={withNextActions({ task_id: null, source_file: null })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
   })
 
   it('hides Continue button when next_actions array is empty', () => {
-    render(
-      <SessionDetailDrawer
-        session={{
-          ...baseSession,
-          task_id: 't1',
-          next_actions: JSON.stringify({
-            next_actions: [],
-            open_questions: [],
-            files_touched: [],
-            extracted_at: 'x',
-            model: 'm',
-          }),
-        }}
-        {...rest}
-      />,
-    )
+    const empty = {
+      ...baseSession,
+      task_id: 't1',
+      next_actions: JSON.stringify({
+        next_actions: [], open_questions: [], files_touched: [], extracted_at: 'x', model: 'm',
+      }),
+    } as Session
+    wrap(<SessionDetailDrawer session={empty} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
   })
 
   it('POSTs to /api/sessions/{id}/continue and navigates on success', async () => {
-    const pushSpy = vi.fn()
-    vi.mocked(useRouter).mockReturnValue({ push: pushSpy } as never)
-    render(<SessionDetailDrawer session={withNextActions({ id: 'sX', task_id: 't1' })} {...rest} />)
+    const session = withNextActions({ id: 'sX', task_id: 't1' })
+    wrap(<SessionDetailDrawer session={session} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('/api/sessions/sX/continue', expect.objectContaining({ method: 'POST' }))
+    await vi.waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/sessions/sX/continue', expect.objectContaining({ method: 'POST' }))
     })
-    await waitFor(() => {
+    await vi.waitFor(() => {
       expect(pushSpy).toHaveBeenCalledWith('/sessions?selected=new-id')
     })
   })
 
-  it('renders error when API returns error', async () => {
-    vi.spyOn(global, 'fetch').mockResolvedValue(
+  it('renders error message when API returns non-OK', async () => {
+    fetchSpy.mockResolvedValue(
       new Response(JSON.stringify({ error: 'a session for this task is already active' }), { status: 409 }),
     )
-    render(<SessionDetailDrawer session={withNextActions({ task_id: 't1' })} {...rest} />)
+    const session = withNextActions({ id: 'sX', task_id: 't1' })
+    wrap(<SessionDetailDrawer session={session} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     fireEvent.click(screen.getByRole('button', { name: /continue/i }))
     await screen.findByRole('alert')
     expect(screen.getByRole('alert')).toHaveTextContent(/already active/i)
@@ -947,14 +957,16 @@ describe('NextActionsSection Continue button', () => {
 })
 ```
 
-NOTE: The exact `rest`, `baseSession`, and `useRouter` mock pattern must match the existing test file conventions. The implementer should adapt these snippets to match the established imports + helpers in the same file.
+Notes:
+- `Session` is the type imported at the top of the file from `@/hooks/useSessions`. If `task_id`/`next_actions` are not in that type yet, add them — they exist in the DB layer's `Session` type. Inspect `hooks/useSessions.ts` and add fields if needed.
+- `vi.waitFor` is the project's preferred async-assertion helper here. If the test file already imports `waitFor` from `@testing-library/react`, use that instead.
 
-- [ ] **Step 3: Run tests, expect FAIL**
+- [ ] **Step 4: Run tests, expect FAIL**
 
 Run: `npx vitest run components/sessions/__tests__/SessionDetailDrawer.test.tsx`
 Expected: FAIL — Continue button not found.
 
-- [ ] **Step 4: Implement the button**
+- [ ] **Step 5: Implement the button**
 
 In `components/sessions/SessionDetailDrawer.tsx`, modify the existing `NextActionsSection`:
 
@@ -1009,12 +1021,12 @@ function NextActionsSection({ session }: { session: Session }) {
 
 NOTE: The exact UI token classes vary by codebase. Match the closest existing primary action button (e.g. ones in `RightDrawer.tsx` or `LiveRunsSection.tsx`).
 
-- [ ] **Step 5: Run tests, expect PASS**
+- [ ] **Step 6: Run tests, expect PASS**
 
 Run: `npx vitest run components/sessions/__tests__/SessionDetailDrawer.test.tsx`
 Expected: PASS — all new + existing tests green.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add components/sessions/SessionDetailDrawer.tsx components/sessions/__tests__/SessionDetailDrawer.test.tsx

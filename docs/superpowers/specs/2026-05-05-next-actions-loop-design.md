@@ -128,7 +128,7 @@ export function findPriorSessionWithNextActions(db: Database, lookup: PriorSessi
   } else {
     return null
   }
-  const rows = db.prepare(`SELECT * FROM sessions WHERE ${conditions.join(' AND ')} ORDER BY ended_at DESC, started_at DESC LIMIT 5`).all(...params) as Session[]
+  const rows = db.prepare(`SELECT * FROM sessions WHERE ${conditions.join(' AND ')} ORDER BY ended_at IS NULL, ended_at DESC, created_at DESC LIMIT 5`).all(...params) as Session[]
   for (const row of rows) {
     const parsed = parseNextActions(row)
     if (parsed && (parsed.next_actions.length > 0 || parsed.open_questions.length > 0)) return row
