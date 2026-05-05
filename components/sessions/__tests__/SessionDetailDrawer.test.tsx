@@ -1,11 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { SessionDetailDrawer } from '../SessionDetailDrawer'
 import type { Session } from '@/hooks/useSessions'
 
 const killMutate = vi.fn()
 const openWindowSpy = vi.fn()
+const pushSpy = vi.fn()
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: pushSpy }),
+}))
 
 vi.mock('@/hooks/useSessions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/hooks/useSessions')>()
@@ -47,7 +52,7 @@ const sessions: Session[] = [
   { ...baseSession, id: 'sess-3', label: 'Third session' },
 ]
 
-beforeEach(() => { killMutate.mockClear(); openWindowSpy.mockClear() })
+beforeEach(() => { killMutate.mockClear(); openWindowSpy.mockClear(); pushSpy.mockClear() })
 
 describe('SessionDetailDrawer', () => {
   it('renders header with project name, label, and phase', () => {
@@ -187,5 +192,81 @@ describe('SessionDetailDrawer', () => {
     wrap(<SessionDetailDrawer session={bad} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
     // Drawer still renders without crashing; no Next heading appears.
     expect(screen.queryByText(/^Next$/)).not.toBeInTheDocument()
+  })
+})
+
+describe('NextActionsSection Continue button', () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ sessionId: 'new-id' }), { status: 200 }),
+    )
+  })
+
+  afterEach(() => { fetchSpy.mockRestore() })
+
+  function withNextActions(extra: Partial<Session> = {}): Session {
+    return {
+      ...baseSession,
+      next_actions: JSON.stringify({
+        next_actions: ['do X'],
+        open_questions: [],
+        files_touched: [],
+        extracted_at: 'x',
+        model: 'm',
+      }),
+      ...extra,
+    } as Session
+  }
+
+  it('renders Continue button when next_actions and task_id are present', () => {
+    wrap(<SessionDetailDrawer session={withNextActions({ task_id: 't1' })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
+  })
+
+  it('renders Continue button when next_actions and source_file are present', () => {
+    wrap(<SessionDetailDrawer session={withNextActions({ source_file: '/tmp/a.md' })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.getByRole('button', { name: /continue/i })).toBeInTheDocument()
+  })
+
+  it('hides Continue button when session has no originator', () => {
+    wrap(<SessionDetailDrawer session={withNextActions({ task_id: null, source_file: null })} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+  })
+
+  it('hides Continue button when next_actions array is empty', () => {
+    const empty = {
+      ...baseSession,
+      task_id: 't1',
+      next_actions: JSON.stringify({
+        next_actions: [], open_questions: [], files_touched: [], extracted_at: 'x', model: 'm',
+      }),
+    } as Session
+    wrap(<SessionDetailDrawer session={empty} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    expect(screen.queryByRole('button', { name: /continue/i })).toBeNull()
+  })
+
+  it('POSTs to /api/sessions/{id}/continue and navigates on success', async () => {
+    const session = withNextActions({ id: 'sX', task_id: 't1' })
+    wrap(<SessionDetailDrawer session={session} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledWith('/api/sessions/sX/continue', expect.objectContaining({ method: 'POST' }))
+    })
+    await waitFor(() => {
+      expect(pushSpy).toHaveBeenCalledWith('/sessions?selected=new-id')
+    })
+  })
+
+  it('renders error message when API returns non-OK', async () => {
+    fetchSpy.mockResolvedValue(
+      new Response(JSON.stringify({ error: 'a session for this task is already active' }), { status: 409 }),
+    )
+    const session = withNextActions({ id: 'sX', task_id: 't1' })
+    wrap(<SessionDetailDrawer session={session} sessions={sessions} onClose={vi.fn()} onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /continue/i }))
+    await screen.findByRole('alert')
+    expect(screen.getByRole('alert')).toHaveTextContent(/already active/i)
   })
 })
