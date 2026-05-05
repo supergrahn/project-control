@@ -103,6 +103,18 @@ UPSERT-only — one current row per scope. Older snapshots are overwritten. No h
 
 `scope_key` is the primary key. `project_id` is a separate column for FK and for ease of joining.
 
+Use `INSERT INTO briefing_snapshots (...) VALUES (...) ON CONFLICT(scope_key) DO UPDATE SET ...` for the UPSERT (matches the existing `critique.ts` precedent and avoids the DELETE+INSERT semantics of `INSERT OR REPLACE`, which would regenerate rowid).
+
+### `JobKind` union extension
+
+`lib/jobs/runner.ts` line 4 currently defines:
+```ts
+export type JobKind =
+  | 'embed' | 'grade_session' | 'extract_next_actions'
+  | 'critique_spec' | 'critique_plan' | 'refresh_prep'
+```
+Add `'briefing_synthesize'` to this union — REQUIRED before `enqueueJob` or `registerHandler` calls referencing the new kind will compile.
+
 ### `priority_actions` JSON shape
 
 ```ts
@@ -152,9 +164,14 @@ Side-effect of lazy-enqueue is intentional: visiting the page during the day ref
 
 ### `POST /api/critic-findings/[id]/fix`
 
-New route. Body empty. Response `{ sessionId }`.
+New route. **The `[id]` segment is an INTEGER autoincrement (`critic_findings.id`)** — coerce the URL string with `parseInt(id, 10)` before the SQLite lookup. Reject `NaN` with 400.
 
-Looks up the finding (`SELECT * FROM critic_findings WHERE id = ?`), parses out severity/category/message of the FIRST high/critical entry in its `findings` JSON, builds a userContext block:
+Body: `{ category: string; message: string; severity: 'critical' | 'high' }` — the UI sends back the specific issue the user clicked on (the section flattens one finding row into N issue items, so the `id` alone is ambiguous). The route validates the trio matches an issue inside the stored `findings.issues` array; if no match, returns 400. Response `{ sessionId }`.
+
+**Findings JSON shape (verified against `lib/jobs/handlers/critique.ts:96-101`):**
+The `findings` column stores `{ issues: Issue[], votes: number, model: string, run_at: string }` — a wrapper object, NOT the array directly. The route accesses `JSON.parse(row.findings).issues` to get the array of `{severity, category, message}` items.
+
+Looks up the finding (`SELECT * FROM critic_findings WHERE id = ?`), parses `findings` and finds the issue matching `(category, message, severity)`. Builds a userContext block:
 
 ```
 <!-- briefing-fix:auto -->
@@ -174,7 +191,9 @@ Then calls `spawnSession`:
 - `userContext`: the marker block above
 - `label`: `Fix critic finding: <category>`
 
-Returns 404 if finding doesn't exist, 400 if kind is neither spec nor plan, 409 if a concurrent session collides on the source_file (delegates to `spawnSession`'s existing `CONCURRENT_SESSION:` throw, translated to 409 in the route — same pattern as `/api/sessions/[id]/continue`).
+Returns 400 if id isn't an integer, 404 if finding doesn't exist, 400 if kind is neither spec nor plan, 400 if the (category, message, severity) trio doesn't match any stored issue, 409 if a concurrent session collides on the source_file (delegates to `spawnSession`'s existing `CONCURRENT_SESSION:` throw, translated to 409 in the route — same pattern as `/api/sessions/[id]/continue`).
+
+**Aggregator change consequence:** the existing `criticFlagged.ts` aggregator must be updated to include `cf.id AS finding_id` in the SELECT and propagate it to the `BriefingCriticFlag` type (new field `findingId: number`). The UI sends `findingId + (severity, category, message)` to the route. Add `findingId: number` to `BriefingCriticFlag` in `lib/briefing/types.ts`.
 
 ### `POST /api/tasks/[id]/start`
 
@@ -224,30 +243,45 @@ export async function handleBriefingSynthesize(db: Database, payload: Payload): 
   }
 
   const prompt = buildBriefingPrompt(sections)
-  const llmJson = await localComplete(provider, prompt, { temperature: 0.2 })
+  // localComplete signature (verified against lib/router/localComplete.ts):
+  // takes (provider, prompt, { maxTokens, timeoutMs }) — temperature is hardcoded
+  // to 0 inside the function body, so we cannot pass it here.
+  const llmJson = await localComplete(provider, prompt, { maxTokens: 1200, timeoutMs: 60_000 })
   const parsed = parseBriefingJson(llmJson)
   if (!parsed) {
     console.warn(`[briefing_synthesize] LLM output unparseable for ${payload.scope}; storing fallback`)
     // Defensive fallback: store an empty narrative so the page can render the live grid below
-    db.prepare(`INSERT OR REPLACE INTO briefing_snapshots
-      (scope_key, project_id, narrative, priority_actions, section_signature, model, generated_at)
-      VALUES (?, ?, '', '[]', ?, ?, ?)`)
-      .run(payload.scope, projectId ?? null, signature, getLocalModelName(provider), new Date().toISOString())
+    db.prepare(`
+      INSERT INTO briefing_snapshots (scope_key, project_id, narrative, priority_actions, section_signature, model, generated_at)
+      VALUES (?, ?, '', '[]', ?, ?, ?)
+      ON CONFLICT(scope_key) DO UPDATE SET
+        narrative = excluded.narrative,
+        priority_actions = excluded.priority_actions,
+        section_signature = excluded.section_signature,
+        model = excluded.model,
+        generated_at = excluded.generated_at
+    `).run(payload.scope, projectId ?? null, signature, getLocalModelName(provider), new Date().toISOString())
     return
   }
 
-  db.prepare(`INSERT OR REPLACE INTO briefing_snapshots
-    (scope_key, project_id, narrative, priority_actions, section_signature, model, generated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`)
-    .run(
-      payload.scope,
-      projectId ?? null,
-      parsed.narrative,
-      JSON.stringify(parsed.priorityActions),
-      signature,
-      getLocalModelName(provider),
-      new Date().toISOString(),
-    )
+  db.prepare(`
+    INSERT INTO briefing_snapshots (scope_key, project_id, narrative, priority_actions, section_signature, model, generated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(scope_key) DO UPDATE SET
+      narrative = excluded.narrative,
+      priority_actions = excluded.priority_actions,
+      section_signature = excluded.section_signature,
+      model = excluded.model,
+      generated_at = excluded.generated_at
+  `).run(
+    payload.scope,
+    projectId ?? null,
+    parsed.narrative,
+    JSON.stringify(parsed.priorityActions),
+    signature,
+    getLocalModelName(provider),
+    new Date().toISOString(),
+  )
 }
 ```
 
@@ -314,6 +348,10 @@ The signature captures *which items would be shown*. It deliberately does NOT in
 
 ```ts
 export function briefingPreWarmTrigger(db: Database): void {
+  // Test environments: skip. The scheduler is already env-gated in server.ts,
+  // but unit tests that import runOneBatch directly should not exercise this trigger.
+  if (process.env.VITEST === 'true' || process.env.NODE_ENV === 'test') return
+
   const hour = new Date().getHours()
   if (hour < 5 || hour > 6) return  // Only fire in the 5-6am window
 
@@ -330,20 +368,26 @@ export function briefingPreWarmTrigger(db: Database): void {
 }
 ```
 
-Called from the scheduler tick:
+Called from the scheduler tick. **Concrete edit to `lib/jobs/runner.ts`:**
+
+The existing `startScheduler` (lines 112-129 of `lib/jobs/runner.ts`) wraps each tick in a try/catch around `runOneBatch`. Modify the `tick` function to call `briefingPreWarmTrigger(opts.getDb())` immediately before `runOneBatch`:
 
 ```ts
-// In lib/jobs/runner.ts startScheduler tick:
+// lib/jobs/runner.ts — modified tick
 const tick = async () => {
   if (stopped) return
   try {
-    briefingPreWarmTrigger(opts.getDb())  // idempotent; runs every tick
-    await runOneBatch(opts.getDb(), { ... })
-  } catch (err) { console.warn('[jobs] tick error:', err) }
+    briefingPreWarmTrigger(opts.getDb())  // idempotent; env-guarded internally
+    await runOneBatch(opts.getDb(), { batchSize: opts.batchSize, loadAverageMax: opts.loadAverageMax })
+  } catch (err) {
+    console.warn('[jobs] tick error:', err)
+  }
 }
 ```
 
-The trigger is idempotent: when called multiple times within the same hour, the dedup_key prevents duplicate enqueueing. When called outside the 5-6am window it's a no-op (returns early).
+The trigger is idempotent at three layers: (1) env-gate skips test envs entirely, (2) hour check returns early outside 5-6am, (3) dedup_key prevents duplicate enqueues within the same scope+day. Out-of-window calls and same-window repeated calls are both no-ops.
+
+If the user does not have the dev server running between 5-6am, the briefing simply won't pre-warm — lazy fallback covers it on first page-load that day.
 
 ---
 
@@ -368,10 +412,10 @@ Tiny route. Reads `scope` (defaults to `__all__`), enqueues a `briefing_synthesi
 Each section component gets a small `onAction(item)` prop. The `BriefingPage` provides handler functions that call the appropriate API:
 
 - `OpenNextActionsSection.onAction` → POST `/api/sessions/{sessionId}/continue`, navigate to `/sessions?selected=<newId>`
-- `CriticFlaggedSection.onAction` → POST `/api/critic-findings/{id}/fix`, navigate to `/sessions?selected=<newId>`. (Note: critic findings have an integer id; the section already receives `id` per the existing code? — implementer must verify; if not, expose `id` in the API)
+- `CriticFlaggedSection.onAction` → POST `/api/critic-findings/{findingId}/fix` with body `{ category, message, severity }`, navigate to `/sessions?selected=<newId>`. Requires the aggregator change documented above (include `findingId: number` on each `BriefingCriticFlag` item).
 - `TopTasksSection.onAction` → POST `/api/tasks/{taskId}/start`, navigate to `/sessions?selected=<newId>`
 - `RecentFailuresSection.onAction` → POST `/api/sessions/{sessionId}/continue`, navigate to `/sessions?selected=<newId>`
-- `DuplicateTasksSection.onAction` → POST `/api/dedup-dismissals` with the pair, then revalidate the `/api/briefing` SWR cache so the dismissed pair disappears
+- `DuplicateTasksSection.onAction` → POST `/api/dedup-dismissals` with `{ projectId, aTaskId, bTaskId }`, then revalidate the `/api/briefing` SWR cache so the dismissed pair disappears
 
 Each action button shows a brief pending state (`Spawning…`, `Dismissing…`) and an inline error if the request fails.
 
@@ -379,12 +423,23 @@ Each action button shows a brief pending state (`Spawning…`, `Dismissing…`) 
 
 ## Material-change invalidation
 
-When new bad news arrives mid-day, the snapshot should refresh. We hook into two existing trigger points:
+When new bad news arrives mid-day, the snapshot should refresh. We **add two new enqueue calls** to existing handlers (these calls do not currently exist):
 
-1. **Session graded `no`** — in `lib/jobs/handlers/grade_session.ts`, after successful UPSERT of a grade, if `grade === 'no'`, call `enqueueJob(db, 'briefing_synthesize', { scope: '__all__' }, ...)` and `enqueueJob(db, 'briefing_synthesize', { scope: <session.project_id> }, ...)`.
-2. **New critic finding with severity ∈ {critical, high}** — in `lib/jobs/handlers/critique.ts`, after the UPSERT, parse the merged findings; if any has critical/high severity, enqueue similarly for both `__all__` and the project scope.
+1. **Session graded `no`** — in `lib/jobs/handlers/grade_session.ts`, after the existing `UPDATE sessions SET grade = ?` statement (around line 73), check the parsed grade. If `grade === 'no'`, add:
+   ```ts
+   const today = new Date().toISOString().slice(0, 10)
+   enqueueJob(db, 'briefing_synthesize', { scope: '__all__' }, { dedupKey: `briefing_synthesize:__all__:${today}:gradechange` })
+   enqueueJob(db, 'briefing_synthesize', { scope: session.project_id }, { dedupKey: `briefing_synthesize:${session.project_id}:${today}:gradechange` })
+   ```
 
-Both are deduped by `briefing_synthesize:{scope}:{date}` so they fold into the day's pre-warm if it's already been done. If you want immediate refresh, use a different dedup_key including the source event id — but for v1, daily dedup is fine; the next-day briefing will incorporate the change.
+2. **New critic finding with severity ∈ {critical, high}** — in `lib/jobs/handlers/critique.ts`, after the existing `INSERT INTO critic_findings ... ON CONFLICT DO UPDATE` (lines 104-110), inspect the `merged` issues array. If any issue has `severity === 'critical' || severity === 'high'`, add:
+   ```ts
+   const today = new Date().toISOString().slice(0, 10)
+   enqueueJob(db, 'briefing_synthesize', { scope: '__all__' }, { dedupKey: `briefing_synthesize:__all__:${today}:criticchange` })
+   enqueueJob(db, 'briefing_synthesize', { scope: payload.project_id }, { dedupKey: `briefing_synthesize:${payload.project_id}:${today}:criticchange` })
+   ```
+
+Note the dedup_keys differ from the daily pre-warm key (`...:${today}` without suffix) — the `:gradechange` and `:criticchange` suffixes ensure each material event can trigger its own re-synthesis once per day per scope, without colliding with the morning pre-warm. Within a single day, multiple grade-changes still collapse to one job (good — bounds LLM cost). The handler's `section_signature` short-circuit will then skip the LLM call if no item set actually changed.
 
 For mid-day mid-conversation immediate effect, the lazy enqueue on `GET /api/briefing` (when snapshot is signature-stale) achieves the same effect when the user reloads. Combined: pre-warm, lazy refresh on signature drift, and post-event enqueue cover all the cases without spamming the LLM.
 
