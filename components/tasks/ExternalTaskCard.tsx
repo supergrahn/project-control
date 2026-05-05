@@ -22,9 +22,10 @@ function StatusIcon({ status }: { status: ExternalTaskStatus }) {
 interface Props {
   task: ExternalTask
   onSelect?: (task: ExternalTask) => void
+  showProjectColumn?: boolean
 }
 
-export function ExternalTaskCard({ task, onSelect }: Props) {
+export function ExternalTaskCard({ task, onSelect, showProjectColumn = false }: Props) {
   return (
     <article
       onClick={(e) => {
@@ -36,11 +37,16 @@ export function ExternalTaskCard({ task, onSelect }: Props) {
       role={onSelect ? 'button' : undefined}
       className="group relative flex flex-col gap-3 rounded-xl border border-border-default bg-bg-secondary p-4 hover:border-border-hover hover:bg-bg-secondary transition-all duration-150 cursor-pointer"
     >
-      {/* Top row: source + priority */}
+      {/* Top row: source + owner project + priority */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SOURCE_STYLES[task.source]}`}>
           {SOURCE_LABELS[task.source]}
         </span>
+        {showProjectColumn && task.ownerProject && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-secondary text-text-muted">
+            {task.ownerProject.name}
+          </span>
+        )}
         {task.priority && (
           <span className="flex items-center gap-1 ml-auto text-xs text-text-secondary">
             <span className={`w-2 h-2 rounded-full ${PRIORITY_COLORS[task.priority]}`} />

@@ -62,8 +62,14 @@ function SkeletonCard() {
   )
 }
 
-export function ExternalTaskDashboard() {
-  const { projectId } = useParams<{ projectId: string }>()
+type Props = {
+  apiUrl?: string
+  showProjectColumn?: boolean
+}
+
+export function ExternalTaskDashboard({ apiUrl, showProjectColumn = false }: Props = {}) {
+  const params = useParams<{ projectId?: string }>()
+  const url = apiUrl ?? (params.projectId ? `/api/projects/${params.projectId}/external-tasks` : null)
 
   const [groupBy, setGroupBy] = useState<GroupBy>(() => {
     if (typeof window === 'undefined') return 'severity'
@@ -98,10 +104,12 @@ export function ExternalTaskDashboard() {
   const [showOverdueOnly, setShowOverdueOnly] = useState(false)
 
   const { data, isLoading, isValidating, mutate } = useSWR<{ tasks: ExternalTask[]; errors: string[] }>(
-    `/api/projects/${projectId}/external-tasks`,
+    url,
     fetcher,
     { refreshInterval: 120_000 }
   )
+
+  if (!url) return <p className="text-text-muted">No project selected.</p>
 
   const tasks = data?.tasks ?? []
   const apiErrors = data?.errors ?? []
@@ -316,6 +324,7 @@ export function ExternalTaskDashboard() {
                   key={`${task.source}:${task.id}`}
                   task={task}
                   onSelect={t => setSelectedKey({ source: t.source, id: t.id })}
+                  showProjectColumn={showProjectColumn}
                 />
               ))}
             </div>
