@@ -9,16 +9,22 @@ function cosine(a: Float32Array, b: Float32Array): number {
   return dot / (Math.sqrt(na) * Math.sqrt(nb))
 }
 
-export function getDuplicateTasks(db: Database, options: { threshold?: number; limit?: number; perProjectCap?: number } = {}): BriefingDuplicate[] {
+export function getDuplicateTasks(db: Database, options: { threshold?: number; limit?: number; perProjectCap?: number; projectId?: string } = {}): BriefingDuplicate[] {
   const threshold = options.threshold ?? 0.85
   const limit = options.limit ?? 5
   const perProjectCap = options.perProjectCap ?? 100
 
+  // Load all dismissals once for O(1) lookup during pairwise loop
+  const dismissed = db.prepare(`SELECT project_id, a_task_id, b_task_id FROM dedup_dismissals`).all() as Array<{ project_id: string; a_task_id: string; b_task_id: string }>
+  const dismissedSet = new Set(dismissed.map(d => `${d.project_id}:${d.a_task_id}::${d.b_task_id}`))
+
+  const whereProject = options.projectId ? 'AND e.project_id = ?' : ''
   const projects = db.prepare(`
     SELECT DISTINCT e.project_id, p.name AS project_name
       FROM embeddings e JOIN projects p ON p.id = e.project_id
      WHERE e.kind = 'task'
-  `).all() as Array<{ project_id: string; project_name: string }>
+       ${whereProject}
+  `).all(...(options.projectId ? [options.projectId] : [])) as Array<{ project_id: string; project_name: string }>
 
   const candidates: BriefingDuplicate[] = []
   for (const proj of projects) {
@@ -50,11 +56,16 @@ export function getDuplicateTasks(db: Database, options: { threshold?: number; l
         for (let j = i + 1; j < decoded.length; j++) {
           const sim = cosine(decoded[i].vec, decoded[j].vec)
           if (sim >= threshold) {
+            // Canonicalise the pair (lex sort) — dismissals are stored in canonical order
+            const sorted = [decoded[i].task_id, decoded[j].task_id].sort()
+            const aId = sorted[0]
+            const bId = sorted[1]
+            if (dismissedSet.has(`${proj.project_id}:${aId}::${bId}`)) continue
             candidates.push({
-              aTaskId: decoded[i].task_id,
-              bTaskId: decoded[j].task_id,
-              aTitle: decoded[i].title,
-              bTitle: decoded[j].title,
+              aTaskId: aId,
+              bTaskId: bId,
+              aTitle: aId === decoded[i].task_id ? decoded[i].title : decoded[j].title,
+              bTitle: bId === decoded[j].task_id ? decoded[j].title : decoded[i].title,
               projectId: proj.project_id,
               projectName: proj.project_name,
               similarity: sim,

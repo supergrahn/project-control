@@ -82,4 +82,13 @@ describe('getOpenNextActions', () => {
     expect(out[0].sessionId).toBe('new')
     expect(out[1].sessionId).toBe('old')
   })
+
+  it('filters by projectId when provided', () => {
+    insertProject(db, 'p2')
+    insertSession(db, { id: 's1', projectId: 'p1', nextActions: nextActionsJson(['a']) })
+    insertSession(db, { id: 's2', projectId: 'p2', nextActions: nextActionsJson(['b']) })
+    const out = getOpenNextActions(db, { projectId: 'p1', now })
+    expect(out.every(x => x.projectId === 'p1')).toBe(true)
+    expect(out.length).toBeGreaterThan(0)
+  })
 })

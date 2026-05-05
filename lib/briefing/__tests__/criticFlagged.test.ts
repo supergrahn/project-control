@@ -42,13 +42,13 @@ describe('getCriticFlagged', () => {
       projectId: 'p1',
       findings: [
         { severity: 'critical', category: 'security', message: 'SQL injection' },
-        { severity: 'high', category: 'design', message: 'Missing validation' },
+        { severity: 'important', category: 'design', message: 'Missing validation' },
       ],
     })
     const out = getCriticFlagged(db)
     expect(out).toHaveLength(2)
     expect(out[0].severity).toBe('critical')
-    expect(out[1].severity).toBe('high')
+    expect(out[1].severity).toBe('important')
   })
 
   it('skips medium and low severity findings', () => {
@@ -82,7 +82,7 @@ describe('getCriticFlagged', () => {
       projectId: 'p1',
       kind: 'plan',
       ref: 'docs/plans/feature.md',
-      findings: [{ severity: 'high', category: 'design', message: 'Over-engineered' }],
+      findings: [{ severity: 'important', category: 'design', message: 'Over-engineered' }],
     })
     const out = getCriticFlagged(db)
     expect(out[0].projectName).toBe('Project One')
@@ -94,7 +94,7 @@ describe('getCriticFlagged', () => {
     insertCriticFindings(db, {
       projectId: 'p1',
       ref: 'old.md',
-      findings: [{ severity: 'high', category: 'design', message: 'Old issue' }],
+      findings: [{ severity: 'important', category: 'design', message: 'Old issue' }],
       createdAt: '2026-05-01T00:00:00.000Z',
     })
     insertCriticFindings(db, {
@@ -127,5 +127,30 @@ describe('getCriticFlagged', () => {
       'p1', 'spec', 'bad.md', 'hash-bad', 'not-valid-json', '2026-05-04T00:00:00.000Z',
     )
     expect(getCriticFlagged(db)).toEqual([])
+  })
+
+  it('filters by projectId when provided', () => {
+    insertProject(db, 'p2', 'Project Two')
+    insertCriticFindings(db, {
+      projectId: 'p1',
+      findings: [{ severity: 'critical', category: 'security', message: 'Issue in p1' }],
+    })
+    insertCriticFindings(db, {
+      projectId: 'p2',
+      findings: [{ severity: 'important', category: 'design', message: 'Issue in p2' }],
+    })
+    const out = getCriticFlagged(db, { projectId: 'p1' })
+    expect(out.every(x => x.projectId === 'p1')).toBe(true)
+    expect(out.length).toBeGreaterThan(0)
+  })
+
+  it('populates findingId from critic_findings.id', () => {
+    insertCriticFindings(db, {
+      projectId: 'p1',
+      findings: [{ severity: 'critical', category: 'security', message: 'SQL injection' }],
+    })
+    const out = getCriticFlagged(db)
+    expect(typeof out[0].findingId).toBe('number')
+    expect(out[0].findingId).toBeGreaterThan(0)
   })
 })

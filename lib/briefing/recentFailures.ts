@@ -1,12 +1,13 @@
 import type { Database } from 'better-sqlite3'
 import type { BriefingRecentFailure } from './types'
 
-export function getRecentFailures(db: Database, options: { now?: Date; limit?: number; lookbackDays?: number } = {}): BriefingRecentFailure[] {
+export function getRecentFailures(db: Database, options: { now?: Date; limit?: number; lookbackDays?: number; projectId?: string } = {}): BriefingRecentFailure[] {
   const now = options.now ?? new Date()
   const limit = options.limit ?? 10
   const lookbackDays = options.lookbackDays ?? 7
   const cutoff = new Date(now.getTime() - lookbackDays * 86_400_000).toISOString()
 
+  const whereProject = options.projectId ? 'AND s.project_id = ?' : ''
   const rows = db.prepare(`
     SELECT s.id, s.label, s.project_id, p.name AS project_name,
            s.grade, s.grade_reason, s.graded_at
@@ -15,9 +16,10 @@ export function getRecentFailures(db: Database, options: { now?: Date; limit?: n
      WHERE s.grade IN ('no','partial')
        AND s.graded_at IS NOT NULL
        AND s.graded_at > ?
+       ${whereProject}
      ORDER BY s.graded_at DESC
      LIMIT ?
-  `).all(cutoff, limit) as Array<{
+  `).all(...(options.projectId ? [cutoff, options.projectId, limit] : [cutoff, limit])) as Array<{
     id: string; label: string; project_id: string; project_name: string;
     grade: string; grade_reason: string | null; graded_at: string;
   }>

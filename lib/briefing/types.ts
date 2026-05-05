@@ -12,11 +12,12 @@ export type BriefingNextAction = {
 }
 
 export type BriefingCriticFlag = {
+  findingId: number
   projectId: string
   projectName: string
   kind: string
   ref: string
-  severity: 'critical' | 'high'
+  severity: 'critical' | 'important'
   category: string
   message: string
   createdAt: string
@@ -58,4 +59,16 @@ export type Briefing = {
   recentFailures: BriefingRecentFailure[]
   duplicateTasks: BriefingDuplicate[]
   generatedAt: string
+}
+
+export type BriefingSnapshot = {
+  narrative: string
+  priorityActions: Array<{ sectionKey: string; refId: string; reason: string }>
+  model: string
+  generatedAt: string
+}
+
+export type BriefingResponse = Briefing & {
+  snapshot: BriefingSnapshot | null
+  snapshotStale: boolean
 }

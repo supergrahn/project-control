@@ -468,6 +468,28 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     ALTER TABLE routing_outcomes_new RENAME TO routing_outcomes;
     CREATE INDEX IF NOT EXISTS idx_routing_outcomes_decision ON routing_outcomes(decision_id);
   `)
+  runMigration(db, 73, 'create_dedup_dismissals', `
+  CREATE TABLE IF NOT EXISTS dedup_dismissals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id    TEXT    NOT NULL REFERENCES projects(id),
+    a_task_id     TEXT    NOT NULL,
+    b_task_id     TEXT    NOT NULL,
+    dismissed_at  TEXT    NOT NULL,
+    UNIQUE(project_id, a_task_id, b_task_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_dedup_dismissals_project ON dedup_dismissals(project_id);
+`)
+  runMigration(db, 74, 'create_briefing_snapshots', `
+  CREATE TABLE IF NOT EXISTS briefing_snapshots (
+    scope_key         TEXT PRIMARY KEY,
+    project_id        TEXT REFERENCES projects(id),
+    narrative         TEXT NOT NULL,
+    priority_actions  TEXT NOT NULL,
+    section_signature TEXT NOT NULL,
+    model             TEXT NOT NULL,
+    generated_at      TEXT NOT NULL
+  )
+`)
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
