@@ -30,4 +30,5 @@ export type ExternalTask = {
   prep_notes?: string | null         // JSON-serialized PrepNotes; consumer parses
   prep_status?: TaskPrepStatus | null
   prepped_at?: string | null
+  ownerProject?: { id: string; name: string }
 }
