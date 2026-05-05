@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>()
@@ -117,6 +117,15 @@ const baseOpts = {
 }
 
 describe('spawnSession next-actions carry-forward', () => {
+  beforeEach(() => {
+    // The seeded DB is shared across tests in this file (mocked at module load).
+    // Wipe sessions + tasks between tests so each test starts from a known state.
+    // Projects + providers are kept since they're seeded once in the mock factory.
+    const db = getDb()
+    db.prepare('DELETE FROM sessions').run()
+    db.prepare('DELETE FROM tasks').run()
+  })
+
   it('injects prior next_actions when spawning for same taskId', async () => {
     insertPriorSession({ id: 'prior-task', taskId: 't1' })
     ensureTask('t1')

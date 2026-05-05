@@ -40,14 +40,15 @@ function insertSession(opts: {
   taskId?: string | null
   sourceFile?: string | null
   label?: string | null
+  phase?: string
 }) {
   if (opts.taskId) ensureTask(opts.taskId)
   // sessions.label is NOT NULL — empty string when testing the null/empty fallback path
   const labelValue = opts.label === null ? '' : (opts.label ?? `lbl-${opts.id}`)
   getDb().prepare(
     `INSERT INTO sessions (id, project_id, label, phase, status, source_file, task_id, created_at)
-     VALUES (?, 'p1', ?, 'spec', ?, ?, ?, ?)`,
-  ).run(opts.id, labelValue, opts.status ?? 'ended', opts.sourceFile ?? null, opts.taskId ?? null, new Date().toISOString())
+     VALUES (?, 'p1', ?, ?, ?, ?, ?, ?)`,
+  ).run(opts.id, labelValue, opts.phase ?? 'spec', opts.status ?? 'ended', opts.sourceFile ?? null, opts.taskId ?? null, new Date().toISOString())
 }
 
 function makeRequest() {
@@ -108,5 +109,14 @@ describe('POST /api/sessions/[id]/continue', () => {
     insertSession({ id: 's1', taskId: 't1', label: null, status: 'ended' })  // null becomes empty string
     await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
     expect(spawnSessionMock).toHaveBeenCalledWith(expect.objectContaining({ label: 'Continuation: session' }))
+  })
+
+  it('returns 400 for orchestrator-phase sessions', async () => {
+    insertSession({ id: 's1', taskId: 't1', phase: 'orchestrator', status: 'ended' })
+    const res = await POST(makeRequest(), { params: Promise.resolve({ id: 's1' }) })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error).toMatch(/orchestrator/)
+    expect(spawnSessionMock).not.toHaveBeenCalled()
   })
 })
