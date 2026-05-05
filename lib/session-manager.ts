@@ -25,6 +25,8 @@ import type { Database } from 'better-sqlite3'
 import { insertSessionEvent, getSessionEvents, flushSessionEvents } from './db/sessionEvents'
 import { captureSessionSummary } from './sessions/captureSummary'
 import { enqueueJob } from '@/lib/jobs/runner'
+import { findPriorSessionWithNextActions } from './sessions/findPriorSession'
+import { injectPriorNextActions, parseNextActions } from './sessions/nextActionsContext'
 
 // --- Process maps (survive Next.js hot-reload via globalThis) ---
 declare global {
@@ -188,7 +190,15 @@ export async function spawnSession(opts: SpawnOptions): Promise<string> {
   // both the session row and the live adapter see the enriched context. The
   // helper is idempotent via the `<!-- prep:auto -->` marker, so respawn from
   // the persisted user_context will not double-inject.
-  const enrichedContext = prepUserContext(db, opts.taskId, opts.userContext)
+  const prepped = prepUserContext(db, opts.taskId, opts.userContext)
+  const prior = findPriorSessionWithNextActions(db, {
+    taskId: opts.taskId,
+    sourceFile: canonical,
+  })
+  const parsed = prior ? parseNextActions(prior) : null
+  const enrichedContext = parsed
+    ? injectPriorNextActions(prepped, { label: prior!.label, summary: prior!.summary, parsed })
+    : prepped
   const enrichedOpts: SpawnOptions = { ...opts, userContext: enrichedContext }
 
   // Persist the session row BEFORE resolveProvider — pickRoute writes a
