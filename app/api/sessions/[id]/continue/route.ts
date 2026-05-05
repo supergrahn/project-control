@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getDb, getProject } from '@/lib/db'
-import type { Session, SessionPhase } from '@/lib/db'
+import type { Session } from '@/lib/db'
 import { spawnSession } from '@/lib/session-manager'
 import type { SpawnOptions } from '@/lib/session-manager'
 
@@ -11,6 +11,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (!source) return NextResponse.json({ error: 'session not found' }, { status: 404 })
   if (!source.task_id && !source.source_file) {
     return NextResponse.json({ error: 'session has no originator (task_id or source_file)' }, { status: 400 })
+  }
+  // Orchestrator sessions are not normal user-driven sessions and cannot be
+  // continued via spawnSession (whose Phase type does not include 'orchestrator').
+  if (source.phase === 'orchestrator') {
+    return NextResponse.json({ error: 'orchestrator sessions cannot be continued' }, { status: 400 })
   }
   const project = getProject(db, source.project_id)
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
@@ -37,7 +42,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       projectId: source.project_id,
       projectPath: project.path,
       label,
-      phase: source.phase as SessionPhase,
+      phase: source.phase as SpawnOptions['phase'],
       sourceFile: source.source_file,
       taskId: source.task_id ?? undefined,
       agentId: source.agent_id ?? undefined,
