@@ -1,5 +1,6 @@
 import os from 'os'
 import type { Database } from 'better-sqlite3'
+import { briefingPreWarmTrigger } from './triggers/briefingPreWarm'
 
 export type JobKind =
   | 'embed'
@@ -115,6 +116,7 @@ export function startScheduler(opts: { intervalMs: number; batchSize: number; lo
   const tick = async () => {
     if (stopped) return
     try {
+      briefingPreWarmTrigger(opts.getDb())
       await runOneBatch(opts.getDb(), { batchSize: opts.batchSize, loadAverageMax: opts.loadAverageMax })
     } catch (err) {
       console.warn('[jobs] tick error:', err)
