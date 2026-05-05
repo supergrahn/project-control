@@ -78,9 +78,9 @@ export function parseNextActions(session: Session): ParsedNextActions | null {
   } catch { return null }
 }
 
-export function renderNextActionsContext(prior: { label: string; summary: string | null; parsed: ParsedNextActions }): string {
+export function renderNextActionsContext(prior: { label: string | null | undefined; summary: string | null; parsed: ParsedNextActions }): string {
   const lines: string[] = [MARKER, '## Continuing from prior session']
-  lines.push(`- Prior session: **${prior.label}**`)
+  lines.push(`- Prior session: **${prior.label || '(unlabeled)'}**`)
   if (prior.summary) {
     const excerpt = prior.summary.split('\n')[0].slice(0, 200)
     lines.push(`- Last summary: ${excerpt}`)
@@ -114,7 +114,7 @@ import type { Database } from 'better-sqlite3'
 import type { Session } from '@/lib/db'
 import { parseNextActions } from './nextActionsContext'
 
-export type PriorSessionLookup = { taskId?: string | null; sourceFile?: string | null; excludeSessionId?: string | null }
+export type PriorSessionLookup = { taskId?: string | null; sourceFile?: string | null }
 
 export function findPriorSessionWithNextActions(db: Database, lookup: PriorSessionLookup): Session | null {
   const conditions: string[] = ["status != 'active'", 'next_actions IS NOT NULL']
@@ -128,10 +128,6 @@ export function findPriorSessionWithNextActions(db: Database, lookup: PriorSessi
   } else {
     return null
   }
-  if (lookup.excludeSessionId) {
-    conditions.push('id != ?')
-    params.push(lookup.excludeSessionId)
-  }
   const rows = db.prepare(`SELECT * FROM sessions WHERE ${conditions.join(' AND ')} ORDER BY ended_at DESC, started_at DESC LIMIT 5`).all(...params) as Session[]
   for (const row of rows) {
     const parsed = parseNextActions(row)
@@ -141,7 +137,7 @@ export function findPriorSessionWithNextActions(db: Database, lookup: PriorSessi
 }
 ```
 
-The `LIMIT 5` + walk loop covers the case where the most recent ended session has empty arrays (e.g. transient errors during extraction); we fall through to the next candidate. Capped at 5 to bound cost.
+The `LIMIT 5` + walk loop covers the case where the most recent ended session has empty arrays (e.g. transient errors during extraction); we fall through to the next candidate. Capped at 5 to bound cost. Self-match is impossible because the calling session row is always `status = 'active'` at lookup time and the filter excludes that status.
 
 ### 3. `lib/session-manager.ts` (MODIFY)
 
@@ -180,11 +176,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const project = getProject(db, source.project_id)
   if (!project) return NextResponse.json({ error: 'project not found' }, { status: 404 })
 
+  // Pre-empt concurrent originator collisions before spawnSession runs. spawnSession
+  // only checks source_file collisions natively; we extend the same guard to task_id
+  // because Continue is a user-initiated action where surprising the user with a
+  // second concurrent session for the same task would be wrong.
+  if (source.task_id) {
+    const activeForTask = db
+      .prepare(`SELECT id FROM sessions WHERE task_id = ? AND status = 'active' LIMIT 1`)
+      .get(source.task_id) as { id: string } | undefined
+    if (activeForTask) {
+      return NextResponse.json({ error: 'a session for this task is already active', existingId: activeForTask.id }, { status: 409 })
+    }
+  }
+
   try {
     const newId = await spawnSession({
       projectId: source.project_id,
       projectPath: project.path,
-      label: source.label.startsWith('Continuation: ') ? source.label : `Continuation: ${source.label}`,
+      label: source.label?.startsWith('Continuation: ') ? source.label : `Continuation: ${source.label ?? 'session'}`,
       phase: source.phase as SessionPhase,
       sourceFile: source.source_file,
       taskId: source.task_id,
@@ -198,12 +207,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (message.startsWith('CONCURRENT_SESSION:')) {
-      return NextResponse.json({ error: 'a session for this originator is already active', existingId: message.split(':')[1] }, { status: 409 })
+      return NextResponse.json({ error: 'a session for this file is already active', existingId: message.split(':')[1] }, { status: 409 })
     }
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 ```
+
+The pre-emptive `task_id` active-session check in this route covers the gap that `spawnSession` only natively guards `source_file` collisions. `source_file` collisions are still caught downstream and translated into 409.
 
 The new session's `userContext: ''` is intentional — the carry-forward injection inside `spawnSession` will populate it from the prior session's next_actions automatically.
 
@@ -302,13 +313,15 @@ User can also achieve the carry-forward without clicking Continue: spawning a ne
   - spawnSession with sourceFile where prior session has next_actions → user_context contains marker
   - spawnSession when no prior session → user_context unchanged (no marker)
   - spawnSession when prior session has empty arrays → user_context unchanged
-  - Markers in correct order (prep before next-actions before original input)
+  - Markers in correct order: next-actions block before prep block before original input
 - `app/api/sessions/__tests__/continue.test.ts`
   - 404 when session does not exist
   - 400 when source has no originator
-  - 409 when concurrent session would conflict
+  - 409 when active session exists for the same `task_id` (route-level guard)
+  - 409 when active session exists for the same `source_file` (downstream `CONCURRENT_SESSION:` from `spawnSession`)
   - 200 with new sessionId on success; new session label is "Continuation: {original}"
   - Already-prefixed labels not double-prefixed
+  - Null/empty original label falls back to "Continuation: session"
 - `components/sessions/__tests__/SessionDetailDrawer.test.tsx`
   - Continue button visible when next_actions has items AND originator present
   - Continue button hidden when no originator
