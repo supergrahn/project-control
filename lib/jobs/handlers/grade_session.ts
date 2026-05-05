@@ -3,6 +3,7 @@ import { localComplete } from '@/lib/router/localComplete'
 import { getDefaultLocalProvider } from '@/lib/db/providers'
 import { recordOutcome } from '@/lib/router/recordOutcome'
 import type { Outcome } from '@/lib/router/types'
+import { enqueueJob } from '../runner'
 
 export type GradeSessionPayload = { session_id: string }
 
@@ -72,6 +73,12 @@ export async function handleGradeSession(db: Database, payload: GradeSessionPayl
 
   db.prepare(`UPDATE sessions SET grade = ?, grade_reason = ?, graded_at = ? WHERE id = ?`)
     .run(parsed.grade, parsed.reason, new Date().toISOString(), session.id)
+
+  if (parsed.grade === 'no') {
+    const today = new Date().toISOString().slice(0, 10)
+    enqueueJob(db, 'briefing_synthesize', { scope: '__all__' }, { dedupKey: `briefing_synthesize:__all__:${today}:gradechange` })
+    enqueueJob(db, 'briefing_synthesize', { scope: session.project_id }, { dedupKey: `briefing_synthesize:${session.project_id}:${today}:gradechange` })
+  }
 
   // Update router success-rate
   const decision = db.prepare(`SELECT id FROM routing_decisions WHERE session_id = ? ORDER BY created_at DESC LIMIT 1`)
