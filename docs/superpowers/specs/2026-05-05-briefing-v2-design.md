@@ -143,7 +143,7 @@ Specific changes per aggregator:
 - `criticFlagged`: filters `critic_findings.project_id = ?` when set
 - `topTasks`: filters `tasks.project_id = ?` when set
 - `recentFailures`: filters `sessions.project_id = ?` when set
-- `duplicateTasks`: when `projectId` is set, only that project's embeddings are scanned. Always (even for cross-project), the aggregator now also filters out pairs present in `dedup_dismissals`
+- `duplicateTasks`: when `projectId` is set, only that project's embeddings are scanned. Always (even for cross-project), the aggregator filters out pairs present in `dedup_dismissals`. **Cross-project semantics:** dismissals are stored with `project_id` set to the project that owns both tasks (the aggregator only ever produces same-project pairs because embeddings are grouped by project_id when computing pairwise similarity). So the suppression is naturally scoped: dismissing pair (A, B) in project P1 only suppresses that pair when the cross-project briefing computes P1's pairs. It does NOT suppress lookups in other projects.
 
 ---
 
@@ -192,6 +192,7 @@ Then calls `spawnSession`:
 - `label`: `Fix critic finding: <category>`
 
 **Validation order (route must enforce in this order so errors are deterministic):**
+0. `await req.json().catch(() => null)` — if body parse fails (missing Content-Type, empty body, malformed JSON), reject 400 "invalid JSON body"
 1. `parseInt(id, 10)` → 400 if `NaN`
 2. Body must include non-empty `category`, `message`, `severity`; reject 400 if any is missing or empty string
 3. `severity` must be `'critical'` or `'high'`; reject 400 otherwise
@@ -405,7 +406,9 @@ If the user does not have the dev server running between 5-6am, the briefing sim
 The existing `BriefingPage` (in `components/briefing/BriefingPage.tsx`) is extended with:
 
 1. **`ProjectPicker`** at the top — dropdown listing all projects + an "All projects" item. URL-driven via search params (`?projectId=`). Reads from a small `useProjects()` hook (already exists in `@/hooks/useProjects`).
-2. **`BriefingHero`** above the existing grid — renders the snapshot's narrative + priority actions list. If `snapshot` is `null` AND `snapshotStale` is true, shows "Synthesizing morning briefing… (refresh in ~30 seconds)". If `snapshot` exists, shows narrative + actions + footer "Generated 4h ago by llama3 · Refresh now". The "Refresh now" button kicks an immediate synthesis via `POST /api/briefing/refresh?scope=...`.
+2. **`BriefingHero`** above the existing grid — renders the snapshot's narrative + priority actions list. If `snapshot` is `null` AND `snapshotStale` is true, shows "Synthesizing morning briefing…" with a small spinner and **temporarily lowers the SWR `refreshInterval` to 5_000ms** while in this state (passed to `useBriefing` via a state-derived option). When the snapshot lands the interval reverts to the default 60_000ms. This way the user sees the narrative within seconds of the LLM finishing instead of waiting up to a minute. If `snapshot` exists, shows narrative + actions + footer "Generated 4h ago by llama3 · Refresh now". The "Refresh now" button kicks an immediate synthesis via `POST /api/briefing/refresh?scope=...` and then disables itself until SWR returns a snapshot with a newer `generated_at`.
+
+   **Stale `refId` in priority actions:** between synthesis and render, items can be deleted (a session was killed, a task archived, etc.). The hero resolves each `priorityAction.refId` against the live section data returned by the same GET response. Entries whose `refId` is no longer present in the corresponding section silently drop out of the rendered list. The same-day dedup_key prevents thrashing the LLM to regenerate immediately; the next day's pre-warm or a material-change event will fix it.
 3. The existing 5-section grid is unchanged structurally but each section component receives one additional prop: an action handler (Continue / Fix / Start / Dismiss). The action button is rendered inline next to the existing item content.
 
 `PriorityAction` items in the hero render with the same action button as the underlying section item — clicking "Continue" on a priority-action that points to a next-action item runs the same `POST /api/sessions/[id]/continue` it would in the section grid. The hero is a curated entry point, not a different surface.
@@ -456,7 +459,8 @@ For mid-day mid-conversation immediate effect, the lazy enqueue on `GET /api/bri
 
 ### Aggregators
 - Each aggregator gains 1-2 tests covering the new `projectId` parameter (filtered vs unfiltered)
-- `duplicateTasks` adds 1 test confirming `dedup_dismissals` exclusion
+- `criticFlagged` gains a test asserting the new `findingId: number` field is populated correctly (matches the source `critic_findings.id`)
+- `duplicateTasks` adds 1 test confirming `dedup_dismissals` exclusion: insert a dismissal for pair (A, B) in project P1; verify the aggregator does not return that pair while still returning other pairs in the same project
 
 ### Job handler
 - `lib/jobs/handlers/__tests__/briefing_synthesize.test.ts`:
@@ -489,10 +493,11 @@ For mid-day mid-conversation immediate effect, the lazy enqueue on `GET /api/bri
   - Idempotent (second call within same tick doesn't enqueue duplicates due to dedup_key)
 
 ### Routes
-- `app/api/critic-findings/[id]/fix/__tests__/fix.test.ts`: 404 / 400 (kind not spec/plan) / 409 (concurrent) / 200
+- `app/api/critic-findings/[id]/fix/__tests__/fix.test.ts`: parseInt fail → 400; missing/empty body field → 400; severity ∉ {critical, high} → 400; finding not found → 404; kind not spec/plan → 400; trio not in stored issues → 400; concurrent collision → 409; happy path → 200 with new sessionId
 - `app/api/tasks/[id]/start/__tests__/start.test.ts`: 404 / 400 (status not idea/spec/plan) / 200 with correct phase derivation
-- `app/api/dedup-dismissals/__tests__/dismissals.test.ts`: 400 (missing field) / 200 / 200 idempotent (second call no-op)
-- `app/api/briefing/route.test.ts` (extended): `projectId` filter passed through; snapshot returned; lazy enqueue when stale
+- `app/api/dedup-dismissals/__tests__/dismissals.test.ts`: 400 (missing field) / 400 (a == b) / 200 / 200 idempotent (second call no-op due to UNIQUE) / canonicalisation (POSTing (B,A) stores (A,B))
+- `app/api/briefing/route.test.ts` (extended): `projectId` filter passed through; snapshot returned; lazy enqueue when stale (uses pre-warm dedup_key, so same-day repeated GETs collapse to one job)
+- `app/api/briefing/refresh/__tests__/refresh.test.ts`: enqueues with `:force` dedup_key; spam-clicks collapse to one job per day per scope; 202 status
 
 ### UI
 - `BriefingPage.test.tsx`: project picker renders; URL-driven state; hero renders narrative when snapshot present; "Synthesizing…" state when null + stale; action buttons render and trigger correct API
@@ -516,7 +521,7 @@ Both are idempotent CREATE-IF-NOT-EXISTS. No CHECK widening needed.
 - **Local LLM JSON brittleness** — defensive parsing handles malformed output via fallback empty narrative. Smoke test should confirm the fallback path renders the live grid as expected.
 - **LLM latency** — synthesis can take 10-30s on a CPU-only machine. UI handles via Synthesizing… state; user can scroll the live grid while waiting.
 - **5-6am hour window assumes local time** — uses `new Date().getHours()` which honors the server's TZ. If the server is UTC and the user is e.g. PST, the briefing will run at 9-10pm PST. A future improvement is per-user-timezone, but for v1 the user can adjust the window in code.
-- **Scope key collision** — `'__all__'` is a sentinel string. To prevent collision with a real project id, **add a guard in `app/api/projects/route.ts` (POST handler) that rejects 400 if the incoming project id equals `'__all__'`**. Also add a defensive guard at the top of the `briefing_synthesize` handler: if `payload.scope === '__all__'` AND `projectId !== undefined` (i.e. somehow both are set) abort with a warning. The route guard is the primary protection; the handler guard is defense-in-depth.
+- **Scope key collision** — `'__all__'` is a sentinel string. Since `createProject` (`lib/db.ts:526-534`) generates ids internally via `randomUUID()` (always 36-char hyphenated UUIDs), no user-supplied flow can produce a project id equal to `'__all__'`. The collision is structurally impossible given the current ID-generation contract; no extra guard is needed. If a future migration ever introduces caller-supplied project ids, this risk re-opens.
 - **Snapshot retention** — UPSERT-only means we lose history. If a user wants to compare yesterday's vs today's narrative, they can't. Out of scope; explicit non-goal above.
 - **Material-change cascade** — every session graded `no` and every critical finding enqueues a synthesis job. With dedup keyed on `(scope, date)`, this is bounded to 1 job per scope per day. If we later want immediate per-event refresh, switch to a finer dedup_key.
 
