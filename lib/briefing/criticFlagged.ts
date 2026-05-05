@@ -19,11 +19,19 @@ export function getCriticFlagged(db: Database, options: { limit?: number; projec
   for (const row of rows) {
     let parsed: unknown
     try { parsed = JSON.parse(row.findings) } catch { continue }
-    const list = Array.isArray(parsed) ? parsed : Array.isArray((parsed as { findings?: unknown[] })?.findings) ? (parsed as { findings: unknown[] }).findings : []
+    // Shape: { issues: Issue[], votes, model, run_at } — see lib/jobs/handlers/critique.ts:96-101.
+    // Defensive fallbacks: top-level array, or { findings: [...] } if a future writer changes the shape.
+    const list = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { issues?: unknown[] })?.issues)
+        ? (parsed as { issues: unknown[] }).issues
+        : Array.isArray((parsed as { findings?: unknown[] })?.findings)
+          ? (parsed as { findings: unknown[] }).findings
+          : []
     for (const f of list) {
       if (!f || typeof f !== 'object') continue
       const sev = (f as { severity?: unknown }).severity
-      if (sev !== 'critical' && sev !== 'high') continue
+      if (sev !== 'critical' && sev !== 'important') continue
       const cat = String((f as { category?: unknown }).category ?? 'unknown')
       const msg = String((f as { message?: unknown }).message ?? '')
       out.push({
@@ -32,7 +40,7 @@ export function getCriticFlagged(db: Database, options: { limit?: number; projec
         projectName: row.project_name,
         kind: row.kind,
         ref: row.ref,
-        severity: sev as 'critical' | 'high',
+        severity: sev as 'critical' | 'important',
         category: cat,
         message: msg,
         createdAt: row.created_at,

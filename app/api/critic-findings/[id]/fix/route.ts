@@ -21,9 +21,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!category || !message || !severity) {
     return NextResponse.json({ error: 'category, message, severity required' }, { status: 400 })
   }
-  // Step 3: severity allowlist
-  if (severity !== 'critical' && severity !== 'high') {
-    return NextResponse.json({ error: 'severity must be critical or high' }, { status: 400 })
+  // Step 3: severity allowlist (matches Issue type in lib/jobs/handlers/critique.ts)
+  if (severity !== 'critical' && severity !== 'important') {
+    return NextResponse.json({ error: 'severity must be critical or important' }, { status: 400 })
   }
 
   // Step 4: lookup

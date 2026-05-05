@@ -17,7 +17,7 @@ export type BriefingCriticFlag = {
   projectName: string
   kind: string
   ref: string
-  severity: 'critical' | 'high'
+  severity: 'critical' | 'important'
   category: string
   message: string
   createdAt: string

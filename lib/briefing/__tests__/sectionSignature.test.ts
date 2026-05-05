@@ -25,7 +25,7 @@ function makeCriticFlag(findingId: number, ref = 'ref-1', message = 'some issue'
     projectName: 'Project 1',
     kind: 'lint',
     ref,
-    severity: 'high',
+    severity: 'important',
     category: 'quality',
     message,
     createdAt: '2026-05-01T00:00:00.000Z',

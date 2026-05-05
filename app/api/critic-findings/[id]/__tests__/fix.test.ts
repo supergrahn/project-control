@@ -18,7 +18,7 @@ vi.mock('@/lib/db', async (importOriginal) => {
     JSON.stringify({
       issues: [
         { severity: 'critical', category: 'clarity', message: 'Section is ambiguous' },
-        { severity: 'high', category: 'completeness', message: 'Missing acceptance criteria' },
+        { severity: 'important', category: 'completeness', message: 'Missing acceptance criteria' },
       ],
       votes: 1,
       model: 'test-model',
@@ -121,14 +121,14 @@ describe('POST /api/critic-findings/[id]/fix', () => {
     expect(body.error).toMatch(/severity/)
   })
 
-  it('returns 400 when severity is not critical or high', async () => {
+  it('returns 400 when severity is not critical or important', async () => {
     const res = await POST(
-      makeRequest({ category: 'clarity', message: 'Section is ambiguous', severity: 'low' }),
+      makeRequest({ category: 'clarity', message: 'Section is ambiguous', severity: 'minor' }),
       { params: Promise.resolve({ id: '1' }) },
     )
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toMatch(/severity must be critical or high/)
+    expect(body.error).toMatch(/severity must be critical or important/)
   })
 
   it('returns 404 when finding not found', async () => {
@@ -185,7 +185,7 @@ describe('POST /api/critic-findings/[id]/fix', () => {
 
   it('200 happy path also works for high severity', async () => {
     const res = await POST(
-      makeRequest({ category: 'completeness', message: 'Missing acceptance criteria', severity: 'high' }),
+      makeRequest({ category: 'completeness', message: 'Missing acceptance criteria', severity: 'important' }),
       { params: Promise.resolve({ id: '1' }) },
     )
     expect(res.status).toBe(200)

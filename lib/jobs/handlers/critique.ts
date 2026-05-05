@@ -110,7 +110,7 @@ export async function handleCritique(db: Database, payload: CritiquePayload): Pr
       created_at = excluded.created_at
   `).run(payload.project_id, payload.kind, payload.ref, currentHash, JSON.stringify(findings), new Date().toISOString())
 
-  const hasCritical = merged.some(i => i.severity === 'critical' || i.severity === 'high')
+  const hasCritical = merged.some(i => i.severity === 'critical' || i.severity === 'important')
   if (hasCritical) {
     const today = new Date().toISOString().slice(0, 10)
     enqueueJob(db, 'briefing_synthesize', { scope: '__all__' }, { dedupKey: `briefing_synthesize:__all__:${today}:criticchange` })
