@@ -12,6 +12,7 @@ export type BriefingNextAction = {
 }
 
 export type BriefingCriticFlag = {
+  findingId: number
   projectId: string
   projectName: string
   kind: string

@@ -120,4 +120,13 @@ describe('getRecentFailures', () => {
     expect(out[0].gradeReason).toBe('Tests failed')
     expect(out[0].projectName).toBe('Project One')
   })
+
+  it('filters by projectId when provided', () => {
+    insertProject(db, 'p2', 'Project Two')
+    insertSession(db, { id: 's1', projectId: 'p1', grade: 'no', gradedAt: '2026-05-04T00:00:00.000Z' })
+    insertSession(db, { id: 's2', projectId: 'p2', grade: 'partial', gradedAt: '2026-05-04T00:00:00.000Z' })
+    const out = getRecentFailures(db, { projectId: 'p1', now })
+    expect(out.every(x => x.projectId === 'p1')).toBe(true)
+    expect(out.length).toBeGreaterThan(0)
+  })
 })

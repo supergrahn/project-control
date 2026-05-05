@@ -128,4 +128,29 @@ describe('getCriticFlagged', () => {
     )
     expect(getCriticFlagged(db)).toEqual([])
   })
+
+  it('filters by projectId when provided', () => {
+    insertProject(db, 'p2', 'Project Two')
+    insertCriticFindings(db, {
+      projectId: 'p1',
+      findings: [{ severity: 'critical', category: 'security', message: 'Issue in p1' }],
+    })
+    insertCriticFindings(db, {
+      projectId: 'p2',
+      findings: [{ severity: 'high', category: 'design', message: 'Issue in p2' }],
+    })
+    const out = getCriticFlagged(db, { projectId: 'p1' })
+    expect(out.every(x => x.projectId === 'p1')).toBe(true)
+    expect(out.length).toBeGreaterThan(0)
+  })
+
+  it('populates findingId from critic_findings.id', () => {
+    insertCriticFindings(db, {
+      projectId: 'p1',
+      findings: [{ severity: 'critical', category: 'security', message: 'SQL injection' }],
+    })
+    const out = getCriticFlagged(db)
+    expect(typeof out[0].findingId).toBe('number')
+    expect(out[0].findingId).toBeGreaterThan(0)
+  })
 })

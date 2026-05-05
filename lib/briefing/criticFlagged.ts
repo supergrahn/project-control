@@ -1,16 +1,18 @@
 import type { Database } from 'better-sqlite3'
 import type { BriefingCriticFlag } from './types'
 
-export function getCriticFlagged(db: Database, options: { limit?: number } = {}): BriefingCriticFlag[] {
+export function getCriticFlagged(db: Database, options: { limit?: number; projectId?: string } = {}): BriefingCriticFlag[] {
   const limit = options.limit ?? 10
+  const whereProject = options.projectId ? 'WHERE cf.project_id = ?' : ''
   const rows = db.prepare(`
-    SELECT cf.project_id, p.name AS project_name, cf.kind, cf.ref, cf.findings, cf.created_at
+    SELECT cf.id AS finding_id, cf.project_id, p.name AS project_name, cf.kind, cf.ref, cf.findings, cf.created_at
       FROM critic_findings cf
       JOIN projects p ON p.id = cf.project_id
+     ${whereProject}
      ORDER BY cf.created_at DESC
      LIMIT 50
-  `).all() as Array<{
-    project_id: string; project_name: string; kind: string; ref: string; findings: string; created_at: string;
+  `).all(...(options.projectId ? [options.projectId] : [])) as Array<{
+    finding_id: number; project_id: string; project_name: string; kind: string; ref: string; findings: string; created_at: string;
   }>
 
   const out: BriefingCriticFlag[] = []
@@ -25,6 +27,7 @@ export function getCriticFlagged(db: Database, options: { limit?: number } = {})
       const cat = String((f as { category?: unknown }).category ?? 'unknown')
       const msg = String((f as { message?: unknown }).message ?? '')
       out.push({
+        findingId: row.finding_id,
         projectId: row.project_id,
         projectName: row.project_name,
         kind: row.kind,

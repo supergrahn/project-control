@@ -78,4 +78,13 @@ describe('getTopTasks', () => {
     insertTask(db, { id: 't1', projectId: 'p1', title: 'Review task', status: 'review' })
     expect(getTopTasks(db)).toEqual([])
   })
+
+  it('filters by projectId when provided', () => {
+    insertProject(db, 'p2', 'Project Two')
+    insertTask(db, { id: 't1', projectId: 'p1', title: 'Task in p1' })
+    insertTask(db, { id: 't2', projectId: 'p2', title: 'Task in p2' })
+    const out = getTopTasks(db, { projectId: 'p1' })
+    expect(out.every(x => x.projectId === 'p1')).toBe(true)
+    expect(out.length).toBeGreaterThan(0)
+  })
 })
