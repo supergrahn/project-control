@@ -192,7 +192,7 @@ Then calls `spawnSession`:
 - `label`: `Fix critic finding: <category>`
 
 **Validation order (route must enforce in this order so errors are deterministic):**
-0. `const body = await req.json().catch(() => null)` — if `body === null` OR `typeof body !== 'object'`, return 400 "invalid JSON body". This early-return is required BEFORE any destructuring; a fresh route handler that reads `const { category } = body` against a null `body` will throw a TypeError instead of returning 400.
+0. `const body = await req.json().catch(() => null)` — if `body === null` OR `typeof body !== 'object'` OR `Array.isArray(body)`, return 400 "invalid JSON body". The Array.isArray check is required because `typeof [] === 'object'` in JavaScript; without it, an array body slips past the null guard and destructures silently to `undefined` values that step 2 would still reject, but the route should reject it at step 0 for deterministic error reporting. This early-return is required BEFORE any destructuring.
 1. `parseInt(id, 10)` → 400 if `NaN`
 2. Body must include non-empty `category`, `message`, `severity`; reject 400 if any is missing or empty string
 3. `severity` must be `'critical'` or `'high'`; reject 400 otherwise
@@ -351,6 +351,8 @@ The signature captures *which items would be shown*. It deliberately does NOT in
 ---
 
 ## Scheduler trigger
+
+The directory `lib/jobs/triggers/` does NOT exist yet — implementer must create it. Create `lib/jobs/triggers/briefingPreWarm.ts` (and `lib/jobs/triggers/__tests__/briefingPreWarm.test.ts`) inside the new directory.
 
 `lib/jobs/triggers/briefingPreWarm.ts`:
 
@@ -519,7 +521,14 @@ For mid-day mid-conversation immediate effect, the lazy enqueue on `GET /api/bri
 - `app/api/briefing/refresh/__tests__/refresh.test.ts`: enqueues with `:force` dedup_key; spam-clicks collapse to one job per day per scope; 202 status
 
 ### UI
-- `BriefingPage.test.tsx`: project picker renders; URL-driven state; hero renders narrative when snapshot present; "Synthesizing…" state when null + stale; action buttons render and trigger correct API
+- `BriefingPage.test.tsx`:
+  - Project picker renders with "All projects" + each project; URL `?projectId=` updates on selection
+  - Hero renders narrative when snapshot present
+  - "Synthesizing morning briefing…" state when snapshot is null + stale
+  - "Refresh now" button is disabled while pending (after click, before snapshot's `generated_at` advances)
+  - "Refresh now" button re-enables once a new `generated_at` arrives
+  - Priority action whose `refId` is NOT present in the live section data is silently dropped from the hero (regression guard for stale-snapshot UX)
+  - Action buttons (Continue / Fix / Start / Dismiss) render and POST to correct API
 - Each section component gains tests for its action button visible state + click behavior
 
 Target: ~60 new tests on top of 1161 = ~1221 total.
