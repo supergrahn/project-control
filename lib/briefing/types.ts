@@ -60,3 +60,15 @@ export type Briefing = {
   duplicateTasks: BriefingDuplicate[]
   generatedAt: string
 }
+
+export type BriefingSnapshot = {
+  narrative: string
+  priorityActions: Array<{ sectionKey: string; refId: string; reason: string }>
+  model: string
+  generatedAt: string
+}
+
+export type BriefingResponse = Briefing & {
+  snapshot: BriefingSnapshot | null
+  snapshotStale: boolean
+}
