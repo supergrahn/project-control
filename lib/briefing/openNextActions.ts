@@ -8,6 +8,9 @@ export function getOpenNextActions(db: Database, options: { now?: Date; limit?: 
   const lookbackDays = options.lookbackDays ?? 14
   const cutoff = new Date(now.getTime() - lookbackDays * 86_400_000).toISOString()
 
+  // Over-fetch by 3x to absorb rows with empty arrays that get skipped below;
+  // bounded at a reasonable floor so the SQL cost stays predictable.
+  const fetchCap = Math.max(limit * 3, 30)
   const rows = db.prepare(`
     SELECT s.id, s.label, s.project_id, p.name AS project_name,
            s.task_id, s.source_file, s.ended_at, s.next_actions
@@ -18,8 +21,8 @@ export function getOpenNextActions(db: Database, options: { now?: Date; limit?: 
        AND s.ended_at IS NOT NULL
        AND s.ended_at > ?
      ORDER BY s.ended_at DESC
-     LIMIT 30
-  `).all(cutoff) as Array<{
+     LIMIT ?
+  `).all(cutoff, fetchCap) as Array<{
     id: string; label: string; project_id: string; project_name: string;
     task_id: string | null; source_file: string | null; ended_at: string; next_actions: string;
   }>
