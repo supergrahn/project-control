@@ -1,6 +1,7 @@
 'use client'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { X, ChevronLeft, ChevronRight, ExternalLink, Square } from 'lucide-react'
 import type { Session } from '@/hooks/useSessions'
 import { useKillSession } from '@/hooks/useSessions'
@@ -168,7 +169,7 @@ export function SessionDetailDrawer({ session, sessions, onClose, onNavigate }: 
         />
 
         {/* Next-actions block (extracted by local LLM after the session ends) */}
-        <NextActionsSection nextActions={session.next_actions ?? null} />
+        <NextActionsSection session={session} />
 
         {/* Terminal */}
         <div className="relative flex-1 min-h-0 bg-bg-base">
@@ -190,7 +191,12 @@ type NextActionsPayload = {
   model?: string
 }
 
-function NextActionsSection({ nextActions }: { nextActions: string | null }) {
+function NextActionsSection({ session }: { session: Session }) {
+  const router = useRouter()
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const nextActions = session.next_actions ?? null
   if (!nextActions) return null
   let parsed: NextActionsPayload | null = null
   try {
@@ -204,6 +210,27 @@ function NextActionsSection({ nextActions }: { nextActions: string | null }) {
   const hasQuestions = (parsed.open_questions?.length ?? 0) > 0
   const hasFiles = (parsed.files_touched?.length ?? 0) > 0
   if (!hasNext && !hasQuestions && !hasFiles) return null
+
+  const hasOriginator = !!(session.task_id || session.source_file)
+  const canContinue = hasNext && hasOriginator
+
+  async function handleContinue() {
+    setPending(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/sessions/${session.id}/continue`, { method: 'POST' })
+      const data = (await res.json()) as { sessionId?: string; error?: string }
+      if (!res.ok || !data.sessionId) {
+        setError(data.error ?? 'failed to continue')
+        return
+      }
+      router.push(`/sessions?selected=${data.sessionId}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPending(false)
+    }
+  }
 
   return (
     <div className="border-b border-border-default px-4 py-3 shrink-0">
@@ -247,6 +274,20 @@ function NextActionsSection({ nextActions }: { nextActions: string | null }) {
           </ul>
         </>
       )}
+      {canContinue && (
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={pending}
+            aria-label="Continue this session"
+            className="inline-flex items-center gap-1.5 bg-[#0d1a2d] text-accent-blue border border-accent-blue/30 rounded-[6px] px-3.5 py-1.5 text-[12px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pending ? 'Spawning…' : 'Continue →'}
+          </button>
+        </div>
+      )}
+      {error && <p role="alert" className="mt-3 text-accent-red text-[12px]">{error}</p>}
     </div>
   )
 }
