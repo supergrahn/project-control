@@ -351,6 +351,79 @@ export function initDb(dbPath = DB_PATH): Database.Database {
   `)
   runMigration(db, 49, 'idx_task_comments_project', `CREATE INDEX IF NOT EXISTS idx_task_comments_project ON task_comments(project_id, created_at DESC)`)
   runMigration(db, 50, 'tasks_is_deleted', `ALTER TABLE tasks ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0`, true)
+
+  // Migration 51: TimeBalloon mirror tables. Prefixed `timeballoon_` so they
+  // can't collide with project-control's own schema. UUID is the cross-device
+  // primary key (32 hex chars, matches what the Mac sends). updated_at lets
+  // the GET /state?since=... endpoint do incremental sync; is_deleted is a
+  // tombstone bit so deletes propagate without a separate audit table.
+  runMigration(db, 51, 'create_timeballoon_mirror', `
+    CREATE TABLE IF NOT EXISTS timeballoon_daily_timesheet (
+      uuid           TEXT PRIMARY KEY,
+      date           TEXT NOT NULL,
+      signature      TEXT NOT NULL,
+      project        TEXT NOT NULL,
+      work_type      TEXT NOT NULL,
+      total_seconds  INTEGER NOT NULL,
+      description    TEXT NOT NULL,
+      status         TEXT NOT NULL,
+      confidence     REAL,
+      task_ref       TEXT,
+      updated_at     TEXT NOT NULL,
+      is_deleted     INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tb_timesheet_date ON timeballoon_daily_timesheet(date);
+    CREATE INDEX IF NOT EXISTS idx_tb_timesheet_updated ON timeballoon_daily_timesheet(updated_at);
+
+    CREATE TABLE IF NOT EXISTS timeballoon_project_aliases (
+      uuid                 TEXT PRIMARY KEY,
+      signature            TEXT NOT NULL UNIQUE,
+      marathon_project     TEXT NOT NULL,
+      marathon_work_type   TEXT NOT NULL,
+      last_used            TEXT NOT NULL,
+      updated_at           TEXT NOT NULL,
+      is_deleted           INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tb_alias_updated ON timeballoon_project_aliases(updated_at);
+
+    CREATE TABLE IF NOT EXISTS timeballoon_known_projects (
+      uuid         TEXT PRIMARY KEY,
+      name         TEXT NOT NULL UNIQUE,
+      keywords     TEXT NOT NULL DEFAULT '',
+      work_type    TEXT,
+      updated_at   TEXT NOT NULL,
+      is_deleted   INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tb_known_updated ON timeballoon_known_projects(updated_at);
+
+    CREATE TABLE IF NOT EXISTS timeballoon_row_feedback (
+      uuid              TEXT PRIMARY KEY,
+      timesheet_row_uuid TEXT NOT NULL,
+      score             INTEGER NOT NULL,
+      created_at        TEXT NOT NULL,
+      updated_at        TEXT NOT NULL,
+      is_deleted        INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tb_feedback_updated ON timeballoon_row_feedback(updated_at);
+
+    CREATE TABLE IF NOT EXISTS timeballoon_gap_hints (
+      uuid          TEXT PRIMARY KEY,
+      hour_of_day   INTEGER NOT NULL,
+      label         TEXT NOT NULL,
+      category      TEXT NOT NULL,
+      picked_count  INTEGER NOT NULL,
+      last_picked   TEXT NOT NULL,
+      updated_at    TEXT NOT NULL,
+      is_deleted    INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_tb_gap_updated ON timeballoon_gap_hints(updated_at);
+
+    CREATE TABLE IF NOT EXISTS timeballoon_outbox_seen (
+      outbox_uuid  TEXT PRIMARY KEY,
+      received_at  TEXT NOT NULL
+    );
+  `)
+
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))

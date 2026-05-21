@@ -3,6 +3,8 @@ import { parse } from 'url'
 import next from 'next'
 import { WebSocketServer } from 'ws'
 import { handleWebSocket } from './lib/session-manager'
+import { handleTimeballoonSocket } from './lib/timeballoon-sync-bus'
+import { checkWsToken } from './lib/timeballoon-auth'
 import { startOrchestratorMcp } from './server/orchestrator-mcp'
 import { startOrchestratorWatcher } from './server/orchestrator-watcher'
 import { startAllPolling, stopAllPolling } from './lib/taskSources/pollManager'
@@ -21,11 +23,29 @@ app.prepare().then(() => {
   const wss = new WebSocketServer({ noServer: true })
   wss.on('connection', handleWebSocket)
 
+  // Separate WebSocketServer instance for TimeBalloon clients so their
+  // attach/input protocol doesn't bleed into ours.
+  const tbWss = new WebSocketServer({ noServer: true })
+  tbWss.on('connection', (ws) => handleTimeballoonSocket(ws))
+
   server.on('upgrade', (req, socket, head) => {
-    const { pathname } = parse(req.url!)
+    const parsed = parse(req.url!)
+    const pathname = parsed.pathname
     if (pathname === '/ws') {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit('connection', ws, req)
+      })
+    } else if (pathname === '/ws/timeballoon') {
+      // Bearer token lives in the query string because browsers / Tauri can't
+      // set headers on WS upgrade. Reject pre-handshake on bad/missing token
+      // so the listener never sees unauthenticated sockets.
+      if (!checkWsToken(parsed.search ?? '')) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n')
+        socket.destroy()
+        return
+      }
+      tbWss.handleUpgrade(req, socket, head, (ws) => {
+        tbWss.emit('connection', ws, req)
       })
     } else {
       // Pass all other upgrade requests (/_next/webpack-hmr, etc.) to Next.js
