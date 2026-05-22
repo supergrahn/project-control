@@ -1,3 +1,10 @@
+// Must come before any other `next` import. The `next` package's main entry
+// does not load this — only Next's internal `next-server.js` runner does — so
+// custom servers must load it explicitly or `globalThis.AsyncLocalStorage`
+// stays undefined and Next's FakeAsyncLocalStorage throws "Invariant" (E504)
+// the first time anything tries to use it.
+import 'next/dist/server/node-environment-baseline'
+
 import { createServer } from 'http'
 import { parse } from 'url'
 import next from 'next'
