@@ -12,6 +12,7 @@ const project: Project = {
   ideas_dir: null, specs_dir: null, plans_dir: null,
   created_at: '', last_used_at: null, automation_level: 'checkpoint',
   provider_id: null,
+  marathon_code: null, marathon_account: null, marathon_default_wt: null,
 }
 
 const agent: Agent = {
