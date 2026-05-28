@@ -26,6 +26,18 @@ export type Project = {
   last_used_at: string | null
   automation_level: AutomationLevel
   provider_id: string | null
+  marathon_code: string | null
+  marathon_account: string | null
+  marathon_default_wt: string | null
+}
+
+export type WorkTypeCode = {
+  id: number
+  code: string
+  name: string
+  marathon_legacy_code: string | null
+  created_at: string
+  updated_at: string
 }
 
 export type Session = {
@@ -424,6 +436,28 @@ export function initDb(dbPath = DB_PATH): Database.Database {
     );
   `)
 
+  // ── Spec O: Marathon codes are sourced from project-control ──
+  // Each project carries its Marathon billing code, client/account code, and
+  // a default work-type string. TimeBalloon caches these via the
+  // /api/timeballoon/projects-catalogue endpoint.
+  runMigration(db, 52, 'projects_marathon_code', `ALTER TABLE projects ADD COLUMN marathon_code TEXT`, true)
+  runMigration(db, 53, 'projects_marathon_account', `ALTER TABLE projects ADD COLUMN marathon_account TEXT`, true)
+  runMigration(db, 54, 'projects_marathon_default_wt', `ALTER TABLE projects ADD COLUMN marathon_default_wt TEXT`, true)
+
+  // The work-type code catalogue (e.g. "063 - Backend programmering"). Global,
+  // not per-project. marathon_legacy_code covers clients whose Marathon
+  // instance uses different numeric IDs for the same work type.
+  runMigration(db, 55, 'create_work_type_codes', `
+    CREATE TABLE IF NOT EXISTS work_type_codes (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      code                 TEXT NOT NULL UNIQUE,
+      name                 TEXT NOT NULL,
+      marathon_legacy_code TEXT,
+      created_at           TEXT NOT NULL,
+      updated_at           TEXT NOT NULL
+    );
+  `)
+
   // Seed default global settings on first run
   db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES ('git_root', ?)`)
     .run(path.join(os.homedir(), 'git'))
@@ -496,6 +530,46 @@ export function listProjects(db: Database.Database): Project[] {
 
 export function touchProject(db: Database.Database, id: string): void {
   db.prepare(`UPDATE projects SET last_used_at = ? WHERE id = ?`).run(new Date().toISOString(), id)
+}
+
+// ── Spec O: Marathon code helpers ──
+
+export function setProjectMarathonFields(
+  db: Database.Database,
+  id: string,
+  fields: { marathon_code?: string | null; marathon_account?: string | null; marathon_default_wt?: string | null },
+): void {
+  const sets: string[] = []
+  const vals: unknown[] = []
+  if ('marathon_code' in fields)       { sets.push('marathon_code = ?');       vals.push(fields.marathon_code ?? null) }
+  if ('marathon_account' in fields)    { sets.push('marathon_account = ?');    vals.push(fields.marathon_account ?? null) }
+  if ('marathon_default_wt' in fields) { sets.push('marathon_default_wt = ?'); vals.push(fields.marathon_default_wt ?? null) }
+  if (sets.length === 0) return
+  vals.push(id)
+  db.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`).run(...vals)
+}
+
+export function listWorkTypeCodes(db: Database.Database): WorkTypeCode[] {
+  return db.prepare(`SELECT * FROM work_type_codes ORDER BY code`).all() as WorkTypeCode[]
+}
+
+export function upsertWorkTypeCode(
+  db: Database.Database,
+  data: { code: string; name: string; marathon_legacy_code?: string | null },
+): void {
+  const now = new Date().toISOString()
+  db.prepare(`
+    INSERT INTO work_type_codes (code, name, marathon_legacy_code, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(code) DO UPDATE SET
+      name = excluded.name,
+      marathon_legacy_code = excluded.marathon_legacy_code,
+      updated_at = excluded.updated_at
+  `).run(data.code.trim(), data.name.trim(), data.marathon_legacy_code ?? null, now, now)
+}
+
+export function deleteWorkTypeCode(db: Database.Database, id: number): void {
+  db.prepare(`DELETE FROM work_type_codes WHERE id = ?`).run(id)
 }
 
 export function getProjectByPath(db: Database.Database, projectPath: string): Project | undefined {
